@@ -24,6 +24,7 @@ lazy_static! {
     pub static ref TERA: Tera = {
         let mut tera = Tera::default();
         // tera.add_raw_template("template", include_str!("template.html")) .expect("add template");
+        static_template!(tera, "base.html").expect("base.html");
         static_template!(tera, "template.html").expect("template.html");
         tera
     };
@@ -44,9 +45,13 @@ struct WithTemplate<T> {
 fn render<T: serde::Serialize + fmt::Debug>(template: WithTemplate<T>) -> Result<impl warp::Reply, warp::Rejection> {
     let res = TERA.render(template.name, &template.value);
 
-    debug!("Render: {:?} => {:?}", template, res);
     match res {
-        Ok(s) => Ok(s),
+        Ok(s) => {
+            let resp = warp::http::Response::builder()
+            .header("content-type", "text/html; charset=utf8")
+            .body(s);
+            Ok(resp)
+        },
         Err(e) => {
             error!("Could not render template {}: {}", template.name, e);
             Err(warp::reject::server_error())
