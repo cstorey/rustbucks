@@ -54,7 +54,7 @@ fn render<T: serde::Serialize + fmt::Debug>(
         }
         Err(e) => {
             error!("Could not render template {}: {}", template.name, e);
-            Err(warp::reject::server_error())
+            Err(warp::reject::custom("Rendering template"))
         }
     }
 }
@@ -68,13 +68,9 @@ fn handle_err(err: warp::Rejection) -> Result<impl warp::Reply, warp::Rejection>
     ))
 }
 
-fn main() {
-    pretty_env_logger::init();
-
-    println!("Hello, world!");
-
+fn routes() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> {
     let route = warp::get2()
-        .and(warp::path::index())
+        .and(warp::path::end())
         .map(|| {
             info!("Handle index");
             WithTemplate {
@@ -82,7 +78,17 @@ fn main() {
                 value: ViewData { id: 42 },
             }
         }).and_then(render)
-        .recover(handle_err);
+        .recover(handle_err)
+        ;
+
+    return route;
+}
+
+fn main() {
+    pretty_env_logger::init();
+
+    println!("Hello, world!");
+    let route = routes();
 
     warp::serve(route).run(([127, 0, 0, 1], 3030));
 }
