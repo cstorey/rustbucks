@@ -35,6 +35,7 @@ mod test {
             unimplemented!("SomethingCustomer::cannot_pay")
         }
     }
+
     impl SomethingCashier {
         fn requests_payment_for(&self, _: &CoffeeRequest, _price: u64) {
             unimplemented!("SomethingCashier::requests_payment_for")
@@ -43,6 +44,7 @@ mod test {
             unimplemented!("SomethingCashier::issues_refund_to")
         }
     }
+
     impl SomethingBarista {
         fn prepares_coffee(&self, _: &CoffeeRequest) {
             unimplemented!("SomethingBarista::prepares_coffee")

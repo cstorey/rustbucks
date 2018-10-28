@@ -78,8 +78,7 @@ fn routes() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejectio
                 value: ViewData { id: 42 },
             }
         }).and_then(render)
-        .recover(handle_err)
-        ;
+        .recover(handle_err);
 
     return route;
 }
