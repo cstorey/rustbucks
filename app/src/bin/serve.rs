@@ -2,12 +2,15 @@ extern crate log;
 extern crate pretty_env_logger;
 extern crate rustbucks;
 extern crate warp;
+extern crate hyper;
 
 fn main() {
     pretty_env_logger::init();
 
-    println!("Hello, world!");
     let route = rustbucks::routes();
 
-    warp::serve(route).run(([127, 0, 0, 1], 3030));
+    let srv = warp::serve(route);
+    let (addr, fut) = srv.bind_ephemeral(([127, 0, 0, 1], 3030));
+    println!("Listening on: {}", addr);
+    hyper::rt::run(fut);
 }
