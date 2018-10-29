@@ -1,8 +1,8 @@
+extern crate hyper;
 extern crate log;
 extern crate pretty_env_logger;
 extern crate rustbucks;
 extern crate warp;
-extern crate hyper;
 
 fn main() {
     pretty_env_logger::init();

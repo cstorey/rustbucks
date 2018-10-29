@@ -1,49 +1,31 @@
 #[macro_use]
 extern crate log;
 extern crate pretty_env_logger;
-extern crate tera;
-#[macro_use]
-extern crate lazy_static;
 extern crate serde;
 extern crate warp;
 #[macro_use]
 extern crate serde_derive;
 extern crate failure;
-use std::fmt;
-use tera::Tera;
+#[macro_use]
+extern crate weft_derive;
+extern crate weft;
 use warp::Filter;
 
-macro_rules! static_template {
-    ($tera: expr, $fname: expr) => {
-        $tera.add_raw_template($fname, include_str!($fname))
-    };
-}
-
-lazy_static! {
-    pub static ref TERA: Tera = {
-        let mut tera = Tera::default();
-        // tera.add_raw_template("template", include_str!("template.html")) .expect("add template");
-        static_template!(tera, "base.html").expect("base.html");
-        static_template!(tera, "template.html").expect("template.html");
-        tera
-    };
-}
-
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, WeftTemplate)]
+#[template(path = "src/template.html")]
 struct ViewData {
     id: u64,
 }
 
-#[derive(Debug)]
-struct WithTemplate<T> {
+#[derive(Debug, WeftTemplate)]
+#[template(path = "src/base.html")]
+struct WithTemplate {
     name: &'static str,
-    value: T,
+    value: ViewData,
 }
 
-fn render<T: serde::Serialize + fmt::Debug>(
-    template: WithTemplate<T>,
-) -> Result<impl warp::Reply, warp::Rejection> {
-    let res = TERA.render(template.name, &template.value);
+fn render(template: WithTemplate) -> Result<impl warp::Reply, warp::Rejection> {
+    let res = weft::render_to_string(&template);
 
     match res {
         Ok(s) => {

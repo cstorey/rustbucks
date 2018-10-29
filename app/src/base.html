@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <link rel="stylesheet" href="https://unpkg.com/teutonic-css@0.7.5/teutonic.min.css">
-    <title>{% block title %}{% endblock title %}</title>
+    <title>Canary Title</title>
 </head>
 <body>
     <header class="flex wrap-no gap_xs ma-t_m">
@@ -16,13 +16,12 @@
             <a href="/something" class="button prime ma-r_l active arrow_l">Something</a>
         </div>
     </header>
-    <main class="pa-h_l" id="content">{% block content %}{% endblock content %}</main>
+    <main class="pa-h_l" id="content" weft-content="self.value">
+    </main>
     <footer class="pa-h_l pa-v_m text_s span-auto">
         <nav class="flex">
             <div>
-                {% block footer %}
-                    <b>Canary test</b>
-                {% endblock footer %}
+                <b>Canary footer</b>
             </div>
             <div class="ma-l-auto span-auto flex-end">
         <a class="text-bold link" href="#"></a>🐶 ›</a><br>
