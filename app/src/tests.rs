@@ -1,4 +1,3 @@
-
 struct SomethingScenario;
 
 struct CoffeeRequest;

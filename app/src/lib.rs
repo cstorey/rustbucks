@@ -11,18 +11,14 @@ extern crate weft_derive;
 extern crate weft;
 use warp::Filter;
 
+mod menu;
+
 #[cfg(test)]
 mod tests;
 
-#[derive(Serialize, Debug, WeftTemplate)]
-#[template(path = "src/template.html")]
-struct ViewData {
-    id: u64,
-}
-
 #[derive(Debug, WeftTemplate)]
 #[template(path = "src/base.html")]
-struct WithTemplate<C> {
+pub struct WithTemplate<C> {
     name: &'static str,
     value: C,
 }
@@ -58,13 +54,8 @@ fn handle_err(err: warp::Rejection) -> Result<impl warp::Reply, warp::Rejection>
 pub fn routes() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> {
     let route = warp::get2()
         .and(warp::path::end())
-        .map(|| {
-            info!("Handle index");
-            WithTemplate {
-                name: "template.html",
-                value: ViewData { id: 42 },
-            }
-        }).and_then(render)
+        .and_then(menu::index)
+        .and_then(render)
         .recover(handle_err);
 
     return route;
