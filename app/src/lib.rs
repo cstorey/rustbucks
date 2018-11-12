@@ -19,12 +19,14 @@ struct ViewData {
 
 #[derive(Debug, WeftTemplate)]
 #[template(path = "src/base.html")]
-struct WithTemplate {
+struct WithTemplate<C> {
     name: &'static str,
-    value: ViewData,
+    value: C,
 }
 
-fn render(template: WithTemplate) -> Result<impl warp::Reply, warp::Rejection> {
+fn render<C: weft::Renderable>(
+    template: WithTemplate<C>,
+) -> Result<impl warp::Reply, warp::Rejection> {
     let res = weft::render_to_string(&template);
 
     match res {
