@@ -16,7 +16,10 @@ fn index_impl() -> Result<WithTemplate<Coffee>, failure::Error> {
     info!("Handle index");
     let res = WithTemplate {
         name: "template.html",
-        value: Coffee { id: 42, name: "Umbrella".into() },
+        value: Coffee {
+            id: 42,
+            name: "Umbrella".into(),
+        },
     };
     Ok(res)
 }

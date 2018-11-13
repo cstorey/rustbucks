@@ -37,7 +37,7 @@ fn render<C: weft::Renderable>(
         }
         Err(e) => {
             error!("Could not render template {}: {}", template.name, e);
-            Err(warp::reject::custom("Rendering template"))
+            Err(warp::reject::custom(e))
         }
     }
 }
