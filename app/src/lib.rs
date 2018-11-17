@@ -1,7 +1,9 @@
 #[macro_use]
 extern crate log;
+extern crate futures;
 extern crate pretty_env_logger;
 extern crate serde;
+extern crate tokio;
 extern crate warp;
 #[macro_use]
 extern crate serde_derive;

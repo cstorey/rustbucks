@@ -1,3 +1,6 @@
+use futures::Future;
+use std::time::{Duration, Instant};
+use tokio::timer::Delay;
 use warp;
 use WithTemplate;
 
@@ -8,18 +11,25 @@ pub struct Coffee {
     name: String,
 }
 
-pub fn index() -> Result<WithTemplate<Coffee>, warp::Rejection> {
+pub fn index() -> impl Future<Item = WithTemplate<Coffee>, Error = warp::Rejection> {
     index_impl().map_err(|e| warp::reject::custom(e.compat()))
 }
 
-fn index_impl() -> Result<WithTemplate<Coffee>, failure::Error> {
+fn index_impl() -> impl Future<Item = WithTemplate<Coffee>, Error = failure::Error> {
     info!("Handle index");
-    let res = WithTemplate {
-        name: "template.html",
-        value: Coffee {
-            id: 42,
-            name: "Umbrella".into(),
-        },
-    };
-    Ok(res)
+    let then = Instant::now() + Duration::from_millis(300);
+    Delay::new(then)
+        .map_err(|e| failure::Error::from(e))
+        .and_then(|t| {
+            info!("Timer fired: {:?}", t);
+
+            let res = WithTemplate {
+                name: "template.html",
+                value: Coffee {
+                    id: 42,
+                    name: "Umbrella".into(),
+                },
+            };
+            futures::future::result(Ok(res))
+        })
 }
