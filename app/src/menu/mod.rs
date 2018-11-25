@@ -1,3 +1,4 @@
+use failure::Error;
 use futures::future::{lazy, poll_fn};
 use futures::Future;
 use tokio_threadpool::blocking;
@@ -36,31 +37,32 @@ impl Menu {
     fn index_impl() -> impl Future<Item = WithTemplate<MenuWidget>, Error = failure::Error> {
         info!("Handle index");
         info!("Handle from : {:?}", ::std::thread::current());
-        let f = lazy(|| {
-            poll_fn(move || {
-                blocking(|| {
-                    use std::thread;
-                    info!("Hello from : {:?}", thread::current());
-                    ()
-                })
-            })
-        });
-        let _: &Future<Item = (), Error = tokio_threadpool::BlockingError> = &f;
+        let f = Self::load_menu();
         let f = f.map_err(|e| failure::Error::from(e));
-        let f = f.and_then(|()| {
+        let f = f.and_then(|menu| {
             info!("Resume from : {:?}", ::std::thread::current());
             let res = WithTemplate {
                 name: "template.html",
-                value: MenuWidget {
-                    drink: Coffee {
-                        id: 42,
-                        name: "Umbrella".into(),
-                    },
-                },
+                value: MenuWidget { drink: menu },
             };
             futures::future::result(Ok(res))
         });
         f
+    }
+
+    fn load_menu() -> impl Future<Item = Coffee, Error = failure::Error> {
+        lazy(|| {
+            poll_fn(move || {
+                blocking(|| {
+                    use std::thread;
+                    info!("Hello from : {:?}", thread::current());
+                    Coffee {
+                        id: 42,
+                        name: "Umbrella".into(),
+                    }
+                })
+            }).map_err(Error::from)
+        })
     }
 }
 
