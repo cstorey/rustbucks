@@ -2,6 +2,7 @@ use failure::Error;
 use futures::future::{lazy, poll_fn};
 use futures::Future;
 use std::collections::HashMap;
+use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use tokio_threadpool::blocking;
@@ -17,13 +18,52 @@ pub struct Coffee {
 
 #[derive(Debug, Clone)]
 pub struct Menu {
-    drinks: Arc<HashMap<u64, Coffee>>,
+    drinks: Arc<HashMap<Id, Coffee>>,
 }
 
-#[derive(Serialize, Debug, WeftRenderable)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+struct Id {
+    val: [u64; 2],
+}
+
+impl Id {
+    fn of<H: Hash>(entity: &H) -> Self {
+        let mut val = [0u64; 2];
+        for i in 0..val.len() {
+            let mut h = siphasher::sip::SipHasher24::new_with_keys(0, i as u64);
+            entity.hash(&mut h);
+            val[i] = h.finish();
+        }
+        Id { val }
+    }
+}
+
+impl fmt::Display for Id {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        use byteorder::{BigEndian, WriteBytesExt};
+        use std::io;
+        let mut buf0 = [0u8; 16];
+
+        {
+            let mut cursor = io::Cursor::new(&mut buf0 as &mut [u8]);
+            for i in 0..self.val.len() {
+                cursor
+                    .write_u64::<BigEndian>(self.val[i])
+                    .expect("write_u64 to fixed size buffer should never fail");
+            }
+        }
+        let mut buf = [0u8; 22];
+        let sz = base64::encode_config_slice(&buf0, base64::URL_SAFE_NO_PAD, &mut buf);
+        assert_eq!(sz, buf.len());
+        write!(fmt, "{}", String::from_utf8_lossy(&buf))?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, WeftRenderable)]
 #[template(path = "src/menu/menu.html")]
 struct MenuWidget {
-    drink: Vec<(u64, Coffee)>,
+    drink: Vec<(Id, Coffee)>,
 }
 
 // impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection>
@@ -47,13 +87,8 @@ impl Menu {
         }
     }
 
-    fn insert(map: &mut HashMap<u64, Coffee>, drink: Coffee) {
-        let id = {
-            let mut h = siphasher::sip::SipHasher24::new();
-            drink.hash(&mut h);
-            h.finish()
-        };
-
+    fn insert(map: &mut HashMap<Id, Coffee>, drink: Coffee) {
+        let id = Id::of(&drink);
         let prev_size = map.len();
         map.insert(id, drink);
         assert!(map.len() > prev_size);
@@ -90,7 +125,7 @@ impl Menu {
         f
     }
 
-    fn load_menu(&self) -> impl Future<Item = Vec<(u64, Coffee)>, Error = failure::Error> {
+    fn load_menu(&self) -> impl Future<Item = Vec<(Id, Coffee)>, Error = failure::Error> {
         let me = self.clone();
         lazy(|| {
             poll_fn(move || {
@@ -100,7 +135,7 @@ impl Menu {
                     me.drinks
                         .iter()
                         .map(|(id, d)| (id.clone(), d.clone()))
-                        .collect::<Vec<(u64, Coffee)>>()
+                        .collect::<Vec<(Id, Coffee)>>()
                 })
             }).map_err(Error::from)
         })
@@ -108,7 +143,7 @@ impl Menu {
 }
 
 impl MenuWidget {
-    fn drinks<'a>(&'a self) -> impl 'a + Iterator<Item = &'a (u64, Coffee)> {
+    fn drinks<'a>(&'a self) -> impl 'a + Iterator<Item = &'a (Id, Coffee)> {
         self.drink.iter()
     }
 }

@@ -4,6 +4,8 @@ name = "rustbucks"
 version = "0.1.0"
 
 [dependencies]
+base64 = "0.10.0"
+byteorder = "1.2.7"
 failure = "0.1.3"
 futures = "0.1.25"
 hyper = "0.12.13"

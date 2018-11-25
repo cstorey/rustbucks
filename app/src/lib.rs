@@ -11,6 +11,8 @@ extern crate failure;
 extern crate weft;
 #[macro_use]
 extern crate weft_derive;
+extern crate base64;
+extern crate byteorder;
 extern crate siphasher;
 extern crate tokio_threadpool;
 
