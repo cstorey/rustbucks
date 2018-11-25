@@ -1,20 +1,23 @@
 use failure::Error;
 use futures::future::{lazy, poll_fn};
 use futures::Future;
+use std::sync::Arc;
 use tokio_threadpool::blocking;
 
 use warp;
 use warp::Filter;
 use {render, WithTemplate};
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, Clone)]
 pub struct Coffee {
     id: u64,
     name: String,
 }
 
 #[derive(Debug, Clone)]
-pub struct Menu {}
+pub struct Menu {
+    drinks: Arc<Coffee>,
+}
 
 #[derive(Serialize, Debug, WeftRenderable)]
 #[template(path = "src/menu/menu.html")]
@@ -25,7 +28,13 @@ struct MenuWidget {
 // impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection>
 impl Menu {
     pub fn new() -> Self {
-        Menu {}
+        let drink = Coffee {
+            id: 42,
+            name: "Umbrella".into(),
+        };
+        Menu {
+            drinks: Arc::new(drink),
+        }
     }
     pub fn handler(
         &self,
@@ -45,7 +54,7 @@ impl Menu {
     fn index_impl(&self) -> impl Future<Item = WithTemplate<MenuWidget>, Error = failure::Error> {
         info!("Handle index");
         info!("Handle from : {:?}", ::std::thread::current());
-        let f = Self::load_menu();
+        let f = self.load_menu();
         let f = f.map_err(|e| failure::Error::from(e));
         let f = f.and_then(|menu| {
             info!("Resume from : {:?}", ::std::thread::current());
@@ -58,16 +67,14 @@ impl Menu {
         f
     }
 
-    fn load_menu() -> impl Future<Item = Coffee, Error = failure::Error> {
+    fn load_menu(&self) -> impl Future<Item = Coffee, Error = failure::Error> {
+        let me = self.clone();
         lazy(|| {
             poll_fn(move || {
                 blocking(|| {
                     use std::thread;
                     info!("Hello from : {:?}", thread::current());
-                    Coffee {
-                        id: 42,
-                        name: "Umbrella".into(),
-                    }
+                    (*me.drinks).clone()
                 })
             }).map_err(Error::from)
         })
