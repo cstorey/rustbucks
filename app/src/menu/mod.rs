@@ -6,7 +6,7 @@ use warp;
 use warp::Filter;
 use {render, WithTemplate};
 
-#[derive(Serialize, Debug, WeftTemplate)]
+#[derive(Serialize, Debug, WeftRenderable)]
 #[template(path = "src/menu/coffee.html")]
 pub struct Coffee {
     id: u64,

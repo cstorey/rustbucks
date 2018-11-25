@@ -20,14 +20,14 @@ mod menu;
 #[cfg(test)]
 mod tests;
 
-#[derive(Debug, WeftTemplate)]
+#[derive(Debug, WeftRenderable)]
 #[template(path = "src/base.html")]
 pub struct WithTemplate<C> {
     name: &'static str,
     value: C,
 }
 
-fn render<C: weft::Renderable>(
+fn render<C: weft::WeftRenderable>(
     template: WithTemplate<C>,
 ) -> Result<impl warp::Reply, warp::Rejection> {
     let res = weft::render_to_string(&template);
