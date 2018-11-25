@@ -1,6 +1,6 @@
 <div class="docs-profile-container grid-auto gap_s">
     <div class="flex column bo_px docs-profile ra_s bs_xs"
-    weft-for="drink in self.drinks()">
+    weft-for="(id, drink) in self.drinks()">
         <div class="span-auto cover media ar-16-9 ra-t_s tinted-bg-warn">
         <img src="//picsum.photos/300/200/?random&1" alt="">
         </div>
@@ -13,7 +13,7 @@
         <div class="span-auto ma-t-auto pa-v_m bg-warn-2 ra-b_s">
         <div class="flex wrap-no">
             <div class="span-third text-center">
-            <b class="block" weft-content='drink.id.display()'>???</b>
+            <b class="block" weft-content='id.display()'>???</b>
             <span class="text_s block">Id</span>
             </div>
             <div class="span-third text-center">

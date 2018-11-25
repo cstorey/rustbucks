@@ -2,6 +2,7 @@ use failure::Error;
 use futures::future::{lazy, poll_fn};
 use futures::Future;
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use tokio_threadpool::blocking;
 
@@ -11,7 +12,6 @@ use {render, WithTemplate};
 
 #[derive(Serialize, Debug, Clone, Hash)]
 pub struct Coffee {
-    id: u64,
     name: String,
 }
 
@@ -23,22 +23,42 @@ pub struct Menu {
 #[derive(Serialize, Debug, WeftRenderable)]
 #[template(path = "src/menu/menu.html")]
 struct MenuWidget {
-    drink: Vec<Coffee>,
+    drink: Vec<(u64, Coffee)>,
 }
 
 // impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection>
 impl Menu {
     pub fn new() -> Self {
         let mut map = HashMap::new();
-        let drink = Coffee {
-            id: 42,
-            name: "Umbrella".into(),
-        };
-        map.insert(drink.id, drink);
+        Self::insert(
+            &mut map,
+            Coffee {
+                name: "Umbrella".into(),
+            },
+        );
+        Self::insert(
+            &mut map,
+            Coffee {
+                name: "Fnordy".into(),
+            },
+        );
         Menu {
             drinks: Arc::new(map),
         }
     }
+
+    fn insert(map: &mut HashMap<u64, Coffee>, drink: Coffee) {
+        let id = {
+            let mut h = siphasher::sip::SipHasher24::new();
+            drink.hash(&mut h);
+            h.finish()
+        };
+
+        let prev_size = map.len();
+        map.insert(id, drink);
+        assert!(map.len() > prev_size);
+    }
+
     pub fn handler(
         &self,
     ) -> impl warp::Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> {
@@ -70,14 +90,17 @@ impl Menu {
         f
     }
 
-    fn load_menu(&self) -> impl Future<Item = Vec<Coffee>, Error = failure::Error> {
+    fn load_menu(&self) -> impl Future<Item = Vec<(u64, Coffee)>, Error = failure::Error> {
         let me = self.clone();
         lazy(|| {
             poll_fn(move || {
                 blocking(|| {
                     use std::thread;
                     info!("Hello from : {:?}", thread::current());
-                    me.drinks.values().cloned().collect::<Vec<Coffee>>()
+                    me.drinks
+                        .iter()
+                        .map(|(id, d)| (id.clone(), d.clone()))
+                        .collect::<Vec<(u64, Coffee)>>()
                 })
             }).map_err(Error::from)
         })
@@ -85,7 +108,7 @@ impl Menu {
 }
 
 impl MenuWidget {
-    fn drinks<'a>(&'a self) -> impl 'a + Iterator<Item = &'a Coffee> {
+    fn drinks<'a>(&'a self) -> impl 'a + Iterator<Item = &'a (u64, Coffee)> {
         self.drink.iter()
     }
 }
