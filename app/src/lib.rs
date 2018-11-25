@@ -10,7 +10,9 @@ extern crate serde_derive;
 extern crate failure;
 #[macro_use]
 extern crate weft_derive;
+extern crate tokio_threadpool;
 extern crate weft;
+
 use warp::Filter;
 
 mod menu;

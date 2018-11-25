@@ -1,6 +1,7 @@
+use futures::future::{lazy, poll_fn};
 use futures::Future;
-use std::time::{Duration, Instant};
-use tokio::timer::Delay;
+use tokio_threadpool::blocking;
+
 use warp;
 use warp::Filter;
 use {render, WithTemplate};
@@ -29,20 +30,29 @@ impl Menu {
 
     fn index_impl() -> impl Future<Item = WithTemplate<Coffee>, Error = failure::Error> {
         info!("Handle index");
-        let then = Instant::now() + Duration::from_millis(300);
-        Delay::new(then)
-            .map_err(|e| failure::Error::from(e))
-            .and_then(|t| {
-                info!("Timer fired: {:?}", t);
-
-                let res = WithTemplate {
-                    name: "template.html",
-                    value: Coffee {
-                        id: 42,
-                        name: "Umbrella".into(),
-                    },
-                };
-                futures::future::result(Ok(res))
+        info!("Handle from : {:?}", ::std::thread::current());
+        let f = lazy(|| {
+            poll_fn(move || {
+                blocking(|| {
+                    use std::thread;
+                    info!("Hello from : {:?}", thread::current());
+                    ()
+                })
             })
+        });
+        let _: &Future<Item = (), Error = tokio_threadpool::BlockingError> = &f;
+        let f = f.map_err(|e| failure::Error::from(e));
+        let f = f.and_then(|()| {
+            info!("Resume from : {:?}", ::std::thread::current());
+            let res = WithTemplate {
+                name: "template.html",
+                value: Coffee {
+                    id: 42,
+                    name: "Umbrella".into(),
+                },
+            };
+            futures::future::result(Ok(res))
+        });
+        f
     }
 }
