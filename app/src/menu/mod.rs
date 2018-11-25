@@ -1,6 +1,7 @@
 use failure::Error;
 use futures::future::{lazy, poll_fn};
 use futures::Future;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio_threadpool::blocking;
 
@@ -8,7 +9,7 @@ use warp;
 use warp::Filter;
 use {render, WithTemplate};
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone, Hash)]
 pub struct Coffee {
     id: u64,
     name: String,
@@ -16,24 +17,26 @@ pub struct Coffee {
 
 #[derive(Debug, Clone)]
 pub struct Menu {
-    drinks: Arc<Coffee>,
+    drinks: Arc<HashMap<u64, Coffee>>,
 }
 
 #[derive(Serialize, Debug, WeftRenderable)]
 #[template(path = "src/menu/menu.html")]
 struct MenuWidget {
-    drink: Coffee,
+    drink: Vec<Coffee>,
 }
 
 // impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection>
 impl Menu {
     pub fn new() -> Self {
+        let mut map = HashMap::new();
         let drink = Coffee {
             id: 42,
             name: "Umbrella".into(),
         };
+        map.insert(drink.id, drink);
         Menu {
-            drinks: Arc::new(drink),
+            drinks: Arc::new(map),
         }
     }
     pub fn handler(
@@ -67,14 +70,14 @@ impl Menu {
         f
     }
 
-    fn load_menu(&self) -> impl Future<Item = Coffee, Error = failure::Error> {
+    fn load_menu(&self) -> impl Future<Item = Vec<Coffee>, Error = failure::Error> {
         let me = self.clone();
         lazy(|| {
             poll_fn(move || {
                 blocking(|| {
                     use std::thread;
                     info!("Hello from : {:?}", thread::current());
-                    (*me.drinks).clone()
+                    me.drinks.values().cloned().collect::<Vec<Coffee>>()
                 })
             }).map_err(Error::from)
         })
@@ -83,6 +86,6 @@ impl Menu {
 
 impl MenuWidget {
     fn drinks<'a>(&'a self) -> impl 'a + Iterator<Item = &'a Coffee> {
-        vec![&self.drink].into_iter()
+        self.drink.iter()
     }
 }
