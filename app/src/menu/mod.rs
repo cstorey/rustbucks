@@ -36,22 +36,28 @@ impl Id {
         }
         Id { val }
     }
+
+    fn to_slice(&self) -> [u8; 16] {
+        let mut buf0 = [0u8; 16];
+        self.append_to_slice(&mut buf0)
+            .expect("write_u64 to fixed size buffer should never fail");
+        buf0
+    }
+
+    fn append_to_slice(&self, buf: &mut [u8]) -> Result<(), std::io::Error> {
+        use byteorder::{BigEndian, WriteBytesExt};
+        use std::io;
+        let mut cursor = io::Cursor::new(buf);
+        for i in 0..self.val.len() {
+            cursor.write_u64::<BigEndian>(self.val[i])?
+        }
+        Ok(())
+    }
 }
 
 impl fmt::Display for Id {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        use byteorder::{BigEndian, WriteBytesExt};
-        use std::io;
-        let mut buf0 = [0u8; 16];
-
-        {
-            let mut cursor = io::Cursor::new(&mut buf0 as &mut [u8]);
-            for i in 0..self.val.len() {
-                cursor
-                    .write_u64::<BigEndian>(self.val[i])
-                    .expect("write_u64 to fixed size buffer should never fail");
-            }
-        }
+        let buf0 = self.to_slice();
         let mut buf = [0u8; 22];
         let sz = base64::encode_config_slice(&buf0, base64::URL_SAFE_NO_PAD, &mut buf);
         assert_eq!(sz, buf.len());
