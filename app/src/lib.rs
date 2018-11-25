@@ -56,5 +56,6 @@ fn handle_err(err: warp::Rejection) -> Result<impl warp::Reply, warp::Rejection>
 }
 
 pub fn routes() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> {
-    menu::Menu::handler().recover(handle_err)
+    let menu = menu::Menu::new();
+    menu.handler().recover(handle_err)
 }
