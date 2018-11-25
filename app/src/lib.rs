@@ -8,10 +8,10 @@ extern crate warp;
 #[macro_use]
 extern crate serde_derive;
 extern crate failure;
+extern crate weft;
 #[macro_use]
 extern crate weft_derive;
 extern crate tokio_threadpool;
-extern crate weft;
 
 use warp::Filter;
 

@@ -6,14 +6,19 @@ use warp;
 use warp::Filter;
 use {render, WithTemplate};
 
-#[derive(Serialize, Debug, WeftRenderable)]
-#[template(path = "src/menu/coffee.html")]
+#[derive(Serialize, Debug)]
 pub struct Coffee {
     id: u64,
     name: String,
 }
 
 pub struct Menu {}
+
+#[derive(Serialize, Debug, WeftRenderable)]
+#[template(path = "src/menu/menu.html")]
+struct MenuWidget {
+    drink: Coffee,
+}
 
 // impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection>
 impl Menu {
@@ -24,11 +29,11 @@ impl Menu {
             .and_then(render)
     }
 
-    fn index() -> impl Future<Item = WithTemplate<Coffee>, Error = warp::Rejection> {
+    fn index() -> impl Future<Item = WithTemplate<MenuWidget>, Error = warp::Rejection> {
         Self::index_impl().map_err(|e| warp::reject::custom(e.compat()))
     }
 
-    fn index_impl() -> impl Future<Item = WithTemplate<Coffee>, Error = failure::Error> {
+    fn index_impl() -> impl Future<Item = WithTemplate<MenuWidget>, Error = failure::Error> {
         info!("Handle index");
         info!("Handle from : {:?}", ::std::thread::current());
         let f = lazy(|| {
@@ -46,13 +51,21 @@ impl Menu {
             info!("Resume from : {:?}", ::std::thread::current());
             let res = WithTemplate {
                 name: "template.html",
-                value: Coffee {
-                    id: 42,
-                    name: "Umbrella".into(),
+                value: MenuWidget {
+                    drink: Coffee {
+                        id: 42,
+                        name: "Umbrella".into(),
+                    },
                 },
             };
             futures::future::result(Ok(res))
         });
         f
+    }
+}
+
+impl MenuWidget {
+    fn drinks<'a>(&'a self) -> impl 'a + Iterator<Item = &'a Coffee> {
+        vec![&self.drink].into_iter()
     }
 }
