@@ -1,33 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <link rel="stylesheet" href="https://unpkg.com/teutonic-css@0.7.5/teutonic.min.css">
+  <head>
     <title>Canary Title</title>
-</head>
-<body>
-    <header class="flex wrap-no gap_xs ma-t_m">
-        <div class="span-auto">
-            <a href="/" class="pa_s pa-l_l block bo-t_px bo-r_px bo-b_px text-bold docs-teutonic-link">
-                Canary
-            </a>
-        </div>
-
-        <div class="span-auto ma-l-auto">
-            <a href="/something" class="button prime ma-r_l active arrow_l">Something</a>
-        </div>
-    </header>
-    <main class="pa-h_l" id="content" weft-content="self.value">
-    </main>
-    <footer class="pa-h_l pa-v_m text_s span-auto">
-        <nav class="flex">
-            <div>
-                <b>Canary footer</b>
-            </div>
-            <div class="ma-l-auto span-auto flex-end">
-        <a class="text-bold link" href="#"></a>🐶 ›</a><br>
-            <a class="link" href="#">🐭 ›</a>
-            </div>
-        </nav>
-        </footer>
-</body>
+  </head>
+  <body>
+    <header><a href="/"> Canary </a> <a href="/something">Something</a></header>
+    <main id="content" weft-content="self.value"></main>
+    <footer>
+      <nav>
+        <a class="text-bold link" href="#">🐶 ›</a><br />
+        <a class="link" href="#">🐭 ›</a>
+      </nav>
+    </footer>
+  </body>
 </html>

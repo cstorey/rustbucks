@@ -1,29 +1,9 @@
-<div class="docs-profile-container grid-auto gap_s">
-    <div class="flex column bo_px docs-profile ra_s bs_xs"
-    weft-for="(id, drink) in self.drinks()">
-        <div class="span-auto cover media ar-16-9 ra-t_s tinted-bg-warn">
-        <img src="//picsum.photos/300/200/?random&1" alt="">
-        </div>
-        <div class="pa-h_m zi-1">
-        <div class="text-center ma-b_m">
-            <h3 class="text-clip" weft-content='drink.name'>An Name</h3>
-            <p class="ma-t_xs">Bald. Often Unreliable. Easily distract.</p>
-        </div>
-        </div>
-        <div class="span-auto ma-t-auto pa-v_m bg-warn-2 ra-b_s">
-        <div class="flex wrap-no">
-            <div class="span-third text-center">
-            <b class="block" weft-content='id.display()'>???</b>
-            <span class="text_s block">Id</span>
-            </div>
-            <div class="span-third text-center">
-            <b class="block">123</b>
-            <span class="text_s block">Gibbons</span>
-            </div>
-            <div class="span-third text-center">
-            <b class="block">343</b>
-            <span class="text_s block">Caffines</span>
-            </div>
-        </div>
-        </div>
-    </div>
+<ul weft-for="(id, drink) in self.drinks()">
+  <li>
+    <h3 weft-content="drink.name">An Name</h3>
+    <dl>
+      <dt>Id</dt>
+      <dd weft-content="id.display()">???</dd>
+    </dl>
+  </li>
+</ul>
