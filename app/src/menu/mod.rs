@@ -111,6 +111,7 @@ impl Menu {
             .and_then(render);
         let me = self.clone();
         let details = warp::get2()
+            .and(warp::path::path("menu"))
             .and(warp::path::param::<Id>())
             .and(warp::path::end())
             .and_then(move |id| me.detail(id))
