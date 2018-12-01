@@ -49,16 +49,12 @@ fn render<C: weft::WeftRenderable>(
     }
 }
 
-fn handle_err(err: warp::Rejection) -> Result<impl warp::Reply, warp::Rejection> {
-    error!("Handling: {:?}", err);
-
-    Ok(warp::reply::with_status(
-        "Internal Error",
-        warp::http::StatusCode::INTERNAL_SERVER_ERROR,
-    ))
+fn log_err(err: warp::Rejection) -> Result<&'static str, warp::Rejection> {
+    error!("Saw error: {:?}", err);
+    Err(err)
 }
 
 pub fn routes() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> {
     let menu = menu::Menu::new();
-    menu.handler().recover(handle_err)
+    menu.handler().recover(log_err)
 }
