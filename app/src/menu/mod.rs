@@ -125,11 +125,8 @@ impl Menu {
     }
 
     fn detail(&self, id: Id) -> impl Future<Item = WithTemplate<String>, Error = warp::Rejection> {
-        futures::future::lazy(move || {
-            Ok(WithTemplate {
-                value: format!("{:?}", id),
-            })
-        })
+        self.detail_impl(id)
+            .map_err(|e| warp::reject::custom(e.compat()))
     }
 
     fn index_impl(&self) -> impl Future<Item = WithTemplate<MenuWidget>, Error = failure::Error> {
@@ -146,7 +143,13 @@ impl Menu {
         });
         f
     }
-
+    fn detail_impl(&self, id: Id) -> impl Future<Item = WithTemplate<String>, Error = Error> {
+        futures::future::lazy(move || {
+            Ok(WithTemplate {
+                value: format!("{:?}", id),
+            })
+        })
+    }
     fn load_menu(&self) -> impl Future<Item = Vec<(Id, Coffee)>, Error = failure::Error> {
         let me = self.clone();
         lazy(|| {
