@@ -1,9 +1,11 @@
+use byteorder::{BigEndian, WriteBytesExt};
 use failure::Error;
 use futures::future::{lazy, poll_fn};
 use futures::Future;
 use std::collections::HashMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
+use std::io;
 use std::sync::Arc;
 use tokio_threadpool::blocking;
 
@@ -23,43 +25,30 @@ pub struct Menu {
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 struct Id {
-    val: [u64; 2],
+    val: [u8; 16],
 }
 
 impl Id {
     fn of<H: Hash>(entity: &H) -> Self {
-        let mut val = [0u64; 2];
-        for i in 0..val.len() {
-            let mut h = siphasher::sip::SipHasher24::new_with_keys(0, i as u64);
-            entity.hash(&mut h);
-            val[i] = h.finish();
+        let mut val = [0u8; 16];
+        {
+            let mut cursor = io::Cursor::new(&mut val as &mut [u8]);
+            for i in 0..2 {
+                let mut h = siphasher::sip::SipHasher24::new_with_keys(0, i as u64);
+                entity.hash(&mut h);
+                cursor
+                    .write_u64::<BigEndian>(h.finish())
+                    .expect("write_u64 to fixed size buffer should never fail");
+            }
         }
         Id { val }
-    }
-
-    fn to_slice(&self) -> [u8; 16] {
-        let mut buf0 = [0u8; 16];
-        self.append_to_slice(&mut buf0)
-            .expect("write_u64 to fixed size buffer should never fail");
-        buf0
-    }
-
-    fn append_to_slice(&self, buf: &mut [u8]) -> Result<(), std::io::Error> {
-        use byteorder::{BigEndian, WriteBytesExt};
-        use std::io;
-        let mut cursor = io::Cursor::new(buf);
-        for i in 0..self.val.len() {
-            cursor.write_u64::<BigEndian>(self.val[i])?
-        }
-        Ok(())
     }
 }
 
 impl fmt::Display for Id {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        let buf0 = self.to_slice();
         let mut buf = [0u8; 22];
-        let sz = base64::encode_config_slice(&buf0, base64::URL_SAFE_NO_PAD, &mut buf);
+        let sz = base64::encode_config_slice(&self.val, base64::URL_SAFE_NO_PAD, &mut buf);
         assert_eq!(sz, buf.len());
         write!(fmt, "{}", String::from_utf8_lossy(&buf))?;
         Ok(())
