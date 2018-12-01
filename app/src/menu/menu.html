@@ -1,6 +1,6 @@
 <ul weft-for="(id, drink) in self.drinks()">
   <li>
-    <h3 weft-content="drink.name">An Name</h3>
+    <h3><a href="/{{id.display()}}" weft-content="drink.name">An name</a></h3>
     <dl>
       <dt>Id</dt>
       <dd weft-content="id.display()">???</dd>

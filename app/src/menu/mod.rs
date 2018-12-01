@@ -23,7 +23,7 @@ pub struct Menu {
     drinks: Arc<HashMap<Id, Coffee>>,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
 struct Id {
     val: [u8; 16],
 }
@@ -52,6 +52,18 @@ impl fmt::Display for Id {
         assert_eq!(sz, buf.len());
         write!(fmt, "{}", String::from_utf8_lossy(&buf))?;
         Ok(())
+    }
+}
+
+impl std::str::FromStr for Id {
+    type Err = Error;
+    fn from_str(src: &str) -> Result<Self, Self::Err> {
+        let mut id = Id::default();
+        let sz = base64::decode_config_slice(src, base64::URL_SAFE_NO_PAD, &mut id.val)?;
+        if sz != std::mem::size_of_val(&id.val) {
+            bail!("Could not decode id from base64: {:?}", src)
+        }
+        Ok(id)
     }
 }
 
@@ -93,15 +105,31 @@ impl Menu {
         &self,
     ) -> impl warp::Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> {
         let me = self.clone();
-        warp::get2()
+        let index = warp::get2()
             .and(warp::path::end())
             .and_then(move || me.index())
-            .and_then(render)
+            .and_then(render);
+        let me = self.clone();
+        let details = warp::get2()
+            .and(warp::path::param::<Id>())
+            .and(warp::path::end())
+            .and_then(move |id| me.detail(id))
+            .and_then(render);
+        index.or(details)
     }
 
     fn index(&self) -> impl Future<Item = WithTemplate<MenuWidget>, Error = warp::Rejection> {
         self.index_impl()
             .map_err(|e| warp::reject::custom(e.compat()))
+    }
+
+    fn detail(&self, id: Id) -> impl Future<Item = WithTemplate<String>, Error = warp::Rejection> {
+        futures::future::lazy(move || {
+            Ok(WithTemplate {
+                name: "default",
+                value: format!("{:?}", id),
+            })
+        })
     }
 
     fn index_impl(&self) -> impl Future<Item = WithTemplate<MenuWidget>, Error = failure::Error> {
