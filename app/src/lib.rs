@@ -60,3 +60,9 @@ pub fn routes() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Reje
     let menu = menu::Menu::new();
     menu.handler().recover(log_err)
 }
+
+pub(crate) fn error_to_rejection<T>(
+    f: impl futures::Future<Item = T, Error = failure::Error>,
+) -> impl futures::Future<Item = T, Error = warp::Rejection> {
+    f.map_err(|e| warp::reject::custom(e.compat()))
+}

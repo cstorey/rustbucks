@@ -11,7 +11,7 @@ use tokio_threadpool::blocking;
 
 use warp;
 use warp::Filter;
-use {render, WithTemplate};
+use {error_to_rejection, render, WithTemplate};
 
 #[derive(Serialize, Debug, Clone, Hash)]
 pub struct Coffee {
@@ -107,29 +107,19 @@ impl Menu {
         let me = self.clone();
         let index = warp::get2()
             .and(warp::path::end())
-            .and_then(move || me.index())
+            .and_then(move || error_to_rejection(me.index()))
             .and_then(render);
         let me = self.clone();
         let details = warp::get2()
             .and(warp::path::path("menu"))
             .and(warp::path::param::<Id>())
             .and(warp::path::end())
-            .and_then(move |id| me.detail(id))
+            .and_then(move |id| error_to_rejection(me.detail(id)))
             .and_then(render);
         index.or(details)
     }
 
-    fn index(&self) -> impl Future<Item = WithTemplate<MenuWidget>, Error = warp::Rejection> {
-        self.index_impl()
-            .map_err(|e| warp::reject::custom(e.compat()))
-    }
-
-    fn detail(&self, id: Id) -> impl Future<Item = WithTemplate<String>, Error = warp::Rejection> {
-        self.detail_impl(id)
-            .map_err(|e| warp::reject::custom(e.compat()))
-    }
-
-    fn index_impl(&self) -> impl Future<Item = WithTemplate<MenuWidget>, Error = failure::Error> {
+    fn index(&self) -> impl Future<Item = WithTemplate<MenuWidget>, Error = failure::Error> {
         info!("Handle index");
         info!("Handle from : {:?}", ::std::thread::current());
         let f = self.load_menu();
@@ -143,13 +133,15 @@ impl Menu {
         });
         f
     }
-    fn detail_impl(&self, id: Id) -> impl Future<Item = WithTemplate<String>, Error = Error> {
+
+    fn detail(&self, id: Id) -> impl Future<Item = WithTemplate<String>, Error = Error> {
         futures::future::lazy(move || {
             Ok(WithTemplate {
                 value: format!("{:?}", id),
             })
         })
     }
+
     fn load_menu(&self) -> impl Future<Item = Vec<(Id, Coffee)>, Error = failure::Error> {
         let me = self.clone();
         lazy(|| {
