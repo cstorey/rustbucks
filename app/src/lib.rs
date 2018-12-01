@@ -17,6 +17,8 @@ extern crate byteorder;
 extern crate siphasher;
 extern crate tokio_threadpool;
 
+use std::fmt;
+
 use warp::Filter;
 
 mod menu;
@@ -27,11 +29,10 @@ mod tests;
 #[derive(Debug, WeftRenderable)]
 #[template(path = "src/base.html")]
 pub struct WithTemplate<C> {
-    name: &'static str,
     value: C,
 }
 
-fn render<C: weft::WeftRenderable>(
+fn render<C: weft::WeftRenderable + fmt::Debug>(
     template: WithTemplate<C>,
 ) -> Result<impl warp::Reply, warp::Rejection> {
     let res = weft::render_to_string(&template);
@@ -44,7 +45,7 @@ fn render<C: weft::WeftRenderable>(
             Ok(resp)
         }
         Err(e) => {
-            error!("Could not render template {}: {}", template.name, e);
+            error!("Could not render template {:?}: {}", template, e);
             Err(warp::reject::custom(e))
         }
     }

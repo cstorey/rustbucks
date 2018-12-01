@@ -126,7 +126,6 @@ impl Menu {
     fn detail(&self, id: Id) -> impl Future<Item = WithTemplate<String>, Error = warp::Rejection> {
         futures::future::lazy(move || {
             Ok(WithTemplate {
-                name: "default",
                 value: format!("{:?}", id),
             })
         })
@@ -140,7 +139,6 @@ impl Menu {
         let f = f.and_then(|menu| {
             info!("Resume from : {:?}", ::std::thread::current());
             let res = WithTemplate {
-                name: "template.html",
                 value: MenuWidget { drink: menu },
             };
             futures::future::result(Ok(res))
