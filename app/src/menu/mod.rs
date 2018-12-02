@@ -122,16 +122,14 @@ impl Menu {
     fn index(&self) -> impl Future<Item = WithTemplate<MenuWidget>, Error = failure::Error> {
         info!("Handle index");
         info!("Handle from : {:?}", ::std::thread::current());
-        let f = self.load_menu();
-        let f = f.map_err(|e| failure::Error::from(e));
-        let f = f.and_then(|menu| {
-            info!("Resume from : {:?}", ::std::thread::current());
-            let res = WithTemplate {
-                value: MenuWidget { drink: menu },
-            };
-            futures::future::result(Ok(res))
-        });
-        f
+        self.load_menu()
+            .map_err(|e| failure::Error::from(e))
+            .map(|menu| {
+                info!("Resume from : {:?}", ::std::thread::current());
+                WithTemplate {
+                    value: MenuWidget { drink: menu },
+                }
+            })
     }
 
     fn detail(&self, id: Id) -> impl Future<Item = WithTemplate<String>, Error = Error> {
