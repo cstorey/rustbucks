@@ -23,7 +23,7 @@ pub struct Menu {
     drinks: Arc<HashMap<Id, Coffee>>,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, Default)]
 struct Id {
     val: [u8; 16],
 }
@@ -72,6 +72,12 @@ impl std::str::FromStr for Id {
 struct MenuWidget {
     drink: Vec<(Id, Coffee)>,
 }
+#[derive(Debug, WeftRenderable)]
+#[template(path = "src/menu/drink.html")]
+struct DrinkWidget {
+    id: Id,
+    drink: Coffee,
+}
 
 // impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection>
 impl Menu {
@@ -114,7 +120,7 @@ impl Menu {
             .and(warp::path::path("menu"))
             .and(warp::path::param::<Id>())
             .and(warp::path::end())
-            .and_then(move |id| error_to_rejection(me.detail(id)))
+            .and_then(move |id| me.detail(id))
             .and_then(render);
         index.or(details)
     }
@@ -132,12 +138,18 @@ impl Menu {
             })
     }
 
-    fn detail(&self, id: Id) -> impl Future<Item = WithTemplate<String>, Error = Error> {
-        futures::future::lazy(move || {
-            Ok(WithTemplate {
-                value: format!("{:?}", id),
+    fn detail(
+        &self,
+        id: Id,
+    ) -> impl Future<Item = WithTemplate<DrinkWidget>, Error = warp::Rejection> {
+        error_to_rejection(self.load_drink(id))
+            .and_then(|drinkp| drinkp.ok_or_else(warp::reject::not_found))
+            .map(move |drink| WithTemplate {
+                value: DrinkWidget {
+                    id: id,
+                    drink: drink,
+                },
             })
-        })
     }
 
     fn load_menu(&self) -> impl Future<Item = Vec<(Id, Coffee)>, Error = failure::Error> {
@@ -145,14 +157,19 @@ impl Menu {
         lazy(|| {
             poll_fn(move || {
                 blocking(|| {
-                    use std::thread;
-                    info!("Hello from : {:?}", thread::current());
                     me.drinks
                         .iter()
                         .map(|(id, d)| (id.clone(), d.clone()))
                         .collect::<Vec<(Id, Coffee)>>()
                 })
             }).map_err(Error::from)
+        })
+    }
+
+    fn load_drink(&self, id: Id) -> impl Future<Item = Option<Coffee>, Error = failure::Error> {
+        let me = self.clone();
+        lazy(move || {
+            poll_fn(move || blocking(|| me.drinks.get(&id).map(|d| d.clone()))).map_err(Error::from)
         })
     }
 }
