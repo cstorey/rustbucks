@@ -1,14 +1,22 @@
-struct SomethingScenario;
+use failure::Error;
+use sulfur::chrome;
+
+struct SomethingScenario {
+    driver: sulfur::chrome::Driver,
+}
 
 struct CoffeeRequest;
 
 struct SomethingBarista;
 struct SomethingCashier;
-struct SomethingCustomer;
+struct SomethingCustomer {
+    browser: sulfur::Client,
+}
 
 impl SomethingScenario {
-    fn new() -> Self {
-        SomethingScenario
+    fn new() -> Result<Self, Error> {
+        let driver = chrome::Driver::start()?;
+        Ok(SomethingScenario { driver })
     }
 
     fn new_barista(&self) -> SomethingBarista {
@@ -17,13 +25,17 @@ impl SomethingScenario {
     fn new_cashier(&self) -> SomethingCashier {
         SomethingCashier
     }
-    fn new_customer(&self) -> SomethingCustomer {
-        SomethingCustomer
+    fn new_customer(&self) -> Result<SomethingCustomer, Error> {
+        let browser = self
+            .driver
+            .new_session_config(chrome::Config::default().headless(true))?;
+        Ok(SomethingCustomer { browser })
     }
 }
 
 impl SomethingCustomer {
-    fn requests_coffee(&self, _: &SomethingCashier) -> CoffeeRequest {
+    fn requests_coffee(&self, _: &SomethingCashier) -> Result<CoffeeRequest, Error> {
+        self.browser.visit("about:blank")?;
         unimplemented!("SomethingCustomer::requests_coffee")
     }
     fn pays_cashier(&self, _: &CoffeeRequest, _: &SomethingCashier) -> CoffeeRequest {
@@ -64,13 +76,13 @@ impl SomethingBarista {
 #[test]
 #[ignore]
 fn should_serve_coffee() {
-    let scenario = SomethingScenario::new();
+    let scenario = SomethingScenario::new().expect("new scenario");
 
     let cashier = scenario.new_cashier();
     let barista = scenario.new_barista();
-    let customer = scenario.new_customer();
+    let customer = scenario.new_customer().expect("new customer");
 
-    let req = customer.requests_coffee(&cashier);
+    let req = customer.requests_coffee(&cashier).expect("requests coffee");
     cashier.requests_payment_for(&req, 42);
 
     barista.prepares_coffee(&req);
@@ -83,13 +95,13 @@ fn should_serve_coffee() {
 #[test]
 #[ignore]
 fn should_abort_if_customer_cannot_pay() {
-    let scenario = SomethingScenario::new();
+    let scenario = SomethingScenario::new().expect("new scenario");
 
     let cashier = scenario.new_cashier();
     let barista = scenario.new_barista();
-    let customer = scenario.new_customer();
+    let customer = scenario.new_customer().expect("new customer");
 
-    let req = customer.requests_coffee(&cashier);
+    let req = customer.requests_coffee(&cashier).expect("requests coffee");
     cashier.requests_payment_for(&req, 42);
 
     barista.prepares_coffee(&req);
@@ -102,13 +114,13 @@ fn should_abort_if_customer_cannot_pay() {
 #[test]
 #[ignore]
 fn should_give_refund_if_out_of_something() {
-    let scenario = SomethingScenario::new();
+    let scenario = SomethingScenario::new().expect("new scenario");
 
     let cashier = scenario.new_cashier();
     let barista = scenario.new_barista();
-    let customer = scenario.new_customer();
+    let customer = scenario.new_customer().expect("new customer");
 
-    let req = customer.requests_coffee(&cashier);
+    let req = customer.requests_coffee(&cashier).expect("requests coffee");
     cashier.requests_payment_for(&req, 42);
     customer.pays_cashier(&req, &cashier);
 
