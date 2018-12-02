@@ -17,17 +17,11 @@ extern crate byteorder;
 extern crate siphasher;
 extern crate tokio_threadpool;
 
-#[cfg(test)]
-extern crate sulfur;
-
 use std::fmt;
 
 use warp::Filter;
 
 mod menu;
-
-#[cfg(test)]
-mod tests;
 
 #[derive(Debug, WeftRenderable)]
 #[template(path = "src/base.html")]

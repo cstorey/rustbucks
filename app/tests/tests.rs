@@ -1,3 +1,16 @@
+extern crate log;
+extern crate futures;
+extern crate pretty_env_logger;
+extern crate serde;
+extern crate tokio;
+extern crate warp;
+extern crate failure;
+extern crate base64;
+extern crate byteorder;
+extern crate siphasher;
+extern crate tokio_threadpool;
+extern crate sulfur;
+
 use failure::Error;
 use sulfur::chrome;
 
