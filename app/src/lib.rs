@@ -21,6 +21,7 @@ use std::fmt;
 
 use warp::Filter;
 
+mod ids;
 mod menu;
 
 #[derive(Debug, WeftRenderable)]
