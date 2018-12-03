@@ -97,8 +97,9 @@ impl SomethingCashier {
         format!("http://{}/", self.addr)
     }
 
-    fn requests_payment_for(&self, _: &CoffeeRequest, _price: u64) {
-        unimplemented!("SomethingCashier::requests_payment_for")
+    fn requests_payment_for(&self, _: &CoffeeRequest, _price: u64) -> Result<(), Error> {
+        // TODO
+        Ok(())
     }
     fn issues_refund_to(&self, _: &CoffeeRequest, _: &SomethingCustomer) {
         unimplemented!("SomethingCashier::issues_refund_to")
@@ -143,7 +144,10 @@ fn should_serve_coffee_partial() {
     let _barista = scenario.new_barista();
     let customer = scenario.new_customer().expect("new customer");
 
-    let _req = customer.requests_coffee(&cashier).expect("requests coffee");
+    let req = customer.requests_coffee(&cashier).expect("requests coffee");
+    cashier
+        .requests_payment_for(&req, 42)
+        .expect("requested payment");
 }
 
 #[test]
@@ -159,7 +163,9 @@ fn should_serve_coffee() {
 
     let req = customer.requests_coffee(&cashier).expect("requests coffee");
 
-    cashier.requests_payment_for(&req, 42);
+    cashier
+        .requests_payment_for(&req, 42)
+        .expect("requested payment");
     barista.prepares_coffee(&req);
     customer.pays_cashier(&req, &cashier);
     barista.delivers(&req, &customer);
@@ -175,7 +181,9 @@ fn should_abort_if_customer_cannot_pay() {
     let customer = scenario.new_customer().expect("new customer");
 
     let req = customer.requests_coffee(&cashier).expect("requests coffee");
-    cashier.requests_payment_for(&req, 42);
+    cashier
+        .requests_payment_for(&req, 42)
+        .expect("requested payment");
 
     barista.prepares_coffee(&req);
 
@@ -194,7 +202,9 @@ fn should_give_refund_if_out_of_something() {
     let customer = scenario.new_customer().expect("new customer");
 
     let req = customer.requests_coffee(&cashier).expect("requests coffee");
-    cashier.requests_payment_for(&req, 42);
+    cashier
+        .requests_payment_for(&req, 42)
+        .expect("requested payment");
     customer.pays_cashier(&req, &cashier);
 
     barista.has_run_out_of_milk();
