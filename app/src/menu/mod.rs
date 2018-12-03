@@ -64,15 +64,15 @@ impl Menu {
         &self,
     ) -> impl warp::Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> {
         let me = self.clone();
-        let index = warp::get2()
-            .and(warp::path::end())
+        let index = warp::path::end()
+            .and(warp::get2())
             .and_then(move || error_to_rejection(me.index()))
             .and_then(render);
         let me = self.clone();
-        let details = warp::get2()
-            .and(warp::path::path("menu"))
+        let details = warp::path::path("menu")
             .and(warp::path::param::<Id>())
             .and(warp::path::end())
+            .and(warp::get2())
             .and_then(move |id| me.detail(id))
             .and_then(render);
         index.or(details)
