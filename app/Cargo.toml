@@ -31,5 +31,5 @@ optional = false
 [dev-dependencies]
 
 [dev-dependencies.sulfur]
+git = "https://github.com/cstorey/sulfur.git"
 optional = false
-path = "../sulfur"
