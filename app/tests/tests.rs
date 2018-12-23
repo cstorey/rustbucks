@@ -25,7 +25,6 @@ lazy_static! {
         Mutex::new(runtime::Runtime::new().expect("tokio runtime"));
 }
 struct SomethingScenario {
-    driver: sulfur::chrome::Driver,
 }
 
 struct CoffeeRequest;
@@ -36,13 +35,12 @@ struct SomethingCashier {
     addr: SocketAddr,
 }
 struct SomethingCustomer {
-    browser: sulfur::Client,
+    browser: sulfur::DriverHolder,
 }
 
 impl SomethingScenario {
     fn new() -> Result<Self, Error> {
-        let driver = chrome::Driver::start()?;
-        Ok(SomethingScenario { driver })
+        Ok(SomethingScenario { })
     }
 
     fn new_barista(&self) -> SomethingBarista {
@@ -52,9 +50,7 @@ impl SomethingScenario {
         SomethingCashier::new()
     }
     fn new_customer(&self) -> Result<SomethingCustomer, Error> {
-        let browser = self
-            .driver
-            .new_session_config(chrome::Config::default().headless(true))?;
+        let browser = chrome::start(chrome::Config::default().headless(true))?;
         Ok(SomethingCustomer { browser })
     }
 }
