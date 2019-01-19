@@ -114,6 +114,10 @@ impl Drop for SomethingCashier {
 
 impl SomethingBarista {
     fn prepares_coffee(&self, _: &CoffeeRequest) {
+        // Visits the barista UI
+        // Finds the named request
+        // Presses buttons to do things
+        // Confirms coffee made
         unimplemented!("SomethingBarista::prepares_coffee")
     }
 
@@ -132,7 +136,7 @@ impl SomethingBarista {
 
 #[test]
 fn should_serve_coffee_partial() {
-    pretty_env_logger::init();
+    pretty_env_logger::try_init().unwrap_or(());
 
     let scenario = SomethingScenario::new().expect("new scenario");
 
@@ -149,7 +153,7 @@ fn should_serve_coffee_partial() {
 #[test]
 #[ignore]
 fn should_serve_coffee() {
-    pretty_env_logger::init();
+    pretty_env_logger::try_init().unwrap_or(());
 
     let scenario = SomethingScenario::new().expect("new scenario");
 

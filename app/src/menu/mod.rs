@@ -115,7 +115,8 @@ impl Menu {
                         .map(|(id, d)| (id.clone(), d.clone()))
                         .collect::<Vec<(Id, Coffee)>>()
                 })
-            }).map_err(Error::from)
+            })
+            .map_err(Error::from)
         })
     }
 
