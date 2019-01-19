@@ -51,8 +51,8 @@ impl SomethingScenario {
         })
     }
 
-    fn new_barista(&self) -> SomethingBarista {
-        SomethingBarista
+    fn new_barista(&self) -> Result<SomethingBarista, Error> {
+        SomethingBarista::new()
     }
     fn new_cashier(&self) -> Result<SomethingCashier, Error> {
         SomethingCashier::new()
@@ -117,6 +117,10 @@ impl Drop for SomethingScenario {
 }
 
 impl SomethingBarista {
+    fn new() -> Result<Self, Error> {
+        Ok(SomethingBarista {})
+    }
+
     fn prepares_coffee(&self, _: &CoffeeRequest) {
         // Visits the barista UI
         // Finds the named request
@@ -145,7 +149,7 @@ fn should_serve_coffee_partial() {
     let scenario = SomethingScenario::new().expect("new scenario");
 
     let cashier = scenario.new_cashier().expect("new cashier");
-    let _barista = scenario.new_barista();
+    let _barista = scenario.new_barista().expect("new barista");
     let customer = scenario.new_customer().expect("new customer");
 
     let req = customer.requests_coffee(&cashier).expect("requests coffee");
@@ -162,7 +166,7 @@ fn should_serve_coffee() {
     let scenario = SomethingScenario::new().expect("new scenario");
 
     let cashier = scenario.new_cashier().expect("new cashier");
-    let barista = scenario.new_barista();
+    let barista = scenario.new_barista().expect("new barista");;
     let customer = scenario.new_customer().expect("new customer");
 
     let req = customer.requests_coffee(&cashier).expect("requests coffee");
@@ -181,7 +185,7 @@ fn should_abort_if_customer_cannot_pay() {
     let scenario = SomethingScenario::new().expect("new scenario");
 
     let cashier = scenario.new_cashier().expect("new cashier");
-    let barista = scenario.new_barista();
+    let barista = scenario.new_barista().expect("new barista");;
     let customer = scenario.new_customer().expect("new customer");
 
     let req = customer.requests_coffee(&cashier).expect("requests coffee");
@@ -202,7 +206,7 @@ fn should_give_refund_if_out_of_something() {
     let scenario = SomethingScenario::new().expect("new scenario");
 
     let cashier = scenario.new_cashier().expect("new cashier");
-    let barista = scenario.new_barista();
+    let barista = scenario.new_barista().expect("new barista");;
     let customer = scenario.new_customer().expect("new customer");
 
     let req = customer.requests_coffee(&cashier).expect("requests coffee");
