@@ -32,11 +32,10 @@ struct SomethingScenario {
 struct CoffeeRequest;
 
 struct SomethingBarista;
-struct SomethingCashier {
-    url: String,
-}
+struct SomethingCashier {}
 struct SomethingCustomer {
     browser: sulfur::DriverHolder,
+    url: String,
 }
 
 impl SomethingScenario {
@@ -56,11 +55,10 @@ impl SomethingScenario {
         SomethingBarista
     }
     fn new_cashier(&self) -> Result<SomethingCashier, Error> {
-        SomethingCashier::new(&self.url())
+        SomethingCashier::new()
     }
     fn new_customer(&self) -> Result<SomethingCustomer, Error> {
-        let browser = chrome::start(chrome::Config::default().headless(true))?;
-        Ok(SomethingCustomer { browser })
+        SomethingCustomer::new(&self.url())
     }
     fn url(&self) -> String {
         format!("http://{}/", self.addr)
@@ -68,8 +66,14 @@ impl SomethingScenario {
 }
 
 impl SomethingCustomer {
-    fn requests_coffee(&self, cashier: &SomethingCashier) -> Result<CoffeeRequest, Error> {
-        self.browser.visit(&cashier.url())?;
+    fn new(url: &str) -> Result<SomethingCustomer, Error> {
+        let browser = chrome::start(chrome::Config::default().headless(true))?;
+        let url = url.to_string();
+        Ok(SomethingCustomer { browser, url })
+    }
+
+    fn requests_coffee(&self, _: &SomethingCashier) -> Result<CoffeeRequest, Error> {
+        self.browser.visit(&self.url)?;
 
         let a_coffee_elt = self.browser.find_element(&By::css(".a-coffee"))?;
         self.browser.click(&a_coffee_elt)?;
@@ -89,14 +93,8 @@ impl SomethingCustomer {
 }
 
 impl SomethingCashier {
-    fn new(url: &str) -> Result<Self, Error> {
-        Ok(SomethingCashier {
-            url: url.to_string(),
-        })
-    }
-
-    fn url(&self) -> String {
-        self.url.clone()
+    fn new() -> Result<Self, Error> {
+        Ok(SomethingCashier {})
     }
 
     fn requests_payment_for(&self, _: &CoffeeRequest, _price: u64) -> Result<(), Error> {
