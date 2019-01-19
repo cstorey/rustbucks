@@ -31,7 +31,10 @@ struct SomethingScenario {
 
 struct CoffeeRequest;
 
-struct SomethingBarista;
+struct SomethingBarista {
+    browser: sulfur::DriverHolder,
+    url: String,
+}
 struct SomethingCashier {}
 struct SomethingCustomer {
     browser: sulfur::DriverHolder,
@@ -52,7 +55,7 @@ impl SomethingScenario {
     }
 
     fn new_barista(&self) -> Result<SomethingBarista, Error> {
-        SomethingBarista::new()
+        SomethingBarista::new(&self.url())
     }
     fn new_cashier(&self) -> Result<SomethingCashier, Error> {
         SomethingCashier::new()
@@ -117,12 +120,14 @@ impl Drop for SomethingScenario {
 }
 
 impl SomethingBarista {
-    fn new() -> Result<Self, Error> {
-        Ok(SomethingBarista {})
+    fn new(url: &str) -> Result<Self, Error> {
+        let browser = chrome::start(chrome::Config::default().headless(true))?;
+        let url = url.to_string();
+        Ok(SomethingBarista { browser, url })
     }
-
-    fn prepares_coffee(&self, _: &CoffeeRequest) {
+    fn prepares_coffee(&self, _: &CoffeeRequest) -> Result<(), Error> {
         // Visits the barista UI
+        self.browser.visit(&self.url)?;
         // Finds the named request
         // Presses buttons to do things
         // Confirms coffee made
@@ -174,7 +179,7 @@ fn should_serve_coffee() {
     cashier
         .requests_payment_for(&req, 42)
         .expect("requested payment");
-    barista.prepares_coffee(&req);
+    barista.prepares_coffee(&req).expect("prepares_coffee");
     customer.pays_cashier(&req, &cashier);
     barista.delivers(&req, &customer);
 }
@@ -193,7 +198,7 @@ fn should_abort_if_customer_cannot_pay() {
         .requests_payment_for(&req, 42)
         .expect("requested payment");
 
-    barista.prepares_coffee(&req);
+    barista.prepares_coffee(&req).expect("prepares_coffee");
 
     customer.cannot_pay(&req, &cashier);
 
