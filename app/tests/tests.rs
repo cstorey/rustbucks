@@ -25,14 +25,15 @@ lazy_static! {
         Mutex::new(runtime::Runtime::new().expect("tokio runtime"));
 }
 struct SomethingScenario {
+    shutdown: Option<futures::sync::oneshot::Sender<()>>,
+    addr: SocketAddr,
 }
 
 struct CoffeeRequest;
 
 struct SomethingBarista;
 struct SomethingCashier {
-    shutdown: Option<futures::sync::oneshot::Sender<()>>,
-    addr: SocketAddr,
+    url: String,
 }
 struct SomethingCustomer {
     browser: sulfur::DriverHolder,
@@ -40,18 +41,29 @@ struct SomethingCustomer {
 
 impl SomethingScenario {
     fn new() -> Result<Self, Error> {
-        Ok(SomethingScenario { })
+        let (shutdown, trigger) = futures::sync::oneshot::channel::<()>();
+        let (addr, server) = warp::serve(rustbucks::routes())
+            .bind_with_graceful_shutdown(([127, 0, 0, 1], 0), trigger);
+        println!("Listening on: {}", addr);
+        RT.lock().expect("lock runtime").spawn(server);
+        Ok(SomethingScenario {
+            shutdown: Some(shutdown),
+            addr: addr,
+        })
     }
 
     fn new_barista(&self) -> SomethingBarista {
         SomethingBarista
     }
     fn new_cashier(&self) -> Result<SomethingCashier, Error> {
-        SomethingCashier::new()
+        SomethingCashier::new(&self.url())
     }
     fn new_customer(&self) -> Result<SomethingCustomer, Error> {
         let browser = chrome::start(chrome::Config::default().headless(true))?;
         Ok(SomethingCustomer { browser })
+    }
+    fn url(&self) -> String {
+        format!("http://{}/", self.addr)
     }
 }
 
@@ -77,20 +89,14 @@ impl SomethingCustomer {
 }
 
 impl SomethingCashier {
-    fn new() -> Result<Self, Error> {
-        let (shutdown, trigger) = futures::sync::oneshot::channel::<()>();
-        let (addr, server) = warp::serve(rustbucks::routes())
-            .bind_with_graceful_shutdown(([127, 0, 0, 1], 0), trigger);
-        println!("Listening on: {}", addr);
-        RT.lock().expect("lock runtime").spawn(server);
+    fn new(url: &str) -> Result<Self, Error> {
         Ok(SomethingCashier {
-            shutdown: Some(shutdown),
-            addr: addr,
+            url: url.to_string(),
         })
     }
 
     fn url(&self) -> String {
-        format!("http://{}/", self.addr)
+        self.url.clone()
     }
 
     fn requests_payment_for(&self, _: &CoffeeRequest, _price: u64) -> Result<(), Error> {
@@ -102,7 +108,7 @@ impl SomethingCashier {
     }
 }
 
-impl Drop for SomethingCashier {
+impl Drop for SomethingScenario {
     fn drop(&mut self) {
         self.shutdown
             .take()
