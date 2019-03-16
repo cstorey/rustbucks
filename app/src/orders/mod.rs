@@ -1,8 +1,8 @@
 use failure::Error;
 use futures::Future;
+use ids::Id;
 use warp::Filter;
 use {error_to_rejection, render, WithTemplate};
-use ids::Id;
 
 #[derive(Debug, Clone)]
 pub struct Orders;

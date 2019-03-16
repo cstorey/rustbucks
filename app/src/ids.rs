@@ -47,3 +47,17 @@ impl std::str::FromStr for Id {
         Ok(id)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::str::FromStr;
+
+    #[test]
+    fn round_trips_via_to_from_str() {
+        let id = Id::of(&"Hi!");
+        let s = id.to_string();
+        let id2 = s.parse::<Id>().expect("parse id");
+        assert_eq!(id, id2);
+    }
+}
