@@ -18,7 +18,8 @@ siphasher = "0.2.3"
 tokio = "0.1.11"
 tokio-threadpool = "0.1.9"
 url = "1.7.1"
-warp = "0.1.7"
+actix-web = "0.7.18"
+actix = "0.7.9"
 
 [dependencies.weft]
 git = "https://github.com/cstorey/weft.git"

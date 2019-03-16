@@ -1,3 +1,4 @@
+#![cfg(never)]
 extern crate base64;
 extern crate byteorder;
 extern crate failure;
