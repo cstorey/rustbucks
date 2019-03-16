@@ -17,6 +17,9 @@ extern crate byteorder;
 extern crate siphasher;
 extern crate tokio_threadpool;
 
+#[cfg(test)]
+extern crate serde_json;
+
 use std::fmt;
 
 use warp::Filter;

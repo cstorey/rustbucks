@@ -1,5 +1,6 @@
 use byteorder::{BigEndian, WriteBytesExt};
 use failure::Error;
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::io;
@@ -48,10 +49,34 @@ impl std::str::FromStr for Id {
     }
 }
 
+impl Serialize for Id {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+impl<'de> Deserialize<'de> for Id {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct IdStrVisitor;
+        impl<'vi> de::Visitor<'vi> for IdStrVisitor {
+            type Value = Id;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                write!(formatter, "an Id string")
+            }
+
+            fn visit_str<E: de::Error>(self, value: &str) -> Result<Id, E> {
+                value.parse::<Id>().map_err(E::custom)
+            }
+        }
+
+        deserializer.deserialize_str(IdStrVisitor)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::str::FromStr;
+    use serde_json;
 
     #[test]
     fn round_trips_via_to_from_str() {
@@ -59,5 +84,23 @@ mod test {
         let s = id.to_string();
         let id2 = s.parse::<Id>().expect("parse id");
         assert_eq!(id, id2);
+    }
+
+    #[test]
+    fn round_trips_via_serde_json() {
+        let id = Id::of(&"Hi!");
+
+        let json = serde_json::to_string(&id).expect("serde_json::to_string");
+        let id2 = serde_json::from_str(&json).expect("serde_json::from_str");
+        assert_eq!(id, id2);
+    }
+
+    #[test]
+    fn serializes_to_string_like() {
+        let id = Id::of(&"Hi!");
+
+        let json = serde_json::to_string(&id).expect("serde_json::to_string");
+        let s: String = serde_json::from_str(&json).expect("serde_json::from_str");
+        assert_eq!(id.to_string(), s);
     }
 }
