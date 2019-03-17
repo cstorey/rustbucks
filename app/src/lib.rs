@@ -22,11 +22,10 @@ extern crate serde_json;
 
 mod ids;
 mod menu;
+mod templates;
 
 use actix_web::server::{HttpHandler, HttpHandlerTask};
 use actix_web::App;
-
-const TEXT_HTML: &'static str = "text/html; charset=utf-8";
 
 #[derive(Debug, WeftRenderable)]
 #[template(path = "src/base.html")]

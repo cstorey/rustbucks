@@ -8,10 +8,12 @@ use tokio_threadpool::{blocking, ThreadPool};
 use actix_web::server::{HttpHandler, HttpHandlerTask};
 use actix_web::{
     http, App, AsyncResponder, FromRequest, FutureResponse, HttpRequest, HttpResponse, Path,
+    Responder,
 };
 
 use ids::Id;
-use {WithTemplate, TEXT_HTML};
+use templates::WeftResponse;
+use WithTemplate;
 
 const PREFIX: &'static str = "/menu";
 
@@ -89,23 +91,22 @@ impl Menu {
             .finish())
     }
 
-    fn index(&self, _: &HttpRequest<Self>) -> FutureResponse<HttpResponse> {
+    fn index(&self, _: &HttpRequest<Self>) -> FutureResponse<impl Responder> {
         info!("Handle index");
         info!("Handle from : {:?}", ::std::thread::current());
         self.load_menu()
             .from_err()
-            .and_then(|menu| {
+            .map(|menu| {
                 info!("Resume from : {:?}", ::std::thread::current());
                 let data = WithTemplate {
                     value: MenuWidget { drink: menu },
                 };
-                let html = weft::render_to_string(&data)?;
-                Ok(HttpResponse::Ok().content_type(TEXT_HTML).body(html))
+                WeftResponse::of(data)
             })
             .responder()
     }
 
-    fn detail(&self, req: &HttpRequest<Self>) -> FutureResponse<HttpResponse> {
+    fn detail(&self, req: &HttpRequest<Self>) -> FutureResponse<impl Responder> {
         let me = self.clone();
         result(Path::<Id>::extract(req))
             .and_then(move |id| {
@@ -115,14 +116,14 @@ impl Menu {
                     .and_then(move |drinkp| {
                         drinkp.ok_or_else(|| actix_web::error::ErrorNotFound(id))
                     })
-                    .and_then(move |drink| {
-                        let html = weft::render_to_string(&WithTemplate {
+                    .map(move |drink| {
+                        let data = WithTemplate {
                             value: DrinkWidget {
                                 id: id,
                                 drink: drink,
                             },
-                        })?;
-                        Ok(HttpResponse::Ok().content_type(TEXT_HTML).body(html))
+                        };
+                        WeftResponse::of(data)
                     })
             })
             .responder()
