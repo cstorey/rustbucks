@@ -4,7 +4,6 @@ extern crate futures;
 extern crate pretty_env_logger;
 extern crate serde;
 extern crate tokio;
-extern crate warp;
 #[macro_use]
 extern crate serde_derive;
 #[macro_use]
@@ -12,17 +11,21 @@ extern crate failure;
 extern crate weft;
 #[macro_use]
 extern crate weft_derive;
+extern crate actix_web;
 extern crate base64;
 extern crate byteorder;
 extern crate siphasher;
 extern crate tokio_threadpool;
 
-use std::fmt;
-
-use warp::Filter;
+#[cfg(test)]
+extern crate serde_json;
 
 mod ids;
 mod menu;
+mod templates;
+
+use actix_web::server::{HttpHandler, HttpHandlerTask};
+use actix_web::App;
 
 #[derive(Debug, WeftRenderable)]
 #[template(path = "src/base.html")]
@@ -30,37 +33,21 @@ pub struct WithTemplate<C> {
     value: C,
 }
 
-fn render<C: weft::WeftRenderable + fmt::Debug>(
-    template: WithTemplate<C>,
-) -> Result<impl warp::Reply, warp::Rejection> {
-    let res = weft::render_to_string(&template);
+#[derive(Clone)]
+pub struct RustBucks {
+    menu: menu::Menu,
+}
 
-    match res {
-        Ok(s) => {
-            let resp = warp::http::Response::builder()
-                .header("content-type", "text/html; charset=utf8")
-                .body(s);
-            Ok(resp)
-        }
-        Err(e) => {
-            error!("Could not render template {:?}: {}", template, e);
-            Err(warp::reject::custom(e))
-        }
+impl RustBucks {
+    pub fn new() -> Self {
+        let menu = menu::Menu::new();
+        RustBucks { menu }
     }
-}
 
-fn log_err(err: warp::Rejection) -> Result<&'static str, warp::Rejection> {
-    error!("Saw error: {:?}", err);
-    Err(err)
-}
+    pub fn app(&self) -> Vec<Box<dyn HttpHandler<Task = Box<dyn HttpHandlerTask>>>> {
+        info!("Booting rustbucks");
 
-pub fn routes() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> {
-    let menu = menu::Menu::new();
-    menu.handler().recover(log_err)
-}
-
-pub(crate) fn error_to_rejection<T>(
-    f: impl futures::Future<Item = T, Error = failure::Error>,
-) -> impl futures::Future<Item = T, Error = warp::Rejection> {
-    f.map_err(|e| warp::reject::custom(e.compat()))
+        let redir_root = App::new().resource("/", |r| r.get().f(menu::Menu::index_redirect));
+        vec![self.menu.app(), redir_root.boxed()]
+    }
 }
