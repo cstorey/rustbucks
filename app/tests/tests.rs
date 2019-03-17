@@ -8,23 +8,35 @@ extern crate log;
 extern crate pretty_env_logger;
 extern crate rustbucks;
 extern crate serde;
+#[macro_use]
+extern crate serde_derive;
 extern crate siphasher;
 extern crate sulfur;
 extern crate tokio;
 extern crate tokio_threadpool;
 #[macro_use]
 extern crate lazy_static;
+extern crate envy;
 
 use actix_web::test;
 use failure::Error;
 use std::net::SocketAddr;
-use std::sync::Mutex;
 use sulfur::{chrome, By};
-use tokio::runtime;
+
+#[derive(Deserialize, Debug)]
+struct TestConfig {
+    headless: Option<bool>,
+}
 
 lazy_static! {
-    static ref RT: Mutex<runtime::Runtime> =
-        Mutex::new(runtime::Runtime::new().expect("tokio runtime"));
+    static ref TEST_CONFIG: TestConfig = envy::prefixed("TESTS_")
+        .from_env()
+        .expect("Load test environment");
+    static ref CHROME_CONFIG: sulfur::chrome::Config = {
+        chrome::Config::default()
+            .headless(TEST_CONFIG.headless.unwrap_or(true))
+            .clone()
+    };
 }
 
 struct SomethingScenario {
@@ -72,7 +84,7 @@ impl SomethingScenario {
 
 impl SomethingCustomer {
     fn new(url: &str) -> Result<SomethingCustomer, Error> {
-        let browser = chrome::start(chrome::Config::default().headless(true))?;
+        let browser = chrome::start(&CHROME_CONFIG)?;
         let url = url.to_string();
         Ok(SomethingCustomer { browser, url })
     }
@@ -113,7 +125,7 @@ impl SomethingCashier {
 
 impl SomethingBarista {
     fn new(url: &str) -> Result<Self, Error> {
-        let browser = chrome::start(chrome::Config::default().headless(true))?;
+        let browser = chrome::start(&CHROME_CONFIG)?;
         let url = url.to_string();
         Ok(SomethingBarista { browser, url })
     }
