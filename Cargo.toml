@@ -1,2 +1,4 @@
 [workspace]
 members = [ "app" ]
+[profile.release]
+debug = true
