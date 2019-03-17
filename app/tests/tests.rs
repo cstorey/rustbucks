@@ -44,7 +44,8 @@ struct SomethingScenario {
     addr: SocketAddr,
 }
 
-struct CoffeeRequest;
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct CoffeeRequest(String);
 
 struct SomethingBarista {
     browser: sulfur::DriverHolder,
@@ -98,7 +99,17 @@ impl SomethingCustomer {
         let order_button = self.browser.find_element(&By::css("button.order"))?;
         self.browser.click(&order_button)?;
         // TODO: Actually extract _some_ kind of reference?
-        Ok(CoffeeRequest)
+
+        let elt = self
+            .browser
+            .find_element(&By::css("*[data-request-id]"))
+            .expect("find request id");
+        let id = self
+            .browser
+            .attribute(&elt, "data-request-id")
+            .expect("find data-request-id")
+            .expect("some data-request-id");
+        Ok(CoffeeRequest(id))
     }
 
     fn pays_cashier(&self, _: &CoffeeRequest, _: &SomethingCashier) -> CoffeeRequest {
@@ -157,14 +168,9 @@ fn should_serve_coffee_partial() {
 
     let scenario = SomethingScenario::new().expect("new scenario");
 
-    let cashier = scenario.new_cashier().expect("new cashier");
+    let _cashier = scenario.new_cashier().expect("new cashier");
     let _barista = scenario.new_barista().expect("new barista");
-    let customer = scenario.new_customer().expect("new customer");
-
-    let req = customer.requests_coffee(&cashier).expect("requests coffee");
-    cashier
-        .requests_payment_for(&req, 42)
-        .expect("requested payment");
+    let _customer = scenario.new_customer().expect("new customer");
 }
 
 #[test]

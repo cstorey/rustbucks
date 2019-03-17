@@ -22,6 +22,7 @@ extern crate serde_json;
 
 mod ids;
 mod menu;
+mod orders;
 mod templates;
 
 use actix_web::server::{HttpHandler, HttpHandlerTask};
@@ -36,18 +37,20 @@ pub struct WithTemplate<C> {
 #[derive(Clone)]
 pub struct RustBucks {
     menu: menu::Menu,
+    orders: orders::Orders,
 }
 
 impl RustBucks {
     pub fn new() -> Self {
         let menu = menu::Menu::new();
-        RustBucks { menu }
+        let orders = orders::Orders::new();
+        RustBucks { menu, orders }
     }
 
     pub fn app(&self) -> Vec<Box<dyn HttpHandler<Task = Box<dyn HttpHandlerTask>>>> {
         info!("Booting rustbucks");
 
         let redir_root = App::new().resource("/", |r| r.get().f(menu::Menu::index_redirect));
-        vec![self.menu.app(), redir_root.boxed()]
+        vec![self.menu.app(), self.orders.app(), redir_root.boxed()]
     }
 }

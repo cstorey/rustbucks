@@ -1,8 +1,15 @@
 use failure::Error;
+use futures::future::{lazy, poll_fn, result};
 use futures::Future;
+
+use actix_web::server::{HttpHandler, HttpHandlerTask};
+use actix_web::{
+    http, App, AsyncResponder, Form, FromRequest, FutureResponse, HttpRequest, HttpResponse,
+    Responder, State,
+};
 use ids::Id;
-use warp::Filter;
-use {error_to_rejection, render, WithTemplate};
+
+const PREFIX: &'static str = "/orders";
 
 #[derive(Debug, Clone)]
 pub struct Orders;
@@ -17,20 +24,24 @@ impl Orders {
         Orders
     }
 
-    pub fn handler(
-        &self,
-    ) -> impl warp::Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-        let me = self.clone();
-        warp::post2()
-            .and(warp::path("order"))
-            .and(warp::filters::body::form::<OrderForm>())
-            .and_then(move |form| error_to_rejection(me.submit(form)))
+    pub fn app(&self) -> Box<dyn HttpHandler<Task = Box<dyn HttpHandlerTask>>> {
+        App::with_state(self.clone())
+            .prefix(PREFIX)
+            .resource("", |r| {
+                r.post().with(Orders::handle_submit);
+            })
+            .boxed()
     }
 
-    fn submit(
-        &self,
-        form: OrderForm,
-    ) -> impl Future<Item = impl warp::Reply, Error = failure::Error> {
-        futures::future::lazy(move || Ok(warp::reply::reply()))
+    fn handle_submit(
+        (form, state): (Form<OrderForm>, State<Self>),
+    ) -> FutureResponse<impl Responder> {
+        futures::future::ok(state.submit(form.into_inner())).boxed()
+    }
+
+    fn submit(&self, form: OrderForm) -> Result<String, actix_web::Error> {
+        debug!("Submit form: {:?}", form);
+
+        Ok(format!("{:#?}", form))
     }
 }
