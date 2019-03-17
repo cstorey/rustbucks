@@ -16,6 +16,7 @@ extern crate base64;
 extern crate byteorder;
 extern crate siphasher;
 extern crate tokio_threadpool;
+extern crate url;
 
 #[cfg(test)]
 extern crate serde_json;
@@ -24,6 +25,7 @@ mod ids;
 mod menu;
 
 use actix_web::server::{HttpHandler, HttpHandlerTask};
+use actix_web::App;
 
 const TEXT_HTML: &'static str = "text/html; charset=utf-8";
 
@@ -67,6 +69,8 @@ impl RustBucks {
 
     pub fn app(&self) -> Vec<Box<dyn HttpHandler<Task = Box<dyn HttpHandlerTask>>>> {
         info!("Booting rustbucks");
-        vec![self.menu.app()]
+
+        let redir_root = App::new().resource("/", |r| r.get().f(menu::Menu::index_redirect));
+        vec![self.menu.app(), redir_root.boxed()]
     }
 }

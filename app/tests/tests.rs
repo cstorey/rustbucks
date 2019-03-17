@@ -1,4 +1,5 @@
-#![cfg(never)]
+extern crate actix;
+extern crate actix_web;
 extern crate base64;
 extern crate byteorder;
 extern crate failure;
@@ -11,10 +12,10 @@ extern crate siphasher;
 extern crate sulfur;
 extern crate tokio;
 extern crate tokio_threadpool;
-extern crate warp;
 #[macro_use]
 extern crate lazy_static;
 
+use actix_web::test;
 use failure::Error;
 use std::net::SocketAddr;
 use std::sync::Mutex;
@@ -25,8 +26,9 @@ lazy_static! {
     static ref RT: Mutex<runtime::Runtime> =
         Mutex::new(runtime::Runtime::new().expect("tokio runtime"));
 }
+
 struct SomethingScenario {
-    shutdown: Option<futures::sync::oneshot::Sender<()>>,
+    _srv: test::TestServer,
     addr: SocketAddr,
 }
 
@@ -44,15 +46,14 @@ struct SomethingCustomer {
 
 impl SomethingScenario {
     fn new() -> Result<Self, Error> {
-        let (shutdown, trigger) = futures::sync::oneshot::channel::<()>();
-        let (addr, server) = warp::serve(rustbucks::routes())
-            .bind_with_graceful_shutdown(([127, 0, 0, 1], 0), trigger);
-        println!("Listening on: {}", addr);
-        RT.lock().expect("lock runtime").spawn(server);
-        Ok(SomethingScenario {
-            shutdown: Some(shutdown),
-            addr: addr,
-        })
+        let app = rustbucks::RustBucks::new();
+
+        let _srv = test::TestServer::with_factory(move || app.app());
+
+        let addr = _srv.addr();
+        println!("Listening on: {:?}", addr);
+
+        Ok(SomethingScenario { _srv, addr })
     }
 
     fn new_barista(&self) -> Result<SomethingBarista, Error> {
@@ -107,16 +108,6 @@ impl SomethingCashier {
     }
     fn issues_refund_to(&self, _: &CoffeeRequest, _: &SomethingCustomer) {
         unimplemented!("SomethingCashier::issues_refund_to")
-    }
-}
-
-impl Drop for SomethingScenario {
-    fn drop(&mut self) {
-        self.shutdown
-            .take()
-            .expect("shutdown trigger")
-            .send(())
-            .expect("send cashier shutdown")
     }
 }
 

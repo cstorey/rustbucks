@@ -7,11 +7,13 @@ use tokio_threadpool::{blocking, ThreadPool};
 
 use actix_web::server::{HttpHandler, HttpHandlerTask};
 use actix_web::{
-    App, AsyncResponder, FromRequest, FutureResponse, HttpRequest, HttpResponse, Path,
+    http, App, AsyncResponder, FromRequest, FutureResponse, HttpRequest, HttpResponse, Path,
 };
 
 use ids::Id;
 use {WithTemplate, TEXT_HTML};
+
+const PREFIX: &'static str = "/menu";
 
 #[derive(Serialize, Debug, Clone, Hash)]
 pub struct Coffee {
@@ -66,13 +68,25 @@ impl Menu {
 
     pub fn app(&self) -> Box<dyn HttpHandler<Task = Box<dyn HttpHandlerTask>>> {
         App::with_state(self.clone())
-            .prefix("/menu")
-            .resource("/", |r| r.get().f(move |req| req.state().index(req)))
+            .prefix(PREFIX)
+            .resource("/", |r| {
+                r.get().f(move |req| req.state().index(req));
+            })
             .resource("/{id}", |r| {
                 r.get()
-                    .f(move |req: &HttpRequest<Self>| req.state().detail(req))
+                    .f(move |req: &HttpRequest<Self>| req.state().detail(req));
             })
             .boxed()
+    }
+
+    pub fn index_redirect(req: &HttpRequest) -> Result<HttpResponse, Error> {
+        debug!("Redirecting from: {}", req.uri());
+        let url = format!("{}/", PREFIX);
+        info!("Target {} → {}", req.uri(), url);
+
+        Ok(HttpResponse::SeeOther()
+            .header(http::header::LOCATION, url)
+            .finish())
     }
 
     fn index(&self, _: &HttpRequest<Self>) -> FutureResponse<HttpResponse> {
