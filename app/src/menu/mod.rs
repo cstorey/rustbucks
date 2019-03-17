@@ -129,36 +129,42 @@ impl Menu {
             .responder()
     }
 
-    // I can either start a tokio thread pool, or I can use actix's SyncArbiter.
-    // ... Okay.
     fn load_menu(&self) -> impl Future<Item = Vec<(Id, Coffee)>, Error = failure::Error> {
         let me = self.clone();
-        let f = lazy(|| {
-            poll_fn(move || {
-                blocking(|| {
-                    me.drinks
-                        .iter()
-                        .map(|(id, d)| (id.clone(), d.clone()))
-                        .collect::<Vec<(Id, Coffee)>>()
-                })
-            })
-            .map_err(Error::from)
-        });
-        self.pool.spawn_handle(f)
+        self.in_pool(move || {
+            trace!("load_menu {:?}", {
+                let t = ::std::thread::current();
+                t.name()
+                    .map(|n| n.to_string())
+                    .unwrap_or_else(|| format!("{:?}", t.id()))
+            });
+            me.drinks
+                .iter()
+                .map(|(id, d)| (id.clone(), d.clone()))
+                .collect::<Vec<(Id, Coffee)>>()
+        })
     }
 
     fn load_drink(&self, id: Id) -> impl Future<Item = Option<Coffee>, Error = failure::Error> {
         let me = self.clone();
-        let f = lazy(move || {
-            poll_fn(move || {
-                blocking(|| {
-                    let res = me.drinks.get(&id).map(|d| d.clone());
-                    debug!("Load {} -> {:?}", id, res);
-                    res
-                })
-            })
-            .map_err(Error::from)
-        });
+        self.in_pool(move || {
+            trace!("load_drink {:?}", {
+                let t = ::std::thread::current();
+                t.name()
+                    .map(|n| n.to_string())
+                    .unwrap_or_else(|| format!("{:?}", t.id()))
+            });
+            let res = me.drinks.get(&id).map(|d| d.clone());
+            debug!("Load {} -> {:?}", id, res);
+            res
+        })
+    }
+
+    fn in_pool<R: Send + 'static, F: Fn() -> R + Send + 'static>(
+        &self,
+        f: F,
+    ) -> impl Future<Item = R, Error = failure::Error> {
+        let f = lazy(|| poll_fn(move || blocking(&f)).map_err(Error::from));
         self.pool.spawn_handle(f)
     }
 }
