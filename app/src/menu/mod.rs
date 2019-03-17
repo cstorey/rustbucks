@@ -111,20 +111,16 @@ impl Menu {
         result(Path::<Id>::extract(req))
             .and_then(move |id| {
                 let id = id.into_inner();
-                me.load_drink(id)
-                    .from_err()
-                    .and_then(move |drinkp| {
-                        drinkp.ok_or_else(|| actix_web::error::ErrorNotFound(id))
-                    })
-                    .map(move |drink| {
-                        let data = WithTemplate {
+                me.load_drink(id).from_err().map(move |drinkp| {
+                    drinkp.map(|drink| {
+                        WeftResponse::of(WithTemplate {
                             value: DrinkWidget {
                                 id: id,
                                 drink: drink,
                             },
-                        };
-                        WeftResponse::of(data)
+                        })
                     })
+                })
             })
             .responder()
     }
