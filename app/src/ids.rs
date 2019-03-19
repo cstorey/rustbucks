@@ -1,10 +1,10 @@
 use byteorder::{BigEndian, WriteBytesExt};
 use failure::Error;
+use rand::distributions::{Distribution, Standard};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::io;
-use rand::distributions::{Distribution,Standard};
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, Default)]
 pub struct Id {

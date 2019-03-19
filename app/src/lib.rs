@@ -14,9 +14,9 @@ extern crate weft_derive;
 extern crate actix_web;
 extern crate base64;
 extern crate byteorder;
+extern crate rand;
 extern crate siphasher;
 extern crate tokio_threadpool;
-extern crate rand;
 
 #[cfg(test)]
 extern crate serde_json;

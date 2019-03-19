@@ -1,7 +1,7 @@
 use failure::Error;
 
 use actix_web::server::{HttpHandler, HttpHandlerTask};
-use actix_web::{App, Form, FutureResponse, Responder, State};
+use actix_web::{App, Form, State};
 use ids::Id;
 
 const PREFIX: &'static str = "/orders";
@@ -23,19 +23,12 @@ impl Orders {
         App::with_state(self.clone())
             .prefix(PREFIX)
             .resource("", |r| {
-                r.post().with(Orders::handle_submit);
+                r.post().with(Orders::submit);
             })
             .boxed()
     }
 
-    fn handle_submit(
-        (form, state): (Form<OrderForm>, State<Self>),
-    ) -> FutureResponse<impl Responder> {
-        let fut = futures::future::ok(state.submit(form.into_inner()));
-        Box::new(fut)
-    }
-
-    fn submit(&self, form: OrderForm) -> Result<String, Error> {
+    fn submit((form, _): (Form<OrderForm>, State<Self>)) -> Result<String, Error> {
         debug!("Submit form: {:?}", form);
 
         Ok(format!("{:#?}", form))
