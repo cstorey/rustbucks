@@ -1,5 +1,4 @@
 use failure::Error;
-use futures::Future;
 
 use actix_web::server::{HttpHandler, HttpHandlerTask};
 use actix_web::{App, Form, FutureResponse, Responder, State};
@@ -32,7 +31,8 @@ impl Orders {
     fn handle_submit(
         (form, state): (Form<OrderForm>, State<Self>),
     ) -> FutureResponse<impl Responder> {
-        futures::future::ok(state.submit(form.into_inner())).boxed()
+        let fut = futures::future::ok(state.submit(form.into_inner()));
+        Box::new(fut)
     }
 
     fn submit(&self, form: OrderForm) -> Result<String, Error> {
