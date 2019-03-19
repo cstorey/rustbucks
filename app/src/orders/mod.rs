@@ -1,12 +1,8 @@
 use failure::Error;
-use futures::future::{lazy, poll_fn, result};
 use futures::Future;
 
 use actix_web::server::{HttpHandler, HttpHandlerTask};
-use actix_web::{
-    http, App, AsyncResponder, Form, FromRequest, FutureResponse, HttpRequest, HttpResponse,
-    Responder, State,
-};
+use actix_web::{App, Form, FutureResponse, Responder, State};
 use ids::Id;
 
 const PREFIX: &'static str = "/orders";
@@ -39,7 +35,7 @@ impl Orders {
         futures::future::ok(state.submit(form.into_inner())).boxed()
     }
 
-    fn submit(&self, form: OrderForm) -> Result<String, actix_web::Error> {
+    fn submit(&self, form: OrderForm) -> Result<String, Error> {
         debug!("Submit form: {:?}", form);
 
         Ok(format!("{:#?}", form))
