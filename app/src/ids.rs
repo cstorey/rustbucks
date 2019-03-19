@@ -12,7 +12,7 @@ pub struct Id {
 }
 
 impl Id {
-    pub fn of<H: Hash>(entity: &H) -> Self {
+    pub fn hashed<H: Hash>(entity: &H) -> Self {
         let mut val = [0u8; 16];
         {
             let mut cursor = io::Cursor::new(&mut val as &mut [u8]);
@@ -89,7 +89,7 @@ mod test {
 
     #[test]
     fn round_trips_via_to_from_str() {
-        let id = Id::of(&"Hi!");
+        let id = Id::hashed(&"Hi!");
         let s = id.to_string();
         let id2 = s.parse::<Id>().expect("parse id");
         assert_eq!(id, id2);
@@ -97,7 +97,7 @@ mod test {
 
     #[test]
     fn round_trips_via_serde_json() {
-        let id = Id::of(&"Hi!");
+        let id = Id::hashed(&"Hi!");
 
         let json = serde_json::to_string(&id).expect("serde_json::to_string");
         let id2 = serde_json::from_str(&json).expect("serde_json::from_str");
@@ -106,7 +106,7 @@ mod test {
 
     #[test]
     fn serializes_to_string_like() {
-        let id = Id::of(&"Hi!");
+        let id = Id::hashed(&"Hi!");
 
         let json = serde_json::to_string(&id).expect("serde_json::to_string");
         let s: String = serde_json::from_str(&json).expect("serde_json::from_str");

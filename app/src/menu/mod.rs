@@ -62,7 +62,7 @@ impl Menu {
     }
 
     fn insert(map: &mut HashMap<Id, Coffee>, drink: Coffee) {
-        let id = Id::of(&drink);
+        let id = Id::hashed(&drink);
         let prev_size = map.len();
         map.insert(id, drink);
         assert!(map.len() > prev_size);
