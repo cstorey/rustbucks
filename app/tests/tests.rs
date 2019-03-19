@@ -98,17 +98,16 @@ impl SomethingCustomer {
 
         let order_button = self.browser.find_element(&By::css("button.order"))?;
         self.browser.click(&order_button)?;
-        // TODO: Actually extract _some_ kind of reference?
 
         let elt = self
             .browser
-            .find_element(&By::css("*[data-request-id]"))
+            .find_element(&By::css("*[data-order-id]"))
             .expect("find request id");
         let id = self
             .browser
-            .attribute(&elt, "data-request-id")
-            .expect("find data-request-id")
-            .expect("some data-request-id");
+            .attribute(&elt, "data-order-id")
+            .expect("find data-order-id")
+            .expect("some data-order-id");
         Ok(CoffeeRequest(id))
     }
 
@@ -168,9 +167,11 @@ fn should_serve_coffee_partial() {
 
     let scenario = SomethingScenario::new().expect("new scenario");
 
-    let _cashier = scenario.new_cashier().expect("new cashier");
-    let _barista = scenario.new_barista().expect("new barista");
-    let _customer = scenario.new_customer().expect("new customer");
+    let cashier = scenario.new_cashier().expect("new cashier");
+    let _barista = scenario.new_barista().expect("new barista");;
+    let customer = scenario.new_customer().expect("new customer");
+
+    let _req = customer.requests_coffee(&cashier).expect("requests coffee");
 }
 
 #[test]

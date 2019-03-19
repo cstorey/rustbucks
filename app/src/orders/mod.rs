@@ -3,7 +3,8 @@ use rand::prelude::*;
 use failure::Error;
 
 use actix_web::server::{HttpHandler, HttpHandlerTask};
-use actix_web::{App, Form, FutureResponse, HttpRequest, HttpResponse, Responder, State};
+use actix_web::{App, Form, HttpRequest, HttpResponse, Path, Responder, State};
+use failure::ResultExt;
 use ids::Id;
 use templates::WeftResponse;
 use WithTemplate;
@@ -19,8 +20,14 @@ pub struct OrderForm {
 }
 
 #[derive(Debug, WeftRenderable)]
+#[template(path = "src/orders/order-list.html")]
+struct OrderList {}
+
+#[derive(Debug, WeftRenderable)]
 #[template(path = "src/orders/order.html")]
-struct OrderWidget {}
+struct OrderWidget {
+    id: Id,
+}
 
 impl Orders {
     pub fn new() -> Self {
@@ -35,6 +42,10 @@ impl Orders {
                 r.post().with(Orders::submit);
                 r.get().with(Orders::list);
             })
+            .resource("{id}", |r| {
+                r.name("show");
+                r.get().with(Orders::show)
+            })
             .boxed()
     }
 
@@ -43,14 +54,25 @@ impl Orders {
         let order_id = thread_rng().gen::<Id>();
         debug!("Some order id: {}", order_id);
 
+        let uri = req
+            .url_for("show", &[order_id.to_string()])
+            .context("url for show")?;
         Ok(HttpResponse::SeeOther()
-            .header("location", req.uri().to_string())
+            .header("location", uri.to_string())
             .finish())
     }
 
     fn list(_state: State<Self>) -> Result<impl Responder, Error> {
         let data = WithTemplate {
-            value: OrderWidget {},
+            value: OrderList {},
+        };
+        Ok(WeftResponse::of(data))
+    }
+
+    fn show((_state, id): (State<Self>, Path<Id>)) -> Result<impl Responder, Error> {
+        let id = id.into_inner();
+        let data = WithTemplate {
+            value: OrderWidget { id: id },
         };
         Ok(WeftResponse::of(data))
     }
