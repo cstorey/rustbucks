@@ -4,6 +4,7 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::io;
+use rand::distributions::{Distribution,Standard};
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, Default)]
 pub struct Id {
@@ -23,6 +24,13 @@ impl Id {
                     .expect("write_u64 to fixed size buffer should never fail");
             }
         }
+        Id { val }
+    }
+}
+
+impl Distribution<Id> for Standard {
+    fn sample<R: ?Sized + rand::Rng>(&self, rng: &mut R) -> Id {
+        let val = rng.gen();
         Id { val }
     }
 }
@@ -76,6 +84,7 @@ impl<'de> Deserialize<'de> for Id {
 #[cfg(test)]
 mod test {
     use super::*;
+    use rand::prelude::*;
     use serde_json;
 
     #[test]
@@ -102,5 +111,15 @@ mod test {
         let json = serde_json::to_string(&id).expect("serde_json::to_string");
         let s: String = serde_json::from_str(&json).expect("serde_json::from_str");
         assert_eq!(id.to_string(), s);
+    }
+
+    #[test]
+    fn should_allow_random_generation() {
+        let mut rng = rand::thread_rng();
+
+        let id = rng.gen::<Id>();
+        let id2 = rng.gen::<Id>();
+
+        assert_ne!(id, id2);
     }
 }

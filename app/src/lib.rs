@@ -16,6 +16,7 @@ extern crate base64;
 extern crate byteorder;
 extern crate siphasher;
 extern crate tokio_threadpool;
+extern crate rand;
 
 #[cfg(test)]
 extern crate serde_json;
