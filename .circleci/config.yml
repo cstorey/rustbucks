@@ -52,5 +52,6 @@ jobs:
               sleep 1
             done
             echo Failed waiting for Postgres && exit 1
-      - run: cargo test -p rustbucks
+      - run: cargo build --tests
       - *SAVE_DEPS
+      - run: cargo test -p rustbucks
