@@ -14,16 +14,18 @@ extern crate weft_derive;
 extern crate actix_web;
 extern crate base64;
 extern crate byteorder;
+extern crate postgres;
+extern crate r2d2;
+extern crate r2d2_postgres;
 extern crate rand;
+extern crate serde_json;
 extern crate siphasher;
 extern crate tokio_threadpool;
-
-#[cfg(test)]
-extern crate serde_json;
 
 mod ids;
 mod menu;
 mod orders;
+mod persistence;
 mod templates;
 
 use actix_web::server::{HttpHandler, HttpHandlerTask};
