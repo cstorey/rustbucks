@@ -54,4 +54,4 @@ jobs:
             echo Failed waiting for Postgres && exit 1
       - run: cargo build --tests
       - *SAVE_DEPS
-      - run: cargo test -p rustbucks
+      - run: env RUST_BACKTRACE=1 cargo test -p rustbucks
