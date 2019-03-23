@@ -6,6 +6,7 @@ use actix_web::server::{HttpHandler, HttpHandlerTask};
 use actix_web::{App, Form, HttpRequest, HttpResponse, Path, Responder, State};
 use failure::ResultExt;
 use ids::Id;
+use menu::Coffee;
 use templates::WeftResponse;
 use WithTemplate;
 
@@ -14,10 +15,12 @@ const PREFIX: &'static str = "/orders";
 #[derive(Debug, Clone)]
 pub struct Orders;
 
-#[derive(Debug, Copy, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct OrderForm {
-    coffee_id: Id,
+    coffee_id: Id<Coffee>,
 }
+
+struct Order;
 
 #[derive(Debug, WeftRenderable)]
 #[template(path = "src/orders/order-list.html")]
@@ -26,7 +29,7 @@ struct OrderList {}
 #[derive(Debug, WeftRenderable)]
 #[template(path = "src/orders/order.html")]
 struct OrderWidget {
-    id: Id,
+    id: Id<Order>,
 }
 
 impl Orders {
@@ -51,7 +54,7 @@ impl Orders {
 
     fn submit((form, req): (Form<OrderForm>, HttpRequest<Self>)) -> Result<impl Responder, Error> {
         debug!("Submit form: {:?}", form);
-        let order_id = thread_rng().gen::<Id>();
+        let order_id = thread_rng().gen::<Id<Order>>();
         debug!("Some order id: {}", order_id);
 
         let uri = req
@@ -69,7 +72,7 @@ impl Orders {
         Ok(WeftResponse::of(data))
     }
 
-    fn show((_state, id): (State<Self>, Path<Id>)) -> Result<impl Responder, Error> {
+    fn show((_state, id): (State<Self>, Path<Id<Order>>)) -> Result<impl Responder, Error> {
         let id = id.into_inner();
         let data = WithTemplate {
             value: OrderWidget { id: id },

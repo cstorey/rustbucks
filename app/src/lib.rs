@@ -14,6 +14,7 @@ extern crate weft_derive;
 extern crate actix_web;
 extern crate base64;
 extern crate byteorder;
+extern crate hex_slice;
 extern crate postgres;
 extern crate r2d2;
 extern crate r2d2_postgres;
@@ -61,9 +62,7 @@ impl RustBucks {
         let url = env::var("POSTGRES_URL").context("$POSTGRES_URL")?;
         let manager =
             PostgresConnectionManager::new(&*url, TlsMode::None).context("connection manager")?;
-        let pool = r2d2::Pool::builder()
-            .build(manager)
-            .context("build pool")?;
+        let pool = r2d2::Pool::builder().build(manager).context("build pool")?;
 
         debug!("Init schema");
         let conn = pool.get()?;

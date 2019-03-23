@@ -10,9 +10,8 @@ pub struct Documents<'a> {
 }
 
 const SETUP_SQL: &'static str = include_str!("persistence.sql");
-const SAVE_SQL: &'static str =
-"INSERT INTO documents (id, body) VALUES ($1, $2) \
- ON CONFLICT (id) DO UPDATE set body = EXCLUDED.body";
+const SAVE_SQL: &'static str = "INSERT INTO documents (id, body) VALUES ($1, $2) \
+                                ON CONFLICT (id) DO UPDATE set body = EXCLUDED.body";
 const LOAD_SQL: &'static str = "SELECT body FROM documents WHERE id = $1";
 
 impl<'a> Documents<'a> {
@@ -25,14 +24,14 @@ impl<'a> Documents<'a> {
         Documents { connection }
     }
 
-    pub fn save<D: Serialize>(&self, id: &Id, document: &D) -> Result<(), Error> {
+    pub fn save<D: Serialize>(&self, id: &Id<D>, document: &D) -> Result<(), Error> {
         let json = serde_json::to_value(document)?;
         let save = self.connection.prepare_cached(SAVE_SQL)?;
         save.execute(&[&id.to_string(), &json])?;
         Ok(())
     }
 
-    pub fn load<D: DeserializeOwned>(&self, id: &Id) -> Result<Option<D>, Error> {
+    pub fn load<D: DeserializeOwned>(&self, id: &Id<D>) -> Result<Option<D>, Error> {
         let load = self.connection.prepare_cached(LOAD_SQL)?;
         let res = load.query(&[&id.to_string()])?;
 
@@ -142,7 +141,9 @@ mod test {
         let conn = pool.get().expect("temp connection");
         let docs = Documents::wrap(&*conn);
 
-        let loaded = docs.load::<ADocument>(&random::<Id>()).expect("load");
+        let loaded = docs
+            .load::<ADocument>(&random::<Id<ADocument>>())
+            .expect("load");
         info!("Loaded document: {:?}", loaded);
 
         assert_eq!(None, loaded);
@@ -153,7 +154,7 @@ mod test {
         pretty_env_logger::try_init().unwrap_or_default();
         let pool = pool("save_load");
 
-        let some_id = random::<Id>();
+        let some_id = random::<Id<ADocument>>();
         let some_doc = ADocument { gubbins: random() };
 
         let conn = pool.get().expect("temp connection");
@@ -184,7 +185,7 @@ mod test {
         pretty_env_logger::try_init().unwrap_or_default();
         let pool = pool("should_update_on_overwrite");
 
-        let some_id = random::<Id>();
+        let some_id = random::<Id<ADocument>>();
         let some_doc = ADocument { gubbins: random() };
 
         let conn = pool.get().expect("temp connection");
@@ -208,7 +209,7 @@ mod test {
         pretty_env_logger::try_init().unwrap_or_default();
         let pool = pool("supports_transaction");
 
-        let some_id = random::<Id>();
+        let some_id = random::<Id<ADocument>>();
 
         let conn = pool.get().expect("temp connection");
         let t = conn.transaction().expect("begin");
@@ -223,7 +224,7 @@ mod test {
         pretty_env_logger::try_init().unwrap_or_default();
         let pool = pool("supports_connection");
 
-        let some_id = random::<Id>();
+        let some_id = random::<Id<ADocument>>();
 
         let conn = pool.get().expect("temp connection");
         let docs = Documents::wrap(&*conn);
