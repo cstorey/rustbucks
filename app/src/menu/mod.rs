@@ -1,10 +1,9 @@
 use failure::{Error, ResultExt};
 use futures::future::{lazy, poll_fn, result};
 use futures::Future;
-use std::sync::Arc;
 use std::collections::BTreeSet;
+use std::sync::Arc;
 
-use tokio_threadpool::{blocking, ThreadPool};
 use actix_web::server::{HttpHandler, HttpHandlerTask};
 use actix_web::{
     http, App, AsyncResponder, FromRequest, FutureResponse, HttpRequest, HttpResponse, Path,
@@ -13,8 +12,9 @@ use actix_web::{
 use postgres;
 use r2d2::Pool;
 use r2d2_postgres::PostgresConnectionManager;
+use tokio_threadpool::{blocking, ThreadPool};
 
-use ids::Id;
+use ids::{Entity, Id};
 use persistence::Documents;
 use templates::WeftResponse;
 use WithTemplate;
@@ -28,7 +28,7 @@ pub struct Coffee {
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub struct CoffeeList {
-    drinks: BTreeSet<Id>,
+    drinks: BTreeSet<Id<Coffee>>,
 }
 
 #[derive(Debug, Clone)]
@@ -40,12 +40,12 @@ pub struct Menu {
 #[derive(Debug, WeftRenderable)]
 #[template(path = "src/menu/menu.html")]
 struct MenuWidget {
-    drink: Vec<(Id, Coffee)>,
+    drink: Vec<(Id<Coffee>, Coffee)>,
 }
 #[derive(Debug, WeftRenderable)]
 #[template(path = "src/menu/drink.html")]
 struct DrinkWidget {
-    id: Id,
+    id: Id<Coffee>,
     drink: Coffee,
 }
 
@@ -57,13 +57,15 @@ impl Menu {
             Coffee {
                 name: "Umbrella".into(),
             },
-        ).context("insert umbrella")?;
+        )
+        .context("insert umbrella")?;
         Self::insert(
             &conn,
             Coffee {
                 name: "Fnordy".into(),
             },
-        ).context("insert fnordy")?;
+        )
+        .context("insert fnordy")?;
         Ok(Menu {
             db: pool,
             pool: Arc::new(ThreadPool::new()),
@@ -130,7 +132,7 @@ impl Menu {
 
     fn detail(&self, req: &HttpRequest<Self>) -> FutureResponse<impl Responder> {
         let me = self.clone();
-        result(Path::<Id>::extract(req))
+        result(Path::<Id<Coffee>>::extract(req))
             .and_then(move |id| {
                 let id = id.into_inner();
                 me.load_drink(id).from_err().map(move |drinkp| {
@@ -147,9 +149,9 @@ impl Menu {
             .responder()
     }
 
-    fn load_menu(&self) -> impl Future<Item = Vec<(Id, Coffee)>, Error = failure::Error> {
+    fn load_menu(&self) -> impl Future<Item = Vec<(Id<Coffee>, Coffee)>, Error = failure::Error> {
         let me = self.clone();
-        self.in_pool(move || -> Result<Vec<(Id, Coffee)>, Error> {
+        self.in_pool(move || -> Result<Vec<(Id<Coffee>, Coffee)>, Error> {
             trace!("load_menu {:?}", {
                 let t = ::std::thread::current();
                 t.name()
@@ -159,28 +161,32 @@ impl Menu {
             let conn = me.db.get()?;
             let t = conn.transaction()?;
             let result = {
-            let docs = Documents::wrap(&t);
-            let list = docs
-                .load::<CoffeeList>(&CoffeeList::id())?
-                .unwrap_or_default();
-            list.drinks
-                .into_iter()
-                .map(|id| {
-                    docs.load::<Coffee>(&id)
-                        .and_then(|coffeep| {
-                            coffeep
-                                .ok_or_else(|| failure::err_msg(format!("missing coffee? {}", &id)))
-                        })
-                        .map(|coffee| (id, coffee))
-                })
-                .collect::<Result<Vec<(Id, Coffee)>, Error>>()?
+                let docs = Documents::wrap(&t);
+                let list = docs
+                    .load::<CoffeeList>(&CoffeeList::id())?
+                    .unwrap_or_default();
+                list.drinks
+                    .into_iter()
+                    .map(|id| {
+                        docs.load::<Coffee>(&id)
+                            .and_then(|coffeep| {
+                                coffeep.ok_or_else(|| {
+                                    failure::err_msg(format!("missing coffee? {}", &id))
+                                })
+                            })
+                            .map(|coffee| (id, coffee))
+                    })
+                    .collect::<Result<Vec<(Id<Coffee>, Coffee)>, Error>>()?
             };
             t.commit()?;
             Ok(result)
         })
     }
 
-    fn load_drink(&self, id: Id) -> impl Future<Item = Option<Coffee>, Error = failure::Error> {
+    fn load_drink(
+        &self,
+        id: Id<Coffee>,
+    ) -> impl Future<Item = Option<Coffee>, Error = failure::Error> {
         let me = self.clone();
         self.in_pool(move || {
             trace!("load_drink {:?}", {
@@ -206,13 +212,20 @@ impl Menu {
 }
 
 impl CoffeeList {
-    fn id() -> Id {
+    fn id() -> Id<CoffeeList> {
         Id::hashed(&"CoffeeList")
     }
 }
 
 impl MenuWidget {
-    fn drinks<'a>(&'a self) -> impl 'a + Iterator<Item = &'a (Id, Coffee)> {
+    fn drinks<'a>(&'a self) -> impl 'a + Iterator<Item = &'a (Id<Coffee>, Coffee)> {
         self.drink.iter()
     }
+}
+
+impl Entity for Coffee {
+    const PREFIX: &'static str = "coffee";
+}
+impl Entity for CoffeeList {
+    const PREFIX: &'static str = "coffee_list";
 }
