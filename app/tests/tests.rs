@@ -59,7 +59,7 @@ struct SomethingCustomer {
 
 impl SomethingScenario {
     fn new() -> Result<Self, Error> {
-        let app = rustbucks::RustBucks::new();
+        let app = rustbucks::RustBucks::new().expect("new rustbucks");
 
         let _srv = test::TestServer::with_factory(move || app.app());
 
