@@ -22,14 +22,19 @@ extern crate serde_json;
 extern crate siphasher;
 extern crate tokio_threadpool;
 
+use std::env;
+
+use actix_web::server::{HttpHandler, HttpHandlerTask};
+use actix_web::App;
+use failure::{Error, ResultExt};
+use r2d2::Pool;
+use r2d2_postgres::{PostgresConnectionManager, TlsMode};
+
 mod ids;
 mod menu;
 mod orders;
 mod persistence;
 mod templates;
-
-use actix_web::server::{HttpHandler, HttpHandlerTask};
-use actix_web::App;
 
 #[derive(Debug, WeftRenderable)]
 #[template(path = "src/base.html")]
@@ -44,10 +49,30 @@ pub struct RustBucks {
 }
 
 impl RustBucks {
-    pub fn new() -> Self {
-        let menu = menu::Menu::new();
+    pub fn new() -> Result<Self, Error> {
+        let pool = Self::pool()?;
+        let menu = menu::Menu::new(pool)?;
         let orders = orders::Orders::new();
-        RustBucks { menu, orders }
+        Ok(RustBucks { menu, orders })
+    }
+
+    fn pool() -> Result<Pool<PostgresConnectionManager>, Error> {
+        debug!("Build pool");
+        let url = env::var("POSTGRES_URL").context("$POSTGRES_URL")?;
+        let manager =
+            PostgresConnectionManager::new(&*url, TlsMode::None).context("connection manager")?;
+        let pool = r2d2::Pool::builder()
+            .max_size(2)
+            .build(manager)
+            .context("build pool")?;
+
+        debug!("Init schema");
+        let conn = pool.get()?;
+        persistence::Documents::wrap(&*conn)
+            .setup()
+            .context("Setup persistence")?;
+
+        Ok(pool)
     }
 
     pub fn app(&self) -> Vec<Box<dyn HttpHandler<Task = Box<dyn HttpHandlerTask>>>> {

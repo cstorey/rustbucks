@@ -1,4 +1,3 @@
-#![cfg(test)]
 use failure::Error;
 use postgres::GenericConnection;
 use serde::{de::DeserializeOwned, Serialize};

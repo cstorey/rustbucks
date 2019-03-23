@@ -1,30 +1,39 @@
-use failure::Error;
+use failure::{Error, ResultExt};
 use futures::future::{lazy, poll_fn, result};
 use futures::Future;
-use std::collections::HashMap;
 use std::sync::Arc;
-use tokio_threadpool::{blocking, ThreadPool};
+use std::collections::BTreeSet;
 
+use tokio_threadpool::{blocking, ThreadPool};
 use actix_web::server::{HttpHandler, HttpHandlerTask};
 use actix_web::{
     http, App, AsyncResponder, FromRequest, FutureResponse, HttpRequest, HttpResponse, Path,
     Responder,
 };
+use postgres;
+use r2d2::Pool;
+use r2d2_postgres::PostgresConnectionManager;
 
 use ids::Id;
+use persistence::Documents;
 use templates::WeftResponse;
 use WithTemplate;
 
 const PREFIX: &'static str = "/menu";
 
-#[derive(Serialize, Debug, Clone, Hash)]
+#[derive(Deserialize, Serialize, Debug, Clone, Hash)]
 pub struct Coffee {
     name: String,
 }
 
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+pub struct CoffeeList {
+    drinks: BTreeSet<Id>,
+}
+
 #[derive(Debug, Clone)]
 pub struct Menu {
-    drinks: Arc<HashMap<Id, Coffee>>,
+    db: Pool<PostgresConnectionManager>,
     pool: Arc<ThreadPool>,
 }
 
@@ -41,31 +50,44 @@ struct DrinkWidget {
 }
 
 impl Menu {
-    pub fn new() -> Self {
-        let mut map = HashMap::new();
+    pub fn new(pool: Pool<PostgresConnectionManager>) -> Result<Self, Error> {
+        let conn = pool.get()?;
         Self::insert(
-            &mut map,
+            &conn,
             Coffee {
                 name: "Umbrella".into(),
             },
-        );
+        ).context("insert umbrella")?;
         Self::insert(
-            &mut map,
+            &conn,
             Coffee {
                 name: "Fnordy".into(),
             },
-        );
-        Menu {
-            drinks: Arc::new(map),
+        ).context("insert fnordy")?;
+        Ok(Menu {
+            db: pool,
             pool: Arc::new(ThreadPool::new()),
-        }
+        })
     }
 
-    fn insert(map: &mut HashMap<Id, Coffee>, drink: Coffee) {
+    fn insert(conn: &postgres::Connection, drink: Coffee) -> Result<(), Error> {
         let id = Id::hashed(&drink);
-        let prev_size = map.len();
-        map.insert(id, drink);
-        assert!(map.len() > prev_size);
+        let t = conn.transaction()?;
+        {
+            let docs = Documents::wrap(&t);
+            docs.save(&id, &drink).context("Save drink")?;
+            let mut list: CoffeeList = docs
+                .load(&CoffeeList::id())
+                .context("load list")?
+                .unwrap_or_default();
+            list.drinks.insert(id);
+            docs.save(&CoffeeList::id(), &list).context("save list")?;
+            debug!("Updated list: {:?}", list);
+        }
+        t.commit().context("commit")?;
+
+        debug!("Saved drink at {}: {:?}", id, drink);
+        Ok(())
     }
 
     pub fn app(&self) -> Box<dyn HttpHandler<Task = Box<dyn HttpHandlerTask>>> {
@@ -127,17 +149,34 @@ impl Menu {
 
     fn load_menu(&self) -> impl Future<Item = Vec<(Id, Coffee)>, Error = failure::Error> {
         let me = self.clone();
-        self.in_pool(move || {
+        self.in_pool(move || -> Result<Vec<(Id, Coffee)>, Error> {
             trace!("load_menu {:?}", {
                 let t = ::std::thread::current();
                 t.name()
                     .map(|n| n.to_string())
                     .unwrap_or_else(|| format!("{:?}", t.id()))
             });
-            me.drinks
-                .iter()
-                .map(|(id, d)| (id.clone(), d.clone()))
-                .collect::<Vec<(Id, Coffee)>>()
+            let conn = me.db.get()?;
+            let t = conn.transaction()?;
+            let result = {
+            let docs = Documents::wrap(&t);
+            let list = docs
+                .load::<CoffeeList>(&CoffeeList::id())?
+                .unwrap_or_default();
+            list.drinks
+                .into_iter()
+                .map(|id| {
+                    docs.load::<Coffee>(&id)
+                        .and_then(|coffeep| {
+                            coffeep
+                                .ok_or_else(|| failure::err_msg(format!("missing coffee? {}", &id)))
+                        })
+                        .map(|coffee| (id, coffee))
+                })
+                .collect::<Result<Vec<(Id, Coffee)>, Error>>()?
+            };
+            t.commit()?;
+            Ok(result)
         })
     }
 
@@ -150,18 +189,25 @@ impl Menu {
                     .map(|n| n.to_string())
                     .unwrap_or_else(|| format!("{:?}", t.id()))
             });
-            let res = me.drinks.get(&id).map(|d| d.clone());
+            let conn = me.db.get()?;
+            let res = Documents::wrap(&*conn).load(&id)?;
             debug!("Load {} -> {:?}", id, res);
-            res
+            Ok(res)
         })
     }
 
-    fn in_pool<R: Send + 'static, F: Fn() -> R + Send + 'static>(
+    fn in_pool<R: Send + 'static, F: Fn() -> Result<R, Error> + Send + 'static>(
         &self,
         f: F,
     ) -> impl Future<Item = R, Error = failure::Error> {
         let f = lazy(|| poll_fn(move || blocking(&f)).map_err(Error::from));
-        self.pool.spawn_handle(f)
+        self.pool.spawn_handle(f).and_then(futures::future::result)
+    }
+}
+
+impl CoffeeList {
+    fn id() -> Id {
+        Id::hashed(&"CoffeeList")
     }
 }
 
