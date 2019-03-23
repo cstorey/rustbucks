@@ -11,7 +11,9 @@ pub struct Documents<'a> {
 }
 
 const SETUP_SQL: &'static str = include_str!("persistence.sql");
-const SAVE_SQL: &'static str = "INSERT INTO documents (id, body) VALUES ($1, $2)";
+const SAVE_SQL: &'static str =
+"INSERT INTO documents (id, body) VALUES ($1, $2) \
+ ON CONFLICT (id) DO UPDATE set body = EXCLUDED.body";
 const LOAD_SQL: &'static str = "SELECT body FROM documents WHERE id = $1";
 
 impl<'a> Documents<'a> {
@@ -176,6 +178,30 @@ mod test {
         info!("Loaded document: {:?}", loaded);
 
         assert_eq!(Some(some_doc), loaded);
+    }
+
+    #[test]
+    fn should_update_on_overwrite() {
+        pretty_env_logger::try_init().unwrap_or_default();
+        let pool = pool("save_load");
+
+        let some_id = random::<Id>();
+        let some_doc = ADocument { gubbins: random() };
+
+        let conn = pool.get().expect("temp connection");
+        let docs = Documents::wrap(&*conn);
+
+        info!("Original document: {:?}", some_doc);
+        docs.save(&some_id, &some_doc).expect("save original");
+
+        let modified_doc = ADocument { gubbins: random() };
+        info!("Modified document: {:?}", modified_doc);
+        docs.save(&some_id, &modified_doc).expect("save modified");
+
+        let loaded = docs.load(&some_id).expect("load");
+        info!("Loaded document: {:?}", loaded);
+
+        assert_eq!(Some(modified_doc), loaded);
     }
 
     #[test]
