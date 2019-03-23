@@ -6,7 +6,7 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::io;
 
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, Default)]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct Id {
     val: [u8; 16],
 }
@@ -121,5 +121,18 @@ mod test {
         let id2 = rng.gen::<Id>();
 
         assert_ne!(id, id2);
+    }
+
+    #[test]
+    fn should_allow_ordering() {
+        let mut rng = rand::thread_rng();
+
+        let id = rng.gen::<Id>();
+        let mut id2 = rng.gen::<Id>();
+        while id2 == id {
+            id2 = rng.gen::<Id>();
+        }
+
+        assert!(id < id2  || id > id2);
     }
 }
