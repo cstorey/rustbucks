@@ -103,8 +103,22 @@ mod test {
         let t = conn.transaction().expect("begin");
 
         debug!("Clean old tables in {}", schema);
-        conn.execute(&format!("DROP TABLE IF EXISTS documents"), &[])
-            .expect("drop table");
+        for row in t
+            .query(
+                "SELECT n.nspname, c.relname \
+                 FROM pg_catalog.pg_class c \
+                 LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace \
+                 WHERE n.nspname = $1 and c.relkind = 'r'",
+                &[&schema],
+            )
+            .expect("query tables")
+            .iter()
+        {
+            let schema = row.get::<_, String>(0);
+            let table = row.get::<_, String>(1);
+            t.execute(&format!("DROP TABLE {}.{}", schema, table), &[])
+                .expect("drop table");
+        }
 
         t.commit().expect("commit");
 
