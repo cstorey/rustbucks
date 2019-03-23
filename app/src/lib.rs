@@ -62,7 +62,6 @@ impl RustBucks {
         let manager =
             PostgresConnectionManager::new(&*url, TlsMode::None).context("connection manager")?;
         let pool = r2d2::Pool::builder()
-            .max_size(2)
             .build(manager)
             .context("build pool")?;
 
