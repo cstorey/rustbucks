@@ -1,13 +1,13 @@
 #![cfg(test)]
 use failure::Error;
-use postgres::transaction::Transaction;
+use postgres::GenericConnection;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json;
 
 use ids::Id;
 
 pub struct Documents<'a> {
-    transaction: Transaction<'a>,
+    connection: &'a GenericConnection,
 }
 
 const SETUP_SQL: &'static str = include_str!("persistence.sql");
@@ -16,26 +16,23 @@ const LOAD_SQL: &'static str = "SELECT body FROM documents WHERE id = $1";
 
 impl<'a> Documents<'a> {
     pub fn setup(&self) -> Result<(), Error> {
-        self.transaction.execute(SETUP_SQL, &[])?;
+        self.connection.execute(SETUP_SQL, &[])?;
         Ok(())
     }
 
-    pub fn wrap(transaction: Transaction<'a>) -> Self {
-        Documents { transaction }
+    pub fn wrap(connection: &'a GenericConnection) -> Self {
+        Documents { connection }
     }
 
-    pub fn into_inner(self) -> Transaction<'a> {
-        self.transaction
-    }
     pub fn save<D: Serialize>(&self, id: &Id, document: &D) -> Result<(), Error> {
         let json = serde_json::to_value(document)?;
-        let save = self.transaction.prepare_cached(SAVE_SQL)?;
+        let save = self.connection.prepare_cached(SAVE_SQL)?;
         save.execute(&[&id.to_string(), &json])?;
         Ok(())
     }
 
     pub fn load<D: DeserializeOwned>(&self, id: &Id) -> Result<D, Error> {
-        let load = self.transaction.prepare_cached(LOAD_SQL)?;
+        let load = self.connection.prepare_cached(LOAD_SQL)?;
         let res = load.query(&[&id.to_string()])?;
 
         let row = res.get(0);
@@ -122,9 +119,7 @@ mod test {
         }
 
         debug!("Init schema in {}", schema);
-        let docs = Documents::wrap(t);
-        docs.setup().expect("setup");
-        let t = docs.into_inner();
+        Documents::wrap(&t).setup().expect("setup");
         t.commit().expect("commit");
 
         pool
@@ -137,15 +132,14 @@ mod test {
 
     #[test]
     fn save_load() {
-        pretty_env_logger::init();
+        pretty_env_logger::try_init().unwrap_or_default();
         let pool = pool("save_load");
 
         let some_id = random::<Id>();
         let some_doc = ADocument { gubbins: random() };
 
         let conn = pool.get().expect("temp connection");
-        let t = conn.transaction().expect("begin");
-        let docs = Documents::wrap(t);
+        let docs = Documents::wrap(&*conn);
 
         info!("Original document: {:?}", some_doc);
 
@@ -169,30 +163,30 @@ mod test {
 
     #[test]
     fn supports_transaction() {
-        pretty_env_logger::init();
+        pretty_env_logger::try_init().unwrap_or_default();
         let pool = pool("save_load");
 
         let some_id = random::<Id>();
-        let some_doc = ADocument { gubbins: random() };
 
         let conn = pool.get().expect("temp connection");
         let t = conn.transaction().expect("begin");
-        let docs = Documents::wrap(t);
-        docs.save(&random(), &ADocument { gubbins: random() });
-        let _ = docs.load(&some_id).expect("load");
+        let docs = Documents::wrap(&t);
+        docs.save(&some_id, &ADocument { gubbins: random() })
+            .expect("save");
+        let _: ADocument = docs.load(&some_id).expect("load");
     }
 
     #[test]
     fn supports_connection() {
-        pretty_env_logger::init();
+        pretty_env_logger::try_init().unwrap_or_default();
         let pool = pool("save_load");
 
         let some_id = random::<Id>();
-        let some_doc = ADocument { gubbins: random() };
 
         let conn = pool.get().expect("temp connection");
-        let docs = Documents::wrap(conn);
-        docs.save(&random(), &ADocument { gubbins: random() });
-        let _ = docs.load(&some_id).expect("load");
+        let docs = Documents::wrap(&*conn);
+        docs.save(&some_id, &ADocument { gubbins: random() })
+            .expect("save");
+        let _: ADocument = docs.load(&some_id).expect("load");
     }
 }
