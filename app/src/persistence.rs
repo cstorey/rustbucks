@@ -15,10 +15,8 @@ const SAVE_SQL: &'static str = "INSERT INTO documents (id, body) VALUES ($1, $2)
 const LOAD_SQL: &'static str = "SELECT body FROM documents WHERE id = $1";
 
 impl<'a> Documents<'a> {
-    pub fn setup(conn: &postgres::Connection) -> Result<(), Error> {
-        let t = conn.transaction()?;
-        t.execute(SETUP_SQL, &[])?;
-        t.commit()?;
+    pub fn setup(&self) -> Result<(), Error> {
+        self.transaction.execute(SETUP_SQL, &[])?;
         Ok(())
     }
 
@@ -26,6 +24,9 @@ impl<'a> Documents<'a> {
         Documents { transaction }
     }
 
+    pub fn into_inner(self) -> Transaction<'a> {
+        self.transaction
+    }
     pub fn save<D: Serialize>(&self, id: &Id, document: &D) -> Result<(), Error> {
         let json = serde_json::to_value(document)?;
         let save = self.transaction.prepare_cached(SAVE_SQL)?;
@@ -120,10 +121,12 @@ mod test {
                 .expect("drop table");
         }
 
+        debug!("Init schema in {}", schema);
+        let docs = Documents::wrap(t);
+        docs.setup().expect("setup");
+        let t = docs.into_inner();
         t.commit().expect("commit");
 
-        debug!("Init schema in {}", schema);
-        Documents::setup(&conn).expect("setup");
         pool
     }
 
