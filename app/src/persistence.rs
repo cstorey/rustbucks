@@ -137,7 +137,7 @@ mod test {
     #[test]
     fn load_missing_document_should_return_none() {
         pretty_env_logger::try_init().unwrap_or_default();
-        let pool = pool("save_load");
+        let pool = pool("load_missing_document_should_return_none");
 
         let conn = pool.get().expect("temp connection");
         let docs = Documents::wrap(&*conn);
@@ -182,7 +182,7 @@ mod test {
     #[test]
     fn should_update_on_overwrite() {
         pretty_env_logger::try_init().unwrap_or_default();
-        let pool = pool("save_load");
+        let pool = pool("should_update_on_overwrite");
 
         let some_id = random::<Id>();
         let some_doc = ADocument { gubbins: random() };
@@ -206,7 +206,7 @@ mod test {
     #[test]
     fn supports_transaction() {
         pretty_env_logger::try_init().unwrap_or_default();
-        let pool = pool("save_load");
+        let pool = pool("supports_transaction");
 
         let some_id = random::<Id>();
 
@@ -221,7 +221,7 @@ mod test {
     #[test]
     fn supports_connection() {
         pretty_env_logger::try_init().unwrap_or_default();
-        let pool = pool("save_load");
+        let pool = pool("supports_connection");
 
         let some_id = random::<Id>();
 
