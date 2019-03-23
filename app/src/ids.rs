@@ -16,6 +16,13 @@ pub struct Id<T> {
     phantom: PhantomData<T>,
 }
 
+#[derive(Debug,Clone,Fail)]
+enum IdParseError {
+    InvalidPrefix,
+    Unparseable,
+}
+
+
 pub trait Entity {
     const PREFIX: &'static str;
 }
@@ -80,25 +87,25 @@ impl<T: Entity> std::str::FromStr for Id<T> {
     type Err = Error;
     fn from_str(src: &str) -> Result<Self, Self::Err> {
         if T::PREFIX.len() > src.len() {
-            bail!("Invalid prefix");
+            bail!(IdParseError::InvalidPrefix);
         };
         let (start, remainder) = src.split_at(T::PREFIX.len());
         if start != T::PREFIX {
-            bail!("Wrong prefix");
+            bail!(IdParseError::InvalidPrefix);
         }
         if remainder.len() < 1 {
-            bail!("Invalid suffix");
+            bail!(IdParseError::Unparseable);
         }
         let (divider, b64) = remainder.split_at(1);
 
         if divider != DIVIDER {
-            bail!("Invalid divider");
+            bail!(IdParseError::Unparseable);
         }
 
         let mut id = Id::default();
         let sz = base64::decode_config_slice(b64, base64::URL_SAFE_NO_PAD, &mut id.val)?;
         if sz != std::mem::size_of_val(&id.val) {
-            bail!("Could not decode id from base64: {:?}", src)
+            bail!(IdParseError::Unparseable);
         }
         Ok(id)
     }
@@ -307,5 +314,18 @@ mod test {
             s,
             result,
         )
+    }
+}
+
+impl fmt::Display for IdParseError {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &IdParseError::InvalidPrefix => {
+                write!(fmt, "Invalid prefix")
+            },
+            &IdParseError::Unparseable => {
+                write!(fmt, "Unparseable Id")
+            }
+        }
     }
 }
