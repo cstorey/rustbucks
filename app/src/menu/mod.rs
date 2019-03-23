@@ -14,7 +14,7 @@ use r2d2::Pool;
 use r2d2_postgres::PostgresConnectionManager;
 use tokio_threadpool::{blocking, ThreadPool};
 
-use ids::Id;
+use ids::{Entity, Id};
 use persistence::Documents;
 use templates::WeftResponse;
 use WithTemplate;
@@ -221,4 +221,11 @@ impl MenuWidget {
     fn drinks<'a>(&'a self) -> impl 'a + Iterator<Item = &'a (Id<Coffee>, Coffee)> {
         self.drink.iter()
     }
+}
+
+impl Entity for Coffee {
+    const PREFIX: &'static str = "coffee";
+}
+impl Entity for CoffeeList {
+    const PREFIX: &'static str = "coffee_list";
 }

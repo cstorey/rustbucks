@@ -3,7 +3,7 @@ use postgres::GenericConnection;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json;
 
-use ids::Id;
+use ids::{Entity, Id};
 
 pub struct Documents<'a> {
     connection: &'a GenericConnection,
@@ -24,14 +24,14 @@ impl<'a> Documents<'a> {
         Documents { connection }
     }
 
-    pub fn save<D: Serialize>(&self, id: &Id<D>, document: &D) -> Result<(), Error> {
+    pub fn save<D: Serialize + Entity>(&self, id: &Id<D>, document: &D) -> Result<(), Error> {
         let json = serde_json::to_value(document)?;
         let save = self.connection.prepare_cached(SAVE_SQL)?;
         save.execute(&[&id.to_string(), &json])?;
         Ok(())
     }
 
-    pub fn load<D: DeserializeOwned>(&self, id: &Id<D>) -> Result<Option<D>, Error> {
+    pub fn load<D: DeserializeOwned + Entity>(&self, id: &Id<D>) -> Result<Option<D>, Error> {
         let load = self.connection.prepare_cached(LOAD_SQL)?;
         let res = load.query(&[&id.to_string()])?;
 
@@ -131,6 +131,9 @@ mod test {
     #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
     struct ADocument {
         gubbins: u64,
+    }
+    impl Entity for ADocument {
+        const PREFIX: &'static str = "adocument";
     }
 
     #[test]

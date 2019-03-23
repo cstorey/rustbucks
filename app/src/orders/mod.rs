@@ -5,7 +5,7 @@ use failure::Error;
 use actix_web::server::{HttpHandler, HttpHandlerTask};
 use actix_web::{App, Form, HttpRequest, HttpResponse, Path, Responder, State};
 use failure::ResultExt;
-use ids::Id;
+use ids::{Entity, Id};
 use menu::Coffee;
 use templates::WeftResponse;
 use WithTemplate;
@@ -21,6 +21,10 @@ pub struct OrderForm {
 }
 
 struct Order;
+
+impl Entity for Order {
+    const PREFIX: &'static str = "order";
+}
 
 #[derive(Debug, WeftRenderable)]
 #[template(path = "src/orders/order-list.html")]
