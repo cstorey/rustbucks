@@ -31,15 +31,18 @@ impl<'a> Documents<'a> {
         Ok(())
     }
 
-    pub fn load<D: DeserializeOwned>(&self, id: &Id) -> Result<D, Error> {
+    pub fn load<D: DeserializeOwned>(&self, id: &Id) -> Result<Option<D>, Error> {
         let load = self.connection.prepare_cached(LOAD_SQL)?;
         let res = load.query(&[&id.to_string()])?;
 
-        let row = res.get(0);
-        let json: serde_json::Value = row.get_opt(0).expect("Missing column in row?")?;
-        let doc = serde_json::from_value(json)?;
+        if let Some(row) = res.iter().next() {
+            let json: serde_json::Value = row.get_opt(0).expect("Missing column in row?")?;
+            let doc = serde_json::from_value(json)?;
 
-        Ok(doc)
+            Ok(Some(doc))
+        } else {
+            Ok(None)
+        }
     }
 }
 
@@ -131,6 +134,20 @@ mod test {
     }
 
     #[test]
+    fn load_missing_document_should_return_none() {
+        pretty_env_logger::try_init().unwrap_or_default();
+        let pool = pool("save_load");
+
+        let conn = pool.get().expect("temp connection");
+        let docs = Documents::wrap(&*conn);
+
+        let loaded = docs.load::<ADocument>(&random::<Id>()).expect("load");
+        info!("Loaded document: {:?}", loaded);
+
+        assert_eq!(None, loaded);
+    }
+
+    #[test]
     fn save_load() {
         pretty_env_logger::try_init().unwrap_or_default();
         let pool = pool("save_load");
@@ -158,7 +175,7 @@ mod test {
         let loaded = docs.load(&some_id).expect("load");
         info!("Loaded document: {:?}", loaded);
 
-        assert_eq!(some_doc, loaded);
+        assert_eq!(Some(some_doc), loaded);
     }
 
     #[test]
@@ -173,7 +190,7 @@ mod test {
         let docs = Documents::wrap(&t);
         docs.save(&some_id, &ADocument { gubbins: random() })
             .expect("save");
-        let _: ADocument = docs.load(&some_id).expect("load");
+        let _ = docs.load::<ADocument>(&some_id).expect("load");
     }
 
     #[test]
@@ -187,6 +204,6 @@ mod test {
         let docs = Documents::wrap(&*conn);
         docs.save(&some_id, &ADocument { gubbins: random() })
             .expect("save");
-        let _: ADocument = docs.load(&some_id).expect("load");
+        let _ = docs.load::<ADocument>(&some_id).expect("load");
     }
 }
