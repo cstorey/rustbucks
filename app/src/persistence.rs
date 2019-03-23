@@ -166,4 +166,33 @@ mod test {
 
         assert_eq!(some_doc, loaded);
     }
+
+    #[test]
+    fn supports_transaction() {
+        pretty_env_logger::init();
+        let pool = pool("save_load");
+
+        let some_id = random::<Id>();
+        let some_doc = ADocument { gubbins: random() };
+
+        let conn = pool.get().expect("temp connection");
+        let t = conn.transaction().expect("begin");
+        let docs = Documents::wrap(t);
+        docs.save(&random(), &ADocument { gubbins: random() });
+        let _ = docs.load(&some_id).expect("load");
+    }
+
+    #[test]
+    fn supports_connection() {
+        pretty_env_logger::init();
+        let pool = pool("save_load");
+
+        let some_id = random::<Id>();
+        let some_doc = ADocument { gubbins: random() };
+
+        let conn = pool.get().expect("temp connection");
+        let docs = Documents::wrap(conn);
+        docs.save(&random(), &ADocument { gubbins: random() });
+        let _ = docs.load(&some_id).expect("load");
+    }
 }
