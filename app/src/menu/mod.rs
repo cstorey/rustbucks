@@ -84,10 +84,13 @@ impl Menu {
             let docs = Documents::wrap(&t);
             let id = CoffeeList::id();
             docs.save(&drink).context("Save drink")?;
-            let mut list: CoffeeList = docs
-                .load(&id)
-                .context("load list")?
-                .unwrap_or_else(|| CoffeeList { id: id, ..Default::default() });
+            let mut list: CoffeeList =
+                docs.load(&id)
+                    .context("load list")?
+                    .unwrap_or_else(|| CoffeeList {
+                        id: id,
+                        ..Default::default()
+                    });
             list.drinks.insert(drink.id);
             docs.save(&list).context("save list")?;
             debug!("Updated list: {:?}", list);
