@@ -130,7 +130,7 @@ mod test {
 
     #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
     struct ADocument {
-        gubbins: u64,
+        name: String,
     }
     impl Entity for ADocument {
         const PREFIX: &'static str = "adocument";
@@ -158,7 +158,7 @@ mod test {
         let pool = pool("save_load");
 
         let some_id = random::<Id<ADocument>>();
-        let some_doc = ADocument { gubbins: random() };
+        let some_doc = ADocument { name: "Dave".to_string() };
 
         let conn = pool.get().expect("temp connection");
         let docs = Documents::wrap(&*conn);
@@ -168,13 +168,23 @@ mod test {
         // Ensure we don't accidentally "find" the document by virtue of it
         // being the first in the data file.
         for _ in 0..4 {
-            docs.save(&random(), &ADocument { gubbins: random() })
-                .expect("save");
+            docs.save(
+                &random(),
+                &ADocument {
+                    name: format!("{:x}", random::<usize>()),
+                },
+            )
+            .expect("save");
         }
         docs.save(&some_id, &some_doc).expect("save");
         for _ in 0..4 {
-            docs.save(&random(), &ADocument { gubbins: random() })
-                .expect("save");
+            docs.save(
+                &random(),
+                &ADocument {
+                    name: format!("{:x}", random::<usize>()),
+                },
+            )
+            .expect("save");
         }
 
         let loaded = docs.load(&some_id).expect("load");
@@ -189,7 +199,7 @@ mod test {
         let pool = pool("should_update_on_overwrite");
 
         let some_id = random::<Id<ADocument>>();
-        let some_doc = ADocument { gubbins: random() };
+        let some_doc = ADocument { name: "Version 1".to_string() };
 
         let conn = pool.get().expect("temp connection");
         let docs = Documents::wrap(&*conn);
@@ -197,7 +207,7 @@ mod test {
         info!("Original document: {:?}", some_doc);
         docs.save(&some_id, &some_doc).expect("save original");
 
-        let modified_doc = ADocument { gubbins: random() };
+        let modified_doc = ADocument { name: "Version 2".to_string() };
         info!("Modified document: {:?}", modified_doc);
         docs.save(&some_id, &modified_doc).expect("save modified");
 
@@ -217,7 +227,7 @@ mod test {
         let conn = pool.get().expect("temp connection");
         let t = conn.transaction().expect("begin");
         let docs = Documents::wrap(&t);
-        docs.save(&some_id, &ADocument { gubbins: random() })
+        docs.save(&some_id, &ADocument { name: "Dummy".to_string() })
             .expect("save");
         let _ = docs.load::<ADocument>(&some_id).expect("load");
     }
@@ -231,7 +241,7 @@ mod test {
 
         let conn = pool.get().expect("temp connection");
         let docs = Documents::wrap(&*conn);
-        docs.save(&some_id, &ADocument { gubbins: random() })
+        docs.save(&some_id, &ADocument { name: "Dummy".to_string() })
             .expect("save");
         let _ = docs.load::<ADocument>(&some_id).expect("load");
     }
