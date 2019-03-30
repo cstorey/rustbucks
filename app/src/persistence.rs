@@ -10,13 +10,17 @@ pub struct Documents<'a> {
 }
 
 const SETUP_SQL: &'static str = include_str!("persistence.sql");
-const SAVE_SQL: &'static str = "INSERT INTO documents (id, body) VALUES ($1, $2) \
+const SAVE_SQL: &'static str = "WITH a as (\
+                                SELECT $1::jsonb as body\
+                                )\
+                                INSERT INTO documents (id, body) \
+                                SELECT a.body ->> '_id', a.body FROM a \
                                 ON CONFLICT (id) DO UPDATE set body = EXCLUDED.body";
 const LOAD_SQL: &'static str = "SELECT body FROM documents WHERE id = $1";
 
 impl<'a> Documents<'a> {
     pub fn setup(&self) -> Result<(), Error> {
-        self.connection.execute(SETUP_SQL, &[])?;
+        self.connection.batch_execute(SETUP_SQL)?;
         Ok(())
     }
 
@@ -24,10 +28,10 @@ impl<'a> Documents<'a> {
         Documents { connection }
     }
 
-    pub fn save<D: Serialize + Entity>(&self, id: &Id<D>, document: &D) -> Result<(), Error> {
+    pub fn save<D: Serialize + Entity>(&self, document: &D) -> Result<(), Error> {
         let json = serde_json::to_value(document)?;
         let save = self.connection.prepare_cached(SAVE_SQL)?;
-        save.execute(&[&id.to_string(), &json])?;
+        save.execute(&[&json])?;
         Ok(())
     }
 
@@ -130,6 +134,8 @@ mod test {
 
     #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
     struct ADocument {
+        #[serde(rename = "_id")]
+        id: Id<ADocument>,
         name: String,
     }
     impl Entity for ADocument {
@@ -157,8 +163,10 @@ mod test {
         pretty_env_logger::try_init().unwrap_or_default();
         let pool = pool("save_load");
 
-        let some_id = random::<Id<ADocument>>();
-        let some_doc = ADocument { name: "Dave".to_string() };
+        let some_doc = ADocument {
+            id: random(),
+            name: "Dave".to_string(),
+        };
 
         let conn = pool.get().expect("temp connection");
         let docs = Documents::wrap(&*conn);
@@ -168,26 +176,22 @@ mod test {
         // Ensure we don't accidentally "find" the document by virtue of it
         // being the first in the data file.
         for _ in 0..4 {
-            docs.save(
-                &random(),
-                &ADocument {
-                    name: format!("{:x}", random::<usize>()),
-                },
-            )
+            docs.save(&ADocument {
+                id: random(),
+                name: format!("{:x}", random::<usize>()),
+            })
             .expect("save");
         }
-        docs.save(&some_id, &some_doc).expect("save");
+        docs.save(&some_doc).expect("save");
         for _ in 0..4 {
-            docs.save(
-                &random(),
-                &ADocument {
-                    name: format!("{:x}", random::<usize>()),
-                },
-            )
+            docs.save(&ADocument {
+                id: random(),
+                name: format!("{:x}", random::<usize>()),
+            })
             .expect("save");
         }
 
-        let loaded = docs.load(&some_id).expect("load");
+        let loaded = docs.load(&some_doc.id).expect("load");
         info!("Loaded document: {:?}", loaded);
 
         assert_eq!(Some(some_doc), loaded);
@@ -198,20 +202,25 @@ mod test {
         pretty_env_logger::try_init().unwrap_or_default();
         let pool = pool("should_update_on_overwrite");
 
-        let some_id = random::<Id<ADocument>>();
-        let some_doc = ADocument { name: "Version 1".to_string() };
+        let some_doc = ADocument {
+            id: random(),
+            name: "Version 1".to_string(),
+        };
 
         let conn = pool.get().expect("temp connection");
         let docs = Documents::wrap(&*conn);
 
         info!("Original document: {:?}", some_doc);
-        docs.save(&some_id, &some_doc).expect("save original");
+        docs.save(&some_doc).expect("save original");
 
-        let modified_doc = ADocument { name: "Version 2".to_string() };
+        let modified_doc = ADocument {
+            id: some_doc.id,
+            name: "Version 2".to_string(),
+        };
         info!("Modified document: {:?}", modified_doc);
-        docs.save(&some_id, &modified_doc).expect("save modified");
+        docs.save(&modified_doc).expect("save modified");
 
-        let loaded = docs.load(&some_id).expect("load");
+        let loaded = docs.load(&some_doc.id).expect("load");
         info!("Loaded document: {:?}", loaded);
 
         assert_eq!(Some(modified_doc), loaded);
@@ -227,8 +236,11 @@ mod test {
         let conn = pool.get().expect("temp connection");
         let t = conn.transaction().expect("begin");
         let docs = Documents::wrap(&t);
-        docs.save(&some_id, &ADocument { name: "Dummy".to_string() })
-            .expect("save");
+        docs.save(&ADocument {
+            id: some_id,
+            name: "Dummy".to_string(),
+        })
+        .expect("save");
         let _ = docs.load::<ADocument>(&some_id).expect("load");
     }
 
@@ -241,8 +253,19 @@ mod test {
 
         let conn = pool.get().expect("temp connection");
         let docs = Documents::wrap(&*conn);
-        docs.save(&some_id, &ADocument { name: "Dummy".to_string() })
-            .expect("save");
+        docs.save(&ADocument {
+            id: some_id,
+            name: "Dummy".to_string(),
+        })
+        .expect("save");
         let _ = docs.load::<ADocument>(&some_id).expect("load");
+    }
+
+    #[test]
+    #[ignore]
+    fn supports_snapshot_isolation() {
+        // Eg: https://blog.2ndquadrant.com/postgresql-anti-patterns-read-modify-write-cycles/
+        // https://www.postgresql.org/docs/current/sql-set-transaction.html
+        unimplemented!()
     }
 }

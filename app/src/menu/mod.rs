@@ -23,11 +23,15 @@ const PREFIX: &'static str = "/menu";
 
 #[derive(Deserialize, Serialize, Debug, Clone, Hash)]
 pub struct Coffee {
+    #[serde(rename = "_id")]
+    id: Id<Coffee>,
     name: String,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub struct CoffeeList {
+    #[serde(rename = "_id")]
+    id: Id<CoffeeList>,
     drinks: BTreeSet<Id<Coffee>>,
 }
 
@@ -55,6 +59,7 @@ impl Menu {
         Self::insert(
             &conn,
             Coffee {
+                id: Id::hashed(&"Umbrella"),
                 name: "Umbrella".into(),
             },
         )
@@ -62,6 +67,7 @@ impl Menu {
         Self::insert(
             &conn,
             Coffee {
+                id: Id::hashed(&"Fnordy"),
                 name: "Fnordy".into(),
             },
         )
@@ -73,22 +79,23 @@ impl Menu {
     }
 
     fn insert(conn: &postgres::Connection, drink: Coffee) -> Result<(), Error> {
-        let id = Id::hashed(&drink);
         let t = conn.transaction()?;
-        {
+        let list = {
             let docs = Documents::wrap(&t);
-            docs.save(&id, &drink).context("Save drink")?;
+            let id = CoffeeList::id();
+            docs.save(&drink).context("Save drink")?;
             let mut list: CoffeeList = docs
-                .load(&CoffeeList::id())
+                .load(&id)
                 .context("load list")?
-                .unwrap_or_default();
-            list.drinks.insert(id);
-            docs.save(&CoffeeList::id(), &list).context("save list")?;
+                .unwrap_or_else(|| CoffeeList { id: id, ..Default::default() });
+            list.drinks.insert(drink.id);
+            docs.save(&list).context("save list")?;
             debug!("Updated list: {:?}", list);
-        }
+            list
+        };
         t.commit().context("commit")?;
 
-        debug!("Saved drink at {}: {:?}", id, drink);
+        debug!("Saved drink at {}: {:?}", list.id, drink);
         Ok(())
     }
 
