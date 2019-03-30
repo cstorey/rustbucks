@@ -16,12 +16,11 @@ pub struct Id<T> {
     phantom: PhantomData<T>,
 }
 
-#[derive(Debug,Clone,Fail)]
+#[derive(Debug, Clone, Fail)]
 enum IdParseError {
     InvalidPrefix,
     Unparseable,
 }
-
 
 pub trait Entity {
     const PREFIX: &'static str;
@@ -320,12 +319,8 @@ mod test {
 impl fmt::Display for IdParseError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            &IdParseError::InvalidPrefix => {
-                write!(fmt, "Invalid prefix")
-            },
-            &IdParseError::Unparseable => {
-                write!(fmt, "Unparseable Id")
-            }
+            &IdParseError::InvalidPrefix => write!(fmt, "Invalid prefix"),
+            &IdParseError::Unparseable => write!(fmt, "Unparseable Id"),
         }
     }
 }
