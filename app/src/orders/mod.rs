@@ -1,4 +1,5 @@
 use rand::prelude::*;
+use std::sync::Arc;
 
 use actix_web::server::{HttpHandler, HttpHandlerTask};
 use actix_web::{
@@ -6,26 +7,38 @@ use actix_web::{
 };
 use failure::Error;
 use failure::ResultExt;
+use futures::future::{lazy, poll_fn};
 use futures::Future;
+use r2d2::Pool;
+use r2d2_postgres::PostgresConnectionManager;
+use tokio_threadpool::{blocking, ThreadPool};
+
 use ids::{Entity, Id};
 use menu::Coffee;
+use persistence::*;
 use templates::WeftResponse;
 use WithTemplate;
 
 const PREFIX: &'static str = "/orders";
 
 #[derive(Debug, Clone)]
-pub struct Orders;
+pub struct Orders {
+    db: Pool<PostgresConnectionManager>,
+    pool: Arc<ThreadPool>,
+}
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct OrderForm {
     coffee_id: Id<Coffee>,
 }
 
-struct Order;
-
-impl Entity for Order {
-    const PREFIX: &'static str = "order";
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Order {
+    #[serde(rename = "_id")]
+    id: Id<Order>,
+    #[serde(flatten)]
+    version: Version,
+    coffee_id: Id<Coffee>,
 }
 
 #[derive(Debug, WeftRenderable)]
@@ -35,12 +48,12 @@ struct OrderList {}
 #[derive(Debug, WeftRenderable)]
 #[template(path = "src/orders/order.html")]
 struct OrderWidget {
-    id: Id<Order>,
+    order: Order,
 }
 
 impl Orders {
-    pub fn new() -> Self {
-        Orders
+    pub fn new(db: Pool<PostgresConnectionManager>, pool: Arc<ThreadPool>) -> Result<Self, Error> {
+        Ok(Orders { db, pool })
     }
 
     pub fn app(&self) -> Box<dyn HttpHandler<Task = Box<dyn HttpHandlerTask>>> {
@@ -75,11 +88,6 @@ impl Orders {
             .responder()
     }
 
-    fn new_order(&self, order: OrderForm) -> impl Future<Item = Id<Order>, Error = failure::Error> {
-        let order_id = thread_rng().gen::<Id<Order>>();
-        futures::future::ok(order_id)
-    }
-
     fn list(_state: State<Self>) -> Result<impl Responder, Error> {
         let data = WithTemplate {
             value: OrderList {},
@@ -87,11 +95,70 @@ impl Orders {
         Ok(WeftResponse::of(data))
     }
 
-    fn show((_state, id): (State<Self>, Path<Id<Order>>)) -> Result<impl Responder, Error> {
+    fn show((state, id): (State<Self>, Path<Id<Order>>)) -> FutureResponse<impl Responder> {
         let id = id.into_inner();
-        let data = WithTemplate {
-            value: OrderWidget { id: id },
-        };
-        Ok(WeftResponse::of(data))
+        state
+            .load_order(id)
+            .map(|orderp| {
+                orderp.map(|order| {
+                    let data = WithTemplate {
+                        value: OrderWidget { order },
+                    };
+                    WeftResponse::of(data)
+                })
+            })
+            .from_err()
+            .responder()
+    }
+
+    fn new_order(&self, order: OrderForm) -> impl Future<Item = Id<Order>, Error = failure::Error> {
+        self.in_pool(move |docs| {
+            let id = thread_rng().gen::<Id<Order>>();
+            let order = Order {
+                id,
+                coffee_id: order.coffee_id,
+                version: Version::default(),
+            };
+            docs.save(&order)?;
+            debug!("Saved {:?}", order);
+            Ok(id)
+        })
+    }
+
+    fn load_order(
+        &self,
+        order_id: Id<Order>,
+    ) -> impl Future<Item = Option<Order>, Error = failure::Error> {
+        self.in_pool(move |docs| {
+            let order = docs.load(&order_id)?;
+            debug!("Load {} -> {:?}", order_id, order);
+            Ok(order)
+        })
+    }
+    fn in_pool<R: Send + 'static, F: Fn(PooledDocuments) -> Result<R, Error> + Send + 'static>(
+        &self,
+        f: F,
+    ) -> impl Future<Item = R, Error = failure::Error> {
+        let db = self.db.clone();
+        let f = lazy(|| {
+            poll_fn(move || {
+                blocking(|| {
+                    let docs = Documents::wrap(db.get()?);
+                    f(docs)
+                })
+            })
+            .map_err(Error::from)
+        });
+        self.pool.spawn_handle(f).and_then(futures::future::result)
+    }
+}
+
+impl Entity for Order {
+    const PREFIX: &'static str = "order";
+}
+
+impl Versioned for Order {
+    fn version(&self) -> Version {
+        self.version.clone()
     }
 }

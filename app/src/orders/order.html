@@ -1,4 +1,10 @@
 <section>
-  <p>This is totally an order</p>
-  <p data-order-id="{{ self.id.display() }}">{{self.id.display()}}</p>
+  <p data-order-id="{{ self.order.id.display() }}">
+    This is totally an order for:
+    <tt weft-content="self.order.coffee_id.display()">A coffee</tt>
+  </p>
+  <pre weft-content='format!("{:#?}", self.order)'>
+        Some order detail
+    </pre
+  >
 </section>

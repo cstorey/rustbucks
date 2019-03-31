@@ -55,8 +55,8 @@ impl RustBucks {
     pub fn new() -> Result<Self, Error> {
         let db = Self::pool()?;
         let threads = Arc::new(ThreadPool::new());
-        let menu = menu::Menu::new(db, threads)?;
-        let orders = orders::Orders::new();
+        let menu = menu::Menu::new(db.clone(), threads.clone())?;
+        let orders = orders::Orders::new(db.clone(), threads.clone())?;
         Ok(RustBucks { menu, orders })
     }
 
