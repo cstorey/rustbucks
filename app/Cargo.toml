@@ -31,9 +31,6 @@ url = "1.7.1"
 features = ["with-serde_json"]
 version = "0.15.2"
 
-[dependencies.sulfur]
-git = "https://github.com/cstorey/sulfur.git"
-
 [dependencies.weft]
 git = "https://github.com/cstorey/weft.git"
 optional = false
