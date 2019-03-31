@@ -4,10 +4,14 @@ extern crate failure;
 extern crate hyper;
 #[macro_use]
 extern crate log;
+extern crate jemallocator;
 extern crate pretty_env_logger;
 extern crate rustbucks;
 
 use failure::ResultExt;
+
+#[global_allocator]
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 fn main() -> Result<(), failure::Error> {
     pretty_env_logger::init();
