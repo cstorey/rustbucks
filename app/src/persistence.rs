@@ -55,7 +55,9 @@ const UPDATE_SQL: &'static str = "WITH a as (
 
 impl<C: Deref<Target = Connection>> Documents<C> {
     pub fn setup(&self) -> Result<(), Error> {
-        self.connection.batch_execute(SETUP_SQL)?;
+        for stmt in SETUP_SQL.split("\n\n") {
+            self.connection.batch_execute(stmt)?;
+        }
         Ok(())
     }
 

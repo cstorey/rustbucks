@@ -1,3 +1,6 @@
+-- The implementation will split this file on a pair of newlines, each
+-- statement needs to be over consecutive lines.
+
 CREATE TABLE IF NOT EXISTS _migrations (
     id TEXT PRIMARY KEY,
     md5_digest TEXT
