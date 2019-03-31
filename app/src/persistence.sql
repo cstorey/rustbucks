@@ -6,9 +6,8 @@ CREATE TABLE IF NOT EXISTS _migrations (
     md5_digest TEXT
 );
 
-DROP FUNCTION IF EXISTS  _migrate;
-DROP PROCEDURE IF EXISTS  _migrate;
-CREATE PROCEDURE _migrate(migration_id text, migration_sql text) AS $$
+DROP FUNCTION IF EXISTS  apply_migration(text, text);
+CREATE FUNCTION apply_migration(migration_id text, migration_sql text) RETURNS void AS $$
 DECLARE
     digest TEXT := md5(migration_sql);
     known_digest TEXT;
@@ -31,7 +30,7 @@ BEGIN
 END;
 $$ LANGUAGE 'plpgsql';
 
-CALL _migrate(text '0001 create documents', text $$
+SELECT apply_migration(text '0001 create documents', text $$
     CREATE TABLE IF NOT EXISTS documents (
         id TEXT,
         body jsonb NOT NULL,
@@ -39,7 +38,7 @@ CALL _migrate(text '0001 create documents', text $$
     );
 $$);
 
-CALL _migrate(text '0002 add check for id coherence', text $$
+SELECT apply_migration(text '0002 add check for id coherence', text $$
     UPDATE documents
         SET body = jsonb_set(body, '{_id}', to_jsonb(id))
         WHERE coalesce(id != (body ->> '_id') , true);
@@ -47,7 +46,7 @@ CALL _migrate(text '0002 add check for id coherence', text $$
         CHECK ((body ->> '_id') IS NOT NULL AND  id = (body ->> '_id'));
 $$);
 
-CALL _migrate(text '0003 Ensure all documents have versions', text $$
+SELECT apply_migration(text '0003 Ensure all documents have versions', text $$
     UPDATE documents
         SET body = jsonb_set(body, '{_version}', to_jsonb(to_hex(txid_current())))
         WHERE (body ->> '_version') IS NULL;
