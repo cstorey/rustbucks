@@ -29,7 +29,7 @@ pub trait Entity {
 const DIVIDER: &str = "-";
 
 impl<T> Id<T> {
-    pub fn hashed<H: Hash>(entity: &H) -> Self {
+    pub fn hashed<H: Hash>(entity: H) -> Self {
         let mut val = [0u8; 16];
         {
             let mut cursor = io::Cursor::new(&mut val as &mut [u8]);

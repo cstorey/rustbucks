@@ -21,7 +21,7 @@ use WithTemplate;
 
 const PREFIX: &'static str = "/menu";
 
-#[derive(Deserialize, Serialize, Debug, Clone, Hash)]
+#[derive(Deserialize, Serialize, Debug, Clone, Hash, Default)]
 pub struct Coffee {
     #[serde(rename = "_id")]
     id: Id<Coffee>,
@@ -56,34 +56,32 @@ struct DrinkWidget {
 impl Menu {
     pub fn new(pool: Pool<PostgresConnectionManager>) -> Result<Self, Error> {
         let conn = pool.get()?;
-        Self::insert(
-            &conn,
-            Coffee {
-                id: Id::hashed(&"Umbrella"),
-                name: "Umbrella".into(),
-            },
-        )
-        .context("insert umbrella")?;
-        Self::insert(
-            &conn,
-            Coffee {
-                id: Id::hashed(&"Fnordy"),
-                name: "Fnordy".into(),
-            },
-        )
-        .context("insert fnordy")?;
+        Self::insert(&conn, "Umbrella").context("insert umbrella")?;
+        Self::insert(&conn, "Fnordy").context("insert fnordy")?;
         Ok(Menu {
             db: pool,
             pool: Arc::new(ThreadPool::new()),
         })
     }
 
-    fn insert(conn: &postgres::Connection, drink: Coffee) -> Result<(), Error> {
-        let t = conn.transaction()?;
-        let list = {
-            let docs = Documents::wrap(&t);
-            let id = CoffeeList::id();
+    fn insert(conn: &postgres::Connection, name: &str) -> Result<(), Error> {
+        let docs = Documents::wrap(conn);
+        let drink = {
+            let drink_id = Id::hashed(name);
+            let mut drink = docs
+                .load(&drink_id)
+                .context("load drink")?
+                .unwrap_or_else(|| Coffee {
+                    id: drink_id,
+                    ..Default::default()
+                });
+            drink.name = name.into();
             docs.save(&drink).context("Save drink")?;
+            drink
+        };
+
+        let list = {
+            let id = CoffeeList::id();
             let mut list: CoffeeList =
                 docs.load(&id)
                     .context("load list")?
@@ -96,8 +94,6 @@ impl Menu {
             debug!("Updated list: {:?}", list);
             list
         };
-        t.commit().context("commit")?;
-
         debug!("Saved drink at {}: {:?}", list.id, drink);
         Ok(())
     }
