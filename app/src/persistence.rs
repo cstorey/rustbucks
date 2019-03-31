@@ -1,5 +1,5 @@
 use failure::Error;
-use postgres::GenericConnection;
+use postgres::Connection;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json;
 
@@ -10,7 +10,7 @@ use ids::{Entity, Id};
 pub struct ConcurrencyError;
 
 pub struct Documents<'a> {
-    connection: &'a GenericConnection,
+    connection: &'a Connection,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default, Hash)]
@@ -34,7 +34,7 @@ impl<'a> Documents<'a> {
         Ok(())
     }
 
-    pub fn wrap(connection: &'a GenericConnection) -> Self {
+    pub fn wrap(connection: &'a Connection) -> Self {
         Documents { connection }
     }
 
@@ -175,10 +175,10 @@ mod test {
             t.execute(&format!("DROP TABLE {}.{}", schema, table), &[])
                 .expect("drop table");
         }
+        t.commit().expect("commit");
 
         debug!("Init schema in {}", schema);
-        Documents::wrap(&t).setup().expect("setup");
-        t.commit().expect("commit");
+        Documents::wrap(&conn).setup().expect("setup");
 
         pool
     }
@@ -287,25 +287,6 @@ mod test {
         info!("Loaded document: {:?}", loaded);
 
         assert_eq!(Some(modified_doc.name), loaded.map(|d| d.name));
-    }
-
-    #[test]
-    fn supports_transaction() {
-        pretty_env_logger::try_init().unwrap_or_default();
-        let pool = pool("supports_transaction");
-
-        let some_id = random::<Id<ADocument>>();
-
-        let conn = pool.get().expect("temp connection");
-        let t = conn.transaction().expect("begin");
-        let docs = Documents::wrap(&t);
-        docs.save(&ADocument {
-            id: some_id,
-            name: "Dummy".to_string(),
-            ..Default::default()
-        })
-        .expect("save");
-        let _ = docs.load::<ADocument>(&some_id).expect("load");
     }
 
     #[test]

@@ -169,9 +169,8 @@ impl Menu {
                     .unwrap_or_else(|| format!("{:?}", t.id()))
             });
             let conn = me.db.get()?;
-            let t = conn.transaction()?;
             let result = {
-                let docs = Documents::wrap(&t);
+                let docs = Documents::wrap(&conn);
                 let list = docs
                     .load::<CoffeeList>(&CoffeeList::id())?
                     .unwrap_or_default();
@@ -188,7 +187,6 @@ impl Menu {
                     })
                     .collect::<Result<Vec<(Id<Coffee>, Coffee)>, Error>>()?
             };
-            t.commit()?;
             Ok(result)
         })
     }
