@@ -1,10 +1,12 @@
 use rand::prelude::*;
 
-use failure::Error;
-
 use actix_web::server::{HttpHandler, HttpHandlerTask};
-use actix_web::{App, Form, HttpRequest, HttpResponse, Path, Responder, State};
+use actix_web::{
+    App, AsyncResponder, Form, FutureResponse, HttpRequest, HttpResponse, Path, Responder, State,
+};
+use failure::Error;
 use failure::ResultExt;
+use futures::Future;
 use ids::{Entity, Id};
 use menu::Coffee;
 use templates::WeftResponse;
@@ -56,17 +58,26 @@ impl Orders {
             .boxed()
     }
 
-    fn submit((form, req): (Form<OrderForm>, HttpRequest<Self>)) -> Result<impl Responder, Error> {
+    fn submit((form, req): (Form<OrderForm>, HttpRequest<Self>)) -> FutureResponse<impl Responder> {
         debug!("Submit form: {:?}", form);
-        let order_id = thread_rng().gen::<Id<Order>>();
-        debug!("Some order id: {}", order_id);
+        req.state()
+            .new_order(form.into_inner())
+            .and_then(move |order_id| {
+                debug!("Some order id: {}", order_id);
+                let uri = req
+                    .url_for("show", &[order_id.to_string()])
+                    .context("url for show")?;
+                Ok(HttpResponse::SeeOther()
+                    .header("location", uri.to_string())
+                    .finish())
+            })
+            .from_err()
+            .responder()
+    }
 
-        let uri = req
-            .url_for("show", &[order_id.to_string()])
-            .context("url for show")?;
-        Ok(HttpResponse::SeeOther()
-            .header("location", uri.to_string())
-            .finish())
+    fn new_order(&self, order: OrderForm) -> impl Future<Item = Id<Order>, Error = failure::Error> {
+        let order_id = thread_rng().gen::<Id<Order>>();
+        futures::future::ok(order_id)
     }
 
     fn list(_state: State<Self>) -> Result<impl Responder, Error> {
