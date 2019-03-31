@@ -14,7 +14,6 @@ DECLARE
 BEGIN
     SELECT md5_digest INTO known_digest FROM _migrations
         WHERE _migrations.id = migration_id;
-    SELECT md5(migration_sql) INTO digest;
     RAISE NOTICE 'Name: %; Known: %; current:%;', migration_id, known_digest, digest;
     IF known_digest IS NULL THEN
         RAISE NOTICE 'Applying change % with digest %', migration_id, digest;
