@@ -168,25 +168,23 @@ impl Menu {
                     .map(|n| n.to_string())
                     .unwrap_or_else(|| format!("{:?}", t.id()))
             });
-            let conn = me.db.get()?;
-            let result = {
-                let docs = Documents::wrap(&conn);
-                let list = docs
-                    .load::<CoffeeList>(&CoffeeList::id())?
-                    .unwrap_or_default();
-                list.drinks
-                    .into_iter()
-                    .map(|id| {
-                        docs.load::<Coffee>(&id)
-                            .and_then(|coffeep| {
-                                coffeep.ok_or_else(|| {
-                                    failure::err_msg(format!("missing coffee? {}", &id))
-                                })
-                            })
-                            .map(|coffee| (id, coffee))
-                    })
-                    .collect::<Result<Vec<(Id<Coffee>, Coffee)>, Error>>()?
-            };
+            let docs = Documents::wrap(me.db.get()?);
+            let list = docs
+                .load::<CoffeeList>(&CoffeeList::id())?
+                .unwrap_or_default();
+            let result = list
+                .drinks
+                .into_iter()
+                .map(|id| {
+                    docs.load::<Coffee>(&id)
+                        .and_then(|coffeep| {
+                            coffeep
+                                .ok_or_else(|| failure::err_msg(format!("missing coffee? {}", &id)))
+                        })
+                        .map(|coffee| (id, coffee))
+                })
+                .collect::<Result<Vec<(Id<Coffee>, Coffee)>, Error>>()?;
+
             Ok(result)
         })
     }
@@ -203,8 +201,8 @@ impl Menu {
                     .map(|n| n.to_string())
                     .unwrap_or_else(|| format!("{:?}", t.id()))
             });
-            let conn = me.db.get()?;
-            let res = Documents::wrap(&*conn).load(&id)?;
+            let docs = Documents::wrap(me.db.get()?);
+            let res = docs.load(&id)?;
             debug!("Load {} -> {:?}", id, res);
             Ok(res)
         })

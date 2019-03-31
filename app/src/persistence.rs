@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use failure::Error;
 use postgres::Connection;
 use serde::{de::DeserializeOwned, Serialize};
@@ -9,8 +11,8 @@ use ids::{Entity, Id};
 #[fail(display = "stale version")]
 pub struct ConcurrencyError;
 
-pub struct Documents<'a> {
-    connection: &'a Connection,
+pub struct Documents<C> {
+    connection: C,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default, Hash)]
@@ -28,14 +30,10 @@ pub trait Versioned {
 const SETUP_SQL: &'static str = include_str!("persistence.sql");
 const LOAD_SQL: &'static str = "SELECT body FROM documents WHERE id = $1";
 
-impl<'a> Documents<'a> {
+impl<C: Deref<Target = Connection>> Documents<C> {
     pub fn setup(&self) -> Result<(), Error> {
         self.connection.batch_execute(SETUP_SQL)?;
         Ok(())
-    }
-
-    pub fn wrap(connection: &'a Connection) -> Self {
-        Documents { connection }
     }
 
     pub fn save<D: Serialize + Entity + Versioned>(&self, document: &D) -> Result<Version, Error> {
@@ -100,6 +98,11 @@ impl<'a> Documents<'a> {
         }
     }
 }
+impl<C> Documents<C> {
+    pub fn wrap(connection: C) -> Self {
+        Documents { connection }
+    }
+}
 
 #[cfg(test)]
 mod test {
@@ -156,8 +159,16 @@ mod test {
             .build(manager)
             .expect("pool");
         let conn = pool.get().expect("temp connection");
-        let t = conn.transaction().expect("begin");
+        cleanup(&conn, schema);
 
+        debug!("Init schema in {}", schema);
+        Documents::wrap(conn).setup().expect("setup");
+
+        pool
+    }
+
+    fn cleanup(conn: &postgres::Connection, schema: &str) {
+        let t = conn.transaction().expect("begin");
         debug!("Clean old tables in {}", schema);
         for row in t
             .query(
@@ -176,11 +187,6 @@ mod test {
                 .expect("drop table");
         }
         t.commit().expect("commit");
-
-        debug!("Init schema in {}", schema);
-        Documents::wrap(&conn).setup().expect("setup");
-
-        pool
     }
 
     #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, Default)]
