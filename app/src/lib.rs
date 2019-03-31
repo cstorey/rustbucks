@@ -24,12 +24,14 @@ extern crate siphasher;
 extern crate tokio_threadpool;
 
 use std::env;
+use std::sync::Arc;
 
 use actix_web::server::{HttpHandler, HttpHandlerTask};
 use actix_web::App;
 use failure::{Error, ResultExt};
 use r2d2::Pool;
 use r2d2_postgres::{PostgresConnectionManager, TlsMode};
+use tokio_threadpool::ThreadPool;
 
 mod ids;
 mod menu;
@@ -51,8 +53,9 @@ pub struct RustBucks {
 
 impl RustBucks {
     pub fn new() -> Result<Self, Error> {
-        let pool = Self::pool()?;
-        let menu = menu::Menu::new(pool)?;
+        let db = Self::pool()?;
+        let threads = Arc::new(ThreadPool::new());
+        let menu = menu::Menu::new(db, threads)?;
         let orders = orders::Orders::new();
         Ok(RustBucks { menu, orders })
     }

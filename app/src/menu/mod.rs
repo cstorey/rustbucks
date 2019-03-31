@@ -57,14 +57,11 @@ struct DrinkWidget {
 }
 
 impl Menu {
-    pub fn new(pool: Pool<PostgresConnectionManager>) -> Result<Self, Error> {
-        let conn = pool.get()?;
+    pub fn new(db: Pool<PostgresConnectionManager>, pool: Arc<ThreadPool>) -> Result<Self, Error> {
+        let conn = db.get()?;
         Self::insert(&conn, "Umbrella").context("insert umbrella")?;
         Self::insert(&conn, "Fnordy").context("insert fnordy")?;
-        Ok(Menu {
-            db: pool,
-            pool: Arc::new(ThreadPool::new()),
-        })
+        Ok(Menu { db, pool })
     }
 
     fn insert(conn: &postgres::Connection, name: &str) -> Result<(), Error> {
