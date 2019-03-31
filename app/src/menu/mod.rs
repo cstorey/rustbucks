@@ -156,15 +156,13 @@ impl Menu {
     }
 
     fn load_menu(&self) -> impl Future<Item = Vec<(Id<Coffee>, Coffee)>, Error = failure::Error> {
-        let me = self.clone();
-        self.in_pool(move || -> Result<Vec<(Id<Coffee>, Coffee)>, Error> {
+        self.in_pool(move |docs| -> Result<Vec<(Id<Coffee>, Coffee)>, Error> {
             trace!("load_menu {:?}", {
                 let t = ::std::thread::current();
                 t.name()
                     .map(|n| n.to_string())
                     .unwrap_or_else(|| format!("{:?}", t.id()))
             });
-            let docs = Documents::wrap(me.db.get()?);
             let list = docs
                 .load::<CoffeeList>(&CoffeeList::id())?
                 .unwrap_or_default();
@@ -189,26 +187,33 @@ impl Menu {
         &self,
         id: Id<Coffee>,
     ) -> impl Future<Item = Option<Coffee>, Error = failure::Error> {
-        let me = self.clone();
-        self.in_pool(move || {
+        self.in_pool(move |docs| {
             trace!("load_drink {:?}", {
                 let t = ::std::thread::current();
                 t.name()
                     .map(|n| n.to_string())
                     .unwrap_or_else(|| format!("{:?}", t.id()))
             });
-            let docs = Documents::wrap(me.db.get()?);
             let res = docs.load(&id)?;
             debug!("Load {} -> {:?}", id, res);
             Ok(res)
         })
     }
 
-    fn in_pool<R: Send + 'static, F: Fn() -> Result<R, Error> + Send + 'static>(
+    fn in_pool<R: Send + 'static, F: Fn(PooledDocuments) -> Result<R, Error> + Send + 'static>(
         &self,
         f: F,
     ) -> impl Future<Item = R, Error = failure::Error> {
-        let f = lazy(|| poll_fn(move || blocking(&f)).map_err(Error::from));
+        let db = self.db.clone();
+        let f = lazy(|| {
+            poll_fn(move || {
+                blocking(|| {
+                    let docs = Documents::wrap(db.get()?);
+                    f(docs)
+                })
+            })
+            .map_err(Error::from)
+        });
         self.pool.spawn_handle(f).and_then(futures::future::result)
     }
 }

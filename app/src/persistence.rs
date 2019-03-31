@@ -15,6 +15,9 @@ pub struct Documents<C> {
     connection: C,
 }
 
+pub type PooledDocuments =
+    Documents<r2d2::PooledConnection<r2d2_postgres::PostgresConnectionManager>>;
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default, Hash)]
 pub struct Version {
     #[serde(rename = "_version")]
