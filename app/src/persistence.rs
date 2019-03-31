@@ -29,6 +29,26 @@ pub trait Versioned {
 
 const SETUP_SQL: &'static str = include_str!("persistence.sql");
 const LOAD_SQL: &'static str = "SELECT body FROM documents WHERE id = $1";
+const INSERT_SQL: &'static str = "WITH a as (
+                                SELECT $1::jsonb as body
+                                )
+                                INSERT INTO documents AS d (id, body)
+                                SELECT a.body ->> '_id', jsonb_set(a.body, '{_version}', to_jsonb(to_hex(txid_current())))
+                                FROM a
+                                WHERE NOT EXISTS (
+                                    SELECT 1 FROM documents d where d.id = a.body ->> '_id'
+                                )
+                                RETURNING d.body ->> '_version'";
+const UPDATE_SQL: &'static str = "WITH a as (
+                                    SELECT $1::jsonb as body
+                                    )
+                                    UPDATE documents AS d
+                                        SET body = jsonb_set(a.body, '{_version}', to_jsonb(to_hex(txid_current())))
+                                        FROM a
+                                        WHERE id = a.body ->> '_id'
+                                        AND d.body -> '_version' = a.body -> '_version'
+                                        RETURNING d.body ->> '_version'
+                                    ";
 
 impl<C: Deref<Target = Connection>> Documents<C> {
     pub fn setup(&self) -> Result<(), Error> {
@@ -39,45 +59,19 @@ impl<C: Deref<Target = Connection>> Documents<C> {
     pub fn save<D: Serialize + Entity + Versioned>(&self, document: &D) -> Result<Version, Error> {
         let json = serde_json::to_value(document)?;
         let t = self.connection.transaction()?;
-        if document.version() == Version::default() {
-            const INSERT_SQL: &'static str = "WITH a as (\
-                                SELECT $1::jsonb as body\
-                                )\
-                                INSERT INTO documents (id, body) \
-                                SELECT a.body ->> '_id', jsonb_set(a.body, '{_version}', to_jsonb(to_hex(txid_current())))
-                                FROM a
-                                WHERE NOT EXISTS (
-                                    SELECT 1 FROM documents d where d.id = a.body ->> '_id'
-                                )";
-            let nrows = t.prepare_cached(INSERT_SQL)?.execute(&[&json])?;
-            debug!("Insert modified {} rows", nrows);
-            if nrows != 1 {
-                warn!("Update impacted {} rows not 1", nrows);
-                return Err(ConcurrencyError.into());
-            }
+        let res = if document.version() == Version::default() {
+            t.prepare_cached(INSERT_SQL)?.query(&[&json])?
         } else {
-            const SAVE_SQL: &'static str = "WITH a as (
-                                    SELECT $1::jsonb as body
-                                    )
-                                    UPDATE documents AS d
-                                        SET body = jsonb_set(a.body, '{_version}', to_jsonb(to_hex(txid_current())))
-                                        FROM a
-                                        WHERE id = a.body ->> '_id'
-                                        AND d.body -> '_version' = a.body -> '_version'";
-            let nrows = t.prepare_cached(SAVE_SQL)?.execute(&[&json])?;
-            debug!("Insert modified {} rows", nrows);
-            if nrows != 1 {
-                warn!("Update impacted {} rows not 1", nrows);
-                return Err(ConcurrencyError.into());
-            }
-        }
-        let res = t
-            .prepare_cached("SELECT to_hex(txid_current())")?
-            .query(&[])?;
+            t.prepare_cached(UPDATE_SQL)?.query(&[&json])?
+        };
+        debug!("Query modified {} rows", res.len());
         let version = res
             .iter()
             .next()
-            .ok_or_else(|| failure::err_msg("Missing version row?"))?
+            .ok_or_else(|| {
+                warn!("Update impacted {} rows not 1", res.len());
+                Error::from(ConcurrencyError)
+            })?
             .get_opt(0)
             .ok_or_else(|| failure::err_msg("Missing version column?"))??;
         t.commit()?;
