@@ -1,5 +1,5 @@
-<p weft-content="self.id.display()">Coffee id</p>
+<p weft-content="self.drink.name.display()">Drink name here</p>
 <form method="POST" action="/orders">
-  <input type="hidden" name="coffee_id" value="{{self.id}}" />
+  <input type="hidden" name="coffee_id" value="{{self.drink.id}}" />
   <button class="order" type="submit">Order</button>
 </form>

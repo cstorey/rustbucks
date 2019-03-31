@@ -53,7 +53,6 @@ struct MenuWidget {
 #[derive(Debug, WeftRenderable)]
 #[template(path = "src/menu/drink.html")]
 struct DrinkWidget {
-    id: Id<Coffee>,
     drink: Coffee,
 }
 
@@ -148,10 +147,7 @@ impl Menu {
                 me.load_drink(id).from_err().map(move |drinkp| {
                     drinkp.map(|drink| {
                         WeftResponse::of(WithTemplate {
-                            value: DrinkWidget {
-                                id: id,
-                                drink: drink,
-                            },
+                            value: DrinkWidget { drink: drink },
                         })
                     })
                 })
