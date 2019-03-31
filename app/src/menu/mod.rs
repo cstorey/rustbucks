@@ -15,7 +15,7 @@ use r2d2_postgres::PostgresConnectionManager;
 use tokio_threadpool::{blocking, ThreadPool};
 
 use ids::{Entity, Id};
-use persistence::Documents;
+use persistence::*;
 use templates::WeftResponse;
 use WithTemplate;
 
@@ -25,6 +25,8 @@ const PREFIX: &'static str = "/menu";
 pub struct Coffee {
     #[serde(rename = "_id")]
     id: Id<Coffee>,
+    #[serde(flatten)]
+    version: Version,
     name: String,
 }
 
@@ -32,6 +34,8 @@ pub struct Coffee {
 pub struct CoffeeList {
     #[serde(rename = "_id")]
     id: Id<CoffeeList>,
+    #[serde(flatten)]
+    version: Version,
     drinks: BTreeSet<Id<Coffee>>,
 }
 
@@ -232,6 +236,18 @@ impl MenuWidget {
 impl Entity for Coffee {
     const PREFIX: &'static str = "coffee";
 }
+
+impl Versioned for Coffee {
+    fn version(&self) -> Version {
+        self.version.clone()
+    }
+}
 impl Entity for CoffeeList {
     const PREFIX: &'static str = "coffee_list";
+}
+
+impl Versioned for CoffeeList {
+    fn version(&self) -> Version {
+        self.version.clone()
+    }
 }

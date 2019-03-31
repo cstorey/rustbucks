@@ -5,17 +5,27 @@ use serde_json;
 
 use ids::{Entity, Id};
 
+#[derive(Fail, Debug, PartialEq, Eq)]
+#[fail(display = "stale version")]
+pub struct ConcurrencyError;
+
 pub struct Documents<'a> {
     connection: &'a GenericConnection,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default, Hash)]
+pub struct Version {
+    #[serde(rename = "_version")]
+    version: String,
+}
+
+// This is quite nasty; as at present we assume that the version is both _here_ as well as
+// in the `_version` property.
+pub trait Versioned {
+    fn version(&self) -> Version;
+}
+
 const SETUP_SQL: &'static str = include_str!("persistence.sql");
-const SAVE_SQL: &'static str = "WITH a as (\
-                                SELECT $1::jsonb as body\
-                                )\
-                                INSERT INTO documents (id, body) \
-                                SELECT a.body ->> '_id', a.body FROM a \
-                                ON CONFLICT (id) DO UPDATE set body = EXCLUDED.body";
 const LOAD_SQL: &'static str = "SELECT body FROM documents WHERE id = $1";
 
 impl<'a> Documents<'a> {
@@ -28,11 +38,52 @@ impl<'a> Documents<'a> {
         Documents { connection }
     }
 
-    pub fn save<D: Serialize + Entity>(&self, document: &D) -> Result<(), Error> {
+    pub fn save<D: Serialize + Entity + Versioned>(&self, document: &D) -> Result<Version, Error> {
         let json = serde_json::to_value(document)?;
-        let save = self.connection.prepare_cached(SAVE_SQL)?;
-        save.execute(&[&json])?;
-        Ok(())
+        let t = self.connection.transaction()?;
+        if document.version() == Version::default() {
+            const INSERT_SQL: &'static str = "WITH a as (\
+                                SELECT $1::jsonb as body\
+                                )\
+                                INSERT INTO documents (id, body) \
+                                SELECT a.body ->> '_id', jsonb_set(a.body, '{_version}', to_jsonb(to_hex(txid_current())))
+                                FROM a
+                                WHERE NOT EXISTS (
+                                    SELECT 1 FROM documents d where d.id = a.body ->> '_id'
+                                )";
+            let nrows = t.prepare_cached(INSERT_SQL)?.execute(&[&json])?;
+            debug!("Insert modified {} rows", nrows);
+            if nrows != 1 {
+                warn!("Update impacted {} rows not 1", nrows);
+                return Err(ConcurrencyError.into());
+            }
+        } else {
+            const SAVE_SQL: &'static str = "WITH a as (
+                                    SELECT $1::jsonb as body
+                                    )
+                                    UPDATE documents AS d
+                                        SET body = jsonb_set(a.body, '{_version}', to_jsonb(to_hex(txid_current())))
+                                        FROM a
+                                        WHERE id = a.body ->> '_id'
+                                        AND d.body -> '_version' = a.body -> '_version'";
+            let nrows = t.prepare_cached(SAVE_SQL)?.execute(&[&json])?;
+            debug!("Insert modified {} rows", nrows);
+            if nrows != 1 {
+                warn!("Update impacted {} rows not 1", nrows);
+                return Err(ConcurrencyError.into());
+            }
+        }
+        let res = t
+            .prepare_cached("SELECT to_hex(txid_current())")?
+            .query(&[])?;
+        let version = res
+            .iter()
+            .next()
+            .ok_or_else(|| failure::err_msg("Missing version row?"))?
+            .get_opt(0)
+            .ok_or_else(|| failure::err_msg("Missing version column?"))??;
+        t.commit()?;
+        Ok(Version { version })
     }
 
     pub fn load<D: DeserializeOwned + Entity>(&self, id: &Id<D>) -> Result<Option<D>, Error> {
@@ -132,14 +183,21 @@ mod test {
         pool
     }
 
-    #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+    #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, Default)]
     struct ADocument {
         #[serde(rename = "_id")]
         id: Id<ADocument>,
+        #[serde(flatten)]
+        version: Version,
         name: String,
     }
     impl Entity for ADocument {
         const PREFIX: &'static str = "adocument";
+    }
+    impl Versioned for ADocument {
+        fn version(&self) -> Version {
+            self.version.clone()
+        }
     }
 
     #[test]
@@ -166,6 +224,7 @@ mod test {
         let some_doc = ADocument {
             id: random(),
             name: "Dave".to_string(),
+            ..Default::default()
         };
 
         let conn = pool.get().expect("temp connection");
@@ -179,6 +238,7 @@ mod test {
             docs.save(&ADocument {
                 id: random(),
                 name: format!("{:x}", random::<usize>()),
+                ..Default::default()
             })
             .expect("save");
         }
@@ -187,6 +247,7 @@ mod test {
             docs.save(&ADocument {
                 id: random(),
                 name: format!("{:x}", random::<usize>()),
+                ..Default::default()
             })
             .expect("save");
         }
@@ -194,7 +255,7 @@ mod test {
         let loaded = docs.load(&some_doc.id).expect("load");
         info!("Loaded document: {:?}", loaded);
 
-        assert_eq!(Some(some_doc), loaded);
+        assert_eq!(Some(some_doc.name), loaded.map(|d| d.name));
     }
 
     #[test]
@@ -205,17 +266,19 @@ mod test {
         let some_doc = ADocument {
             id: random(),
             name: "Version 1".to_string(),
+            ..Default::default()
         };
 
         let conn = pool.get().expect("temp connection");
         let docs = Documents::wrap(&*conn);
 
         info!("Original document: {:?}", some_doc);
-        docs.save(&some_doc).expect("save original");
+        let version = docs.save(&some_doc).expect("save original");
 
         let modified_doc = ADocument {
             id: some_doc.id,
             name: "Version 2".to_string(),
+            version: version,
         };
         info!("Modified document: {:?}", modified_doc);
         docs.save(&modified_doc).expect("save modified");
@@ -223,7 +286,7 @@ mod test {
         let loaded = docs.load(&some_doc.id).expect("load");
         info!("Loaded document: {:?}", loaded);
 
-        assert_eq!(Some(modified_doc), loaded);
+        assert_eq!(Some(modified_doc.name), loaded.map(|d| d.name));
     }
 
     #[test]
@@ -239,6 +302,7 @@ mod test {
         docs.save(&ADocument {
             id: some_id,
             name: "Dummy".to_string(),
+            ..Default::default()
         })
         .expect("save");
         let _ = docs.load::<ADocument>(&some_id).expect("load");
@@ -256,16 +320,107 @@ mod test {
         docs.save(&ADocument {
             id: some_id,
             name: "Dummy".to_string(),
+            ..Default::default()
         })
         .expect("save");
         let _ = docs.load::<ADocument>(&some_id).expect("load");
     }
 
     #[test]
-    #[ignore]
-    fn supports_snapshot_isolation() {
-        // Eg: https://blog.2ndquadrant.com/postgresql-anti-patterns-read-modify-write-cycles/
-        // https://www.postgresql.org/docs/current/sql-set-transaction.html
-        unimplemented!()
+    fn should_fail_on_overwrite_with_new() {
+        pretty_env_logger::try_init().unwrap_or_default();
+        let pool = pool("should_fail_on_overwrite_with_new");
+
+        let some_doc = ADocument {
+            id: random(),
+            name: "Version 1".to_string(),
+            ..Default::default()
+        };
+
+        let conn = pool.get().expect("temp connection");
+        let docs = Documents::wrap(&*conn);
+
+        info!("Original document: {:?}", some_doc);
+        docs.save(&some_doc).expect("save original");
+
+        let modified_doc = ADocument {
+            id: some_doc.id,
+            name: "Version 2".to_string(),
+            ..Default::default()
+        };
+
+        info!("Modified document: {:?}", modified_doc);
+        let err = docs.save(&modified_doc).expect_err("save should fail");
+
+        assert_eq!(
+            err.find_root_cause().downcast_ref::<ConcurrencyError>(),
+            Some(&ConcurrencyError),
+            "Error: {:?}",
+            err
+        );
+    }
+
+    #[test]
+    fn should_fail_on_overwrite_with_bogus_version() {
+        pretty_env_logger::try_init().unwrap_or_default();
+        let pool = pool("should_fail_on_overwrite_with_bogus_version");
+
+        let some_doc = ADocument {
+            id: random(),
+            name: "Version 1".to_string(),
+            ..Default::default()
+        };
+
+        let conn = pool.get().expect("temp connection");
+        let docs = Documents::wrap(&*conn);
+
+        info!("Original document: {:?}", some_doc);
+        docs.save(&some_doc).expect("save original");
+
+        let mut bogus_version = Version::default();
+        bogus_version.version = "garbage".into();
+
+        let modified_doc = ADocument {
+            id: some_doc.id,
+            name: "Version 2".to_string(),
+            version: bogus_version,
+        };
+
+        info!("Modified document: {:?}", modified_doc);
+        let err = docs.save(&modified_doc).expect_err("save should fail");
+
+        assert_eq!(
+            err.find_root_cause().downcast_ref::<ConcurrencyError>(),
+            Some(&ConcurrencyError),
+            "Error: {:?}",
+            err
+        );
+    }
+
+    #[test]
+    fn should_fail_on_new_document_with_nonzero_version() {
+        pretty_env_logger::try_init().unwrap_or_default();
+        let pool = pool("should_fail_on_new_document_with_nonzero_version");
+
+        let mut bogus_version = Version::default();
+        bogus_version.version = "garbage".into();
+        let some_doc = ADocument {
+            id: random(),
+            name: "Version 1".to_string(),
+            version: bogus_version,
+        };
+
+        let conn = pool.get().expect("temp connection");
+        let docs = Documents::wrap(&*conn);
+
+        info!("new misversioned document: {:?}", some_doc);
+        let err = docs.save(&some_doc).expect_err("save should fail");
+
+        assert_eq!(
+            err.find_root_cause().downcast_ref::<ConcurrencyError>(),
+            Some(&ConcurrencyError),
+            "Error: {:?}",
+            err
+        );
     }
 }

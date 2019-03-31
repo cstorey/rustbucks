@@ -43,3 +43,9 @@ CALL _migrate(text '0002 add check for id coherence', text $$
     ALTER TABLE documents ADD CONSTRAINT id_coherence
         CHECK ((body ->> '_id') IS NOT NULL AND  id = (body ->> '_id'));
 $$);
+
+CALL _migrate(text '0003 Ensure all documents have versions', text $$
+    UPDATE documents
+        SET body = jsonb_set(body, '{_version}', to_jsonb(to_hex(txid_current())))
+        WHERE (body ->> '_version') IS NULL;
+$$);
