@@ -1,21 +1,39 @@
 use failure::Error;
+use std::marker::PhantomData;
+
+use ids::{Entity, Id};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default, Hash)]
-pub struct Version {
+pub struct Version(String);
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Hash)]
+#[serde(bound = "T: Entity")]
+pub struct DocMeta<T> {
+    #[serde(rename = "_id")]
+    pub id: Id<T>,
     #[serde(rename = "_version")]
-    version: String,
+    pub version: Version,
+    #[serde(default)]
+    pub _phantom: PhantomData<T>,
 }
 
-// This is quite nasty; as at present we assume that the version is both _here_ as well as
-// in the `_version` property.
-pub trait Versioned {
-    fn version(&self) -> Version;
+impl<T> Default for DocMeta<T> {
+    fn default() -> Self {
+        let id = Default::default();
+        let version = Default::default();
+        let _phantom = Default::default();
+        DocMeta {
+            id,
+            version,
+            _phantom,
+        }
+    }
 }
 
 impl std::str::FromStr for Version {
     type Err = Error;
     fn from_str(val: &str) -> Result<Self, Error> {
         let version = val.to_string();
-        Ok(Version { version })
+        Ok(Version(version))
     }
 }

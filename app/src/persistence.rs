@@ -6,7 +6,7 @@ use postgres::Connection;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json;
 
-use documents::{Version, Versioned};
+use documents::{DocMeta, Version};
 use ids::{Entity, Id};
 
 #[derive(Fail, Debug, PartialEq, Eq)]
@@ -51,10 +51,13 @@ impl<C: Deref<Target = Connection>> Documents<C> {
         Ok(())
     }
 
-    pub fn save<D: Serialize + Entity + Versioned>(&self, document: &D) -> Result<Version, Error> {
+    pub fn save<D: Serialize + Entity + AsRef<DocMeta<D>>>(
+        &self,
+        document: &D,
+    ) -> Result<Version, Error> {
         let json = serde_json::to_value(document)?;
         let t = self.connection.transaction()?;
-        let res = if document.version() == Version::default() {
+        let res = if document.as_ref().version == Version::default() {
             t.prepare_cached(INSERT_SQL)?.query(&[&json])?
         } else {
             t.prepare_cached(UPDATE_SQL)?.query(&[&json])?
@@ -96,6 +99,7 @@ impl<C> Documents<C> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use documents::*;
     use ids::Id;
     use r2d2::Pool;
     use r2d2_postgres::{PostgresConnectionManager, TlsMode};
@@ -180,18 +184,16 @@ mod test {
 
     #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, Default)]
     struct ADocument {
-        #[serde(rename = "_id")]
-        id: Id<ADocument>,
         #[serde(flatten)]
-        version: Version,
+        meta: DocMeta<ADocument>,
         name: String,
     }
     impl Entity for ADocument {
         const PREFIX: &'static str = "adocument";
     }
-    impl Versioned for ADocument {
-        fn version(&self) -> Version {
-            self.version.clone()
+    impl AsRef<DocMeta<ADocument>> for ADocument {
+        fn as_ref(&self) -> &DocMeta<ADocument> {
+            &self.meta
         }
     }
 
@@ -217,7 +219,10 @@ mod test {
         let pool = pool("save_load");
 
         let some_doc = ADocument {
-            id: random(),
+            meta: DocMeta {
+                id: random(),
+                ..Default::default()
+            },
             name: "Dave".to_string(),
             ..Default::default()
         };
@@ -231,7 +236,10 @@ mod test {
         // being the first in the data file.
         for _ in 0..4 {
             docs.save(&ADocument {
-                id: random(),
+                meta: DocMeta {
+                    id: random(),
+                    ..Default::default()
+                },
                 name: format!("{:x}", random::<usize>()),
                 ..Default::default()
             })
@@ -240,14 +248,16 @@ mod test {
         docs.save(&some_doc).expect("save");
         for _ in 0..4 {
             docs.save(&ADocument {
-                id: random(),
+                meta: DocMeta {
+                    id: random(),
+                    ..Default::default()
+                },
                 name: format!("{:x}", random::<usize>()),
-                ..Default::default()
             })
             .expect("save");
         }
 
-        let loaded = docs.load(&some_doc.id).expect("load");
+        let loaded = docs.load(&some_doc.meta.id).expect("load");
         info!("Loaded document: {:?}", loaded);
 
         assert_eq!(Some(some_doc.name), loaded.map(|d| d.name));
@@ -259,7 +269,10 @@ mod test {
         let pool = pool("should_update_on_overwrite");
 
         let some_doc = ADocument {
-            id: random(),
+            meta: DocMeta {
+                id: random(),
+                ..Default::default()
+            },
             name: "Version 1".to_string(),
             ..Default::default()
         };
@@ -271,14 +284,16 @@ mod test {
         let version = docs.save(&some_doc).expect("save original");
 
         let modified_doc = ADocument {
-            id: some_doc.id,
+            meta: DocMeta {
+                version: version,
+                ..some_doc.meta
+            },
             name: "Version 2".to_string(),
-            version: version,
         };
         info!("Modified document: {:?}", modified_doc);
         docs.save(&modified_doc).expect("save modified");
 
-        let loaded = docs.load(&some_doc.id).expect("load");
+        let loaded = docs.load(&some_doc.meta.id).expect("load");
         info!("Loaded document: {:?}", loaded);
 
         assert_eq!(Some(modified_doc.name), loaded.map(|d| d.name));
@@ -294,9 +309,11 @@ mod test {
         let conn = pool.get().expect("temp connection");
         let docs = Documents::wrap(&*conn);
         docs.save(&ADocument {
-            id: some_id,
+            meta: DocMeta {
+                id: some_id,
+                ..Default::default()
+            },
             name: "Dummy".to_string(),
-            ..Default::default()
         })
         .expect("save");
         let _ = docs.load::<ADocument>(&some_id).expect("load");
@@ -308,9 +325,11 @@ mod test {
         let pool = pool("should_fail_on_overwrite_with_new");
 
         let some_doc = ADocument {
-            id: random(),
+            meta: DocMeta {
+                id: random(),
+                ..Default::default()
+            },
             name: "Version 1".to_string(),
-            ..Default::default()
         };
 
         let conn = pool.get().expect("temp connection");
@@ -320,7 +339,10 @@ mod test {
         docs.save(&some_doc).expect("save original");
 
         let modified_doc = ADocument {
-            id: some_doc.id,
+            meta: DocMeta {
+                version: Default::default(),
+                ..some_doc.meta
+            },
             name: "Version 2".to_string(),
             ..Default::default()
         };
@@ -342,7 +364,10 @@ mod test {
         let pool = pool("should_fail_on_overwrite_with_bogus_version");
 
         let some_doc = ADocument {
-            id: random(),
+            meta: DocMeta {
+                id: random(),
+                ..Default::default()
+            },
             name: "Version 1".to_string(),
             ..Default::default()
         };
@@ -354,9 +379,12 @@ mod test {
         docs.save(&some_doc).expect("save original");
 
         let modified_doc = ADocument {
-            id: some_doc.id,
+            meta: DocMeta {
+                id: some_doc.meta.id,
+                version: Version::from_str("garbage").expect("garbage version"),
+                ..Default::default()
+            },
             name: "Version 2".to_string(),
-            version: Version::from_str("garbage").expect("garbage version"),
         };
 
         info!("Modified document: {:?}", modified_doc);
@@ -376,15 +404,18 @@ mod test {
         let pool = pool("should_fail_on_new_document_with_nonzero_version");
 
         let some_doc = ADocument {
-            id: random(),
+            meta: DocMeta {
+                id: random(),
+                version: Version::from_str("garbage").expect("garbage version"),
+                ..Default::default()
+            },
             name: "Version 1".to_string(),
-            version: Version::from_str("garbage").expect("garbage version"),
         };
 
         let conn = pool.get().expect("temp connection");
         let docs = Documents::wrap(&*conn);
 
-        info!("new misversioned document: {:?}", some_doc);
+        info!("new misAsRef<DocMeta> document: {:?}", some_doc);
         let err = docs.save(&some_doc).expect_err("save should fail");
 
         assert_eq!(

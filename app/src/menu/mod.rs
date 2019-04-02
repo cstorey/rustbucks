@@ -14,7 +14,7 @@ use r2d2::Pool;
 use r2d2_postgres::PostgresConnectionManager;
 use tokio_threadpool::{blocking, ThreadPool};
 
-use documents::{Version, Versioned};
+use documents::DocMeta;
 use ids::{Entity, Id};
 use persistence::*;
 use templates::WeftResponse;
@@ -24,19 +24,15 @@ const PREFIX: &'static str = "/menu";
 
 #[derive(Deserialize, Serialize, Debug, Clone, Hash, Default)]
 pub struct Coffee {
-    #[serde(rename = "_id")]
-    id: Id<Coffee>,
     #[serde(flatten)]
-    version: Version,
+    meta: DocMeta<Coffee>,
     name: String,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub struct CoffeeList {
-    #[serde(rename = "_id")]
-    id: Id<CoffeeList>,
     #[serde(flatten)]
-    version: Version,
+    meta: DocMeta<CoffeeList>,
     drinks: BTreeSet<Id<Coffee>>,
 }
 
@@ -68,12 +64,15 @@ impl Menu {
     fn insert(conn: &postgres::Connection, name: &str) -> Result<(), Error> {
         let docs = Documents::wrap(conn);
         let drink = {
-            let drink_id = Id::hashed(name);
+            let id = Id::hashed(name);
             let mut drink = docs
-                .load(&drink_id)
+                .load(&id)
                 .context("load drink")?
                 .unwrap_or_else(|| Coffee {
-                    id: drink_id,
+                    meta: DocMeta {
+                        id,
+                        ..Default::default()
+                    },
                     ..Default::default()
                 });
             drink.name = name.into();
@@ -87,15 +86,18 @@ impl Menu {
                 docs.load(&id)
                     .context("load list")?
                     .unwrap_or_else(|| CoffeeList {
-                        id: id,
+                        meta: DocMeta {
+                            id,
+                            ..Default::default()
+                        },
                         ..Default::default()
                     });
-            list.drinks.insert(drink.id);
+            list.drinks.insert(drink.meta.id);
             docs.save(&list).context("save list")?;
             debug!("Updated list: {:?}", list);
             list
         };
-        debug!("Saved drink at {}: {:?}", list.id, drink);
+        debug!("Saved drink at {:?}: {:?}", list.meta, drink);
         Ok(())
     }
 
@@ -232,17 +234,17 @@ impl Entity for Coffee {
     const PREFIX: &'static str = "coffee";
 }
 
-impl Versioned for Coffee {
-    fn version(&self) -> Version {
-        self.version.clone()
+impl AsRef<DocMeta<Coffee>> for Coffee {
+    fn as_ref(&self) -> &DocMeta<Coffee> {
+        &self.meta
     }
 }
 impl Entity for CoffeeList {
     const PREFIX: &'static str = "coffee_list";
 }
 
-impl Versioned for CoffeeList {
-    fn version(&self) -> Version {
-        self.version.clone()
+impl AsRef<DocMeta<CoffeeList>> for CoffeeList {
+    fn as_ref(&self) -> &DocMeta<CoffeeList> {
+        &self.meta
     }
 }

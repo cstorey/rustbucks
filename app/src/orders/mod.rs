@@ -13,7 +13,7 @@ use r2d2::Pool;
 use r2d2_postgres::PostgresConnectionManager;
 use tokio_threadpool::{blocking, ThreadPool};
 
-use documents::{Version, Versioned};
+use documents::DocMeta;
 use ids::{Entity, Id};
 use menu::Coffee;
 use persistence::*;
@@ -35,10 +35,8 @@ pub struct OrderForm {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Order {
-    #[serde(rename = "_id")]
-    id: Id<Order>,
     #[serde(flatten)]
-    version: Version,
+    meta: DocMeta<Order>,
     coffee_id: Id<Coffee>,
 }
 
@@ -115,10 +113,13 @@ impl Orders {
     fn new_order(&self, order: OrderForm) -> impl Future<Item = Id<Order>, Error = failure::Error> {
         self.in_pool(move |docs| {
             let id = thread_rng().gen::<Id<Order>>();
-            let order = Order {
+            let meta = DocMeta {
                 id,
+                ..Default::default()
+            };
+            let order = Order {
+                meta: meta,
                 coffee_id: order.coffee_id,
-                version: Version::default(),
             };
             docs.save(&order)?;
             debug!("Saved {:?}", order);
@@ -158,8 +159,8 @@ impl Entity for Order {
     const PREFIX: &'static str = "order";
 }
 
-impl Versioned for Order {
-    fn version(&self) -> Version {
-        self.version.clone()
+impl AsRef<DocMeta<Order>> for Order {
+    fn as_ref(&self) -> &DocMeta<Order> {
+        &self.meta
     }
 }
