@@ -1,10 +1,12 @@
 use std::ops::Deref;
+use std::str::FromStr;
 
 use failure::Error;
 use postgres::Connection;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json;
 
+use documents::{Version, Versioned};
 use ids::{Entity, Id};
 
 #[derive(Fail, Debug, PartialEq, Eq)]
@@ -17,18 +19,6 @@ pub struct Documents<C> {
 
 pub type PooledDocuments =
     Documents<r2d2::PooledConnection<r2d2_postgres::PostgresConnectionManager>>;
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default, Hash)]
-pub struct Version {
-    #[serde(rename = "_version")]
-    version: String,
-}
-
-// This is quite nasty; as at present we assume that the version is both _here_ as well as
-// in the `_version` property.
-pub trait Versioned {
-    fn version(&self) -> Version;
-}
 
 const SETUP_SQL: &'static str = include_str!("persistence.sql");
 const LOAD_SQL: &'static str = "SELECT body FROM documents WHERE id = $1";
@@ -70,7 +60,7 @@ impl<C: Deref<Target = Connection>> Documents<C> {
             t.prepare_cached(UPDATE_SQL)?.query(&[&json])?
         };
         debug!("Query modified {} rows", res.len());
-        let version = res
+        let version: String = res
             .iter()
             .next()
             .ok_or_else(|| {
@@ -80,7 +70,7 @@ impl<C: Deref<Target = Connection>> Documents<C> {
             .get_opt(0)
             .ok_or_else(|| failure::err_msg("Missing version column?"))??;
         t.commit()?;
-        Ok(Version { version })
+        Ok(Version::from_str(&version)?)
     }
 
     pub fn load<D: DeserializeOwned + Entity>(&self, id: &Id<D>) -> Result<Option<D>, Error> {
@@ -363,13 +353,10 @@ mod test {
         info!("Original document: {:?}", some_doc);
         docs.save(&some_doc).expect("save original");
 
-        let mut bogus_version = Version::default();
-        bogus_version.version = "garbage".into();
-
         let modified_doc = ADocument {
             id: some_doc.id,
             name: "Version 2".to_string(),
-            version: bogus_version,
+            version: Version::from_str("garbage").expect("garbage version"),
         };
 
         info!("Modified document: {:?}", modified_doc);
@@ -388,12 +375,10 @@ mod test {
         pretty_env_logger::try_init().unwrap_or_default();
         let pool = pool("should_fail_on_new_document_with_nonzero_version");
 
-        let mut bogus_version = Version::default();
-        bogus_version.version = "garbage".into();
         let some_doc = ADocument {
             id: random(),
             name: "Version 1".to_string(),
-            version: bogus_version,
+            version: Version::from_str("garbage").expect("garbage version"),
         };
 
         let conn = pool.get().expect("temp connection");

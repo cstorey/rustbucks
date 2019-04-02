@@ -13,6 +13,7 @@ use r2d2::Pool;
 use r2d2_postgres::PostgresConnectionManager;
 use tokio_threadpool::{blocking, ThreadPool};
 
+use documents::{Version, Versioned};
 use ids::{Entity, Id};
 use menu::Coffee;
 use persistence::*;

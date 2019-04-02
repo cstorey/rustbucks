@@ -33,6 +33,7 @@ use r2d2::Pool;
 use r2d2_postgres::{PostgresConnectionManager, TlsMode};
 use tokio_threadpool::ThreadPool;
 
+mod documents;
 mod ids;
 mod menu;
 mod orders;
