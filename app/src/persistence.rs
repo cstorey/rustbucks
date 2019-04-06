@@ -1,10 +1,10 @@
-use std::ops::Deref;
 use std::str::FromStr;
 
 use failure::Error;
-use postgres::Connection;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json;
+
+use r2d2_postgres::PostgresConnectionManager;
 
 use documents::{DocMeta, Version};
 use ids::{Entity, Id};
@@ -13,12 +13,12 @@ use ids::{Entity, Id};
 #[fail(display = "stale version")]
 pub struct ConcurrencyError;
 
-pub struct Documents<C> {
-    connection: C,
+pub struct Documents {
+    connection: postgres::Connection,
 }
 
-pub type PooledDocuments =
-    Documents<r2d2::PooledConnection<r2d2_postgres::PostgresConnectionManager>>;
+#[derive(Debug)]
+pub struct DocumentConnectionManager(PostgresConnectionManager);
 
 const SETUP_SQL: &'static str = include_str!("persistence.sql");
 const LOAD_SQL: &'static str = "SELECT body FROM documents WHERE id = $1";
@@ -43,7 +43,7 @@ const UPDATE_SQL: &'static str = "WITH a as (
                                         RETURNING d.body ->> '_version'
                                     ";
 
-impl<C: Deref<Target = Connection>> Documents<C> {
+impl Documents {
     pub fn setup(&self) -> Result<(), Error> {
         for stmt in SETUP_SQL.split("\n\n") {
             self.connection.batch_execute(stmt)?;
@@ -90,9 +90,30 @@ impl<C: Deref<Target = Connection>> Documents<C> {
         }
     }
 }
-impl<C> Documents<C> {
-    pub fn wrap(connection: C) -> Self {
-        Documents { connection }
+
+impl DocumentConnectionManager {
+    pub fn new(pg: PostgresConnectionManager) -> Self {
+        DocumentConnectionManager(pg)
+    }
+}
+impl r2d2::ManageConnection for DocumentConnectionManager {
+    type Connection = Documents;
+    type Error = postgres::Error;
+
+    fn connect(&self) -> Result<Self::Connection, Self::Error> {
+        let connection = self.0.connect()?;
+        Ok(Documents { connection })
+    }
+
+    fn is_valid(&self, conn: &mut Self::Connection) -> Result<(), Self::Error> {
+        Ok(PostgresConnectionManager::is_valid(
+            &self.0,
+            &mut conn.connection,
+        )?)
+    }
+
+    fn has_broken(&self, conn: &mut Self::Connection) -> bool {
+        PostgresConnectionManager::has_broken(&self.0, &mut conn.connection)
     }
 }
 
@@ -111,10 +132,10 @@ mod test {
     #[derive(Debug)]
     struct UseTempSchema(String);
 
-    impl r2d2::CustomizeConnection<postgres::Connection, postgres::Error> for UseTempSchema {
-        fn on_acquire(&self, conn: &mut postgres::Connection) -> Result<(), postgres::Error> {
+    impl r2d2::CustomizeConnection<Documents, postgres::Error> for UseTempSchema {
+        fn on_acquire(&self, conn: &mut Documents) -> Result<(), postgres::Error> {
             loop {
-                let t = conn.transaction()?;
+                let t = conn.connection.transaction()?;
                 let nschemas: i64 = {
                     let rows = t.query(
                         "SELECT count(*) from pg_catalog.pg_namespace n where n.nspname = $1",
@@ -136,12 +157,13 @@ mod test {
                     break;
                 }
             }
-            conn.execute(&format!("SET search_path TO \"{}\"", self.0), &[])?;
+            conn.connection
+                .execute(&format!("SET search_path TO \"{}\"", self.0), &[])?;
             Ok(())
         }
     }
 
-    fn pool(schema: &str) -> Pool<PostgresConnectionManager> {
+    fn pool(schema: &str) -> Pool<DocumentConnectionManager> {
         debug!("Build pool for {}", schema);
         let url = env::var("POSTGRES_URL").unwrap_or_else(|_| DEFAULT_URL.to_string());
         debug!("Use schema name: {}", schema);
@@ -149,13 +171,13 @@ mod test {
         let pool = r2d2::Pool::builder()
             .max_size(2)
             .connection_customizer(Box::new(UseTempSchema(schema.to_string())))
-            .build(manager)
+            .build(DocumentConnectionManager(manager))
             .expect("pool");
         let conn = pool.get().expect("temp connection");
-        cleanup(&conn, schema);
+        cleanup(&conn.connection, schema);
 
         debug!("Init schema in {}", schema);
-        Documents::wrap(conn).setup().expect("setup");
+        conn.setup().expect("setup");
 
         pool
     }
@@ -202,8 +224,7 @@ mod test {
         pretty_env_logger::try_init().unwrap_or_default();
         let pool = pool("load_missing_document_should_return_none");
 
-        let conn = pool.get().expect("temp connection");
-        let docs = Documents::wrap(&*conn);
+        let docs = pool.get().expect("temp connection");
 
         let loaded = docs
             .load::<ADocument>(&random::<Id<ADocument>>())
@@ -227,8 +248,7 @@ mod test {
             ..Default::default()
         };
 
-        let conn = pool.get().expect("temp connection");
-        let docs = Documents::wrap(&*conn);
+        let docs = pool.get().expect("temp connection");
 
         info!("Original document: {:?}", some_doc);
 
@@ -277,8 +297,7 @@ mod test {
             ..Default::default()
         };
 
-        let conn = pool.get().expect("temp connection");
-        let docs = Documents::wrap(&*conn);
+        let docs = pool.get().expect("temp connection");
 
         info!("Original document: {:?}", some_doc);
         let version = docs.save(&some_doc).expect("save original");
@@ -306,8 +325,7 @@ mod test {
 
         let some_id = random::<Id<ADocument>>();
 
-        let conn = pool.get().expect("temp connection");
-        let docs = Documents::wrap(&*conn);
+        let docs = pool.get().expect("temp connection");
         docs.save(&ADocument {
             meta: DocMeta {
                 id: some_id,
@@ -332,8 +350,7 @@ mod test {
             name: "Version 1".to_string(),
         };
 
-        let conn = pool.get().expect("temp connection");
-        let docs = Documents::wrap(&*conn);
+        let docs = pool.get().expect("temp connection");
 
         info!("Original document: {:?}", some_doc);
         docs.save(&some_doc).expect("save original");
@@ -372,8 +389,7 @@ mod test {
             ..Default::default()
         };
 
-        let conn = pool.get().expect("temp connection");
-        let docs = Documents::wrap(&*conn);
+        let docs = pool.get().expect("temp connection");
 
         info!("Original document: {:?}", some_doc);
         docs.save(&some_doc).expect("save original");
@@ -412,8 +428,7 @@ mod test {
             name: "Version 1".to_string(),
         };
 
-        let conn = pool.get().expect("temp connection");
-        let docs = Documents::wrap(&*conn);
+        let docs = pool.get().expect("temp connection");
 
         info!("new misAsRef<DocMeta> document: {:?}", some_doc);
         let err = docs.save(&some_doc).expect_err("save should fail");

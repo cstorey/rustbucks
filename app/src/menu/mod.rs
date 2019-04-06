@@ -9,9 +9,7 @@ use actix_web::{
     http, App, AsyncResponder, FromRequest, FutureResponse, HttpRequest, HttpResponse, Path,
     Responder,
 };
-use postgres;
 use r2d2::Pool;
-use r2d2_postgres::PostgresConnectionManager;
 use tokio_threadpool::{blocking, ThreadPool};
 
 use documents::DocMeta;
@@ -38,7 +36,7 @@ pub struct CoffeeList {
 
 #[derive(Debug, Clone)]
 pub struct Menu {
-    db: Pool<PostgresConnectionManager>,
+    db: Pool<DocumentConnectionManager>,
     pool: Arc<ThreadPool>,
 }
 
@@ -54,15 +52,14 @@ struct DrinkWidget {
 }
 
 impl Menu {
-    pub fn new(db: Pool<PostgresConnectionManager>, pool: Arc<ThreadPool>) -> Result<Self, Error> {
+    pub fn new(db: Pool<DocumentConnectionManager>, pool: Arc<ThreadPool>) -> Result<Self, Error> {
         let conn = db.get()?;
         Self::insert(&conn, "Umbrella").context("insert umbrella")?;
         Self::insert(&conn, "Fnordy").context("insert fnordy")?;
         Ok(Menu { db, pool })
     }
 
-    fn insert(conn: &postgres::Connection, name: &str) -> Result<(), Error> {
-        let docs = Documents::wrap(conn);
+    fn insert(docs: &Documents, name: &str) -> Result<(), Error> {
         let drink = {
             let id = Id::hashed(name);
             let mut drink = docs
@@ -200,7 +197,7 @@ impl Menu {
         })
     }
 
-    fn in_pool<R: Send + 'static, F: Fn(PooledDocuments) -> Result<R, Error> + Send + 'static>(
+    fn in_pool<R: Send + 'static, F: Fn(&Documents) -> Result<R, Error> + Send + 'static>(
         &self,
         f: F,
     ) -> impl Future<Item = R, Error = failure::Error> {
@@ -208,8 +205,8 @@ impl Menu {
         let f = lazy(|| {
             poll_fn(move || {
                 blocking(|| {
-                    let docs = Documents::wrap(db.get()?);
-                    f(docs)
+                    let docs = db.get()?;
+                    f(&*docs)
                 })
             })
             .map_err(Error::from)

@@ -61,18 +61,16 @@ impl RustBucks {
         Ok(RustBucks { menu, orders })
     }
 
-    fn pool() -> Result<Pool<PostgresConnectionManager>, Error> {
+    fn pool() -> Result<Pool<persistence::DocumentConnectionManager>, Error> {
         debug!("Build pool");
         let url = env::var("POSTGRES_URL").context("$POSTGRES_URL")?;
-        let manager =
-            PostgresConnectionManager::new(&*url, TlsMode::None).context("connection manager")?;
+        let manager = persistence::DocumentConnectionManager::new(
+            PostgresConnectionManager::new(&*url, TlsMode::None).context("connection manager")?,
+        );
         let pool = r2d2::Pool::builder().build(manager).context("build pool")?;
 
         debug!("Init schema");
-        let conn = pool.get()?;
-        persistence::Documents::wrap(&*conn)
-            .setup()
-            .context("Setup persistence")?;
+        pool.get()?.setup().context("Setup persistence")?;
 
         Ok(pool)
     }

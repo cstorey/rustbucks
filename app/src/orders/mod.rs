@@ -10,7 +10,6 @@ use failure::ResultExt;
 use futures::future::{lazy, poll_fn};
 use futures::Future;
 use r2d2::Pool;
-use r2d2_postgres::PostgresConnectionManager;
 use tokio_threadpool::{blocking, ThreadPool};
 
 use documents::DocMeta;
@@ -24,7 +23,7 @@ const PREFIX: &'static str = "/orders";
 
 #[derive(Debug, Clone)]
 pub struct Orders {
-    db: Pool<PostgresConnectionManager>,
+    db: Pool<DocumentConnectionManager>,
     pool: Arc<ThreadPool>,
 }
 
@@ -51,7 +50,7 @@ struct OrderWidget {
 }
 
 impl Orders {
-    pub fn new(db: Pool<PostgresConnectionManager>, pool: Arc<ThreadPool>) -> Result<Self, Error> {
+    pub fn new(db: Pool<DocumentConnectionManager>, pool: Arc<ThreadPool>) -> Result<Self, Error> {
         Ok(Orders { db, pool })
     }
 
@@ -137,7 +136,7 @@ impl Orders {
             Ok(order)
         })
     }
-    fn in_pool<R: Send + 'static, F: Fn(PooledDocuments) -> Result<R, Error> + Send + 'static>(
+    fn in_pool<R: Send + 'static, F: Fn(&Documents) -> Result<R, Error> + Send + 'static>(
         &self,
         f: F,
     ) -> impl Future<Item = R, Error = failure::Error> {
@@ -145,8 +144,8 @@ impl Orders {
         let f = lazy(|| {
             poll_fn(move || {
                 blocking(|| {
-                    let docs = Documents::wrap(db.get()?);
-                    f(docs)
+                    let docs = db.get()?;
+                    f(&*docs)
                 })
             })
             .map_err(Error::from)
