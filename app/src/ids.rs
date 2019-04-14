@@ -33,8 +33,8 @@ impl<T> Id<T> {
         let mut val = [0u8; 16];
         {
             let mut cursor = io::Cursor::new(&mut val as &mut [u8]);
-            for i in 0..2 {
-                let mut h = siphasher::sip::SipHasher24::new_with_keys(0, i as u64);
+            for i in 0u64..2 {
+                let mut h = siphasher::sip::SipHasher24::new_with_keys(0, i);
                 entity.hash(&mut h);
                 cursor
                     .write_u64::<BigEndian>(h.finish())
