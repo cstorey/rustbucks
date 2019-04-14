@@ -25,7 +25,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/rust:1.31.0-browsers
+      - image: circleci/rust:1.34.0-browsers
         environment:
           RUSTFLAGS: -D warnings
           POSTGRES_URL: "postgres://circleci@localhost:5432/circleci-rustbucks"
@@ -42,6 +42,8 @@ jobs:
       - *SAVE_REGISTRY
       - run: rustc --version | tee ~/rust-version
       - *RESTORE_DEPS
+      - run: cargo build --tests
+      - *SAVE_DEPS
       - run:
           name: Waiting for Postgres to be ready
           command: |
@@ -52,6 +54,4 @@ jobs:
               sleep 1
             done
             echo Failed waiting for Postgres && exit 1
-      - run: cargo build --tests
-      - *SAVE_DEPS
       - run: env RUST_BACKTRACE=1 cargo test -p rustbucks
