@@ -30,12 +30,14 @@ impl<T> Id<T> {
     pub fn hashed<H: Hash>(entity: H) -> Self {
         let mut val = [0u8; 16];
         let stride = 0u64.to_be_bytes().len();
-        for i in 0..val.len() / stride {
-            let mut h = siphasher::sip::SipHasher24::new_with_keys(0, i as u64);
-            entity.hash(&mut h);
+        let hs = (0..val.len() / stride)
+            .map(|i| siphasher::sip::SipHasher24::new_with_keys(0, i as u64))
+            .map(|mut h| { entity.hash(&mut h); h })
+            .map(|h| h.finish().to_be_bytes());
+        for (i, bs) in hs.enumerate() {
             let start = i as usize * stride;
             let end = (i + 1) as usize * stride;
-            val[start..end].copy_from_slice(&h.finish().to_be_bytes());
+            val[start..end].copy_from_slice(&bs);
         }
         Id {
             val,
