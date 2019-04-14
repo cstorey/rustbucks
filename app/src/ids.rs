@@ -1,10 +1,8 @@
 use std::cmp::Ordering;
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::io;
 use std::marker::PhantomData;
 
-use byteorder::{BigEndian, WriteBytesExt};
 use failure::Error;
 use hex_slice::AsHex;
 use rand::distributions::{Distribution, Standard};
@@ -31,15 +29,13 @@ const DIVIDER: &str = "-";
 impl<T> Id<T> {
     pub fn hashed<H: Hash>(entity: H) -> Self {
         let mut val = [0u8; 16];
-        {
-            let mut cursor = io::Cursor::new(&mut val as &mut [u8]);
-            for i in 0u64..2 {
-                let mut h = siphasher::sip::SipHasher24::new_with_keys(0, i);
-                entity.hash(&mut h);
-                cursor
-                    .write_u64::<BigEndian>(h.finish())
-                    .expect("write_u64 to fixed size buffer should never fail");
-            }
+        let stride = 0u64.to_be_bytes().len();
+        for i in 0..val.len() / stride {
+            let mut h = siphasher::sip::SipHasher24::new_with_keys(0, i as u64);
+            entity.hash(&mut h);
+            let start = i as usize * stride;
+            let end = (i + 1) as usize * stride;
+            val[start..end].copy_from_slice(&h.finish().to_be_bytes());
         }
         Id {
             val,
