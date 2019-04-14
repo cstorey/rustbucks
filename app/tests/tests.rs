@@ -1,7 +1,6 @@
 extern crate actix;
 extern crate actix_web;
 extern crate base64;
-extern crate byteorder;
 extern crate failure;
 extern crate futures;
 extern crate log;
