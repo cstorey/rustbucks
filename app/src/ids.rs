@@ -32,7 +32,10 @@ impl<T> Id<T> {
         let stride = 0u64.to_be_bytes().len();
         let hs = (0..val.len() / stride)
             .map(|i| siphasher::sip::SipHasher24::new_with_keys(0, i as u64))
-            .map(|mut h| { entity.hash(&mut h); h })
+            .map(|mut h| {
+                entity.hash(&mut h);
+                h
+            })
             .map(|h| h.finish().to_be_bytes());
         for (i, bs) in hs.enumerate() {
             let start = i as usize * stride;
