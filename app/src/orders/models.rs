@@ -11,6 +11,7 @@ use rand;
 pub(super) struct Order {
     #[serde(flatten)]
     pub(super) meta: DocMeta<Order>,
+    #[serde(default)]
     pub(super) mbox: MailBox<OrderDst>,
     pub(super) drink_id: Id<Drink>,
 }
@@ -19,7 +20,7 @@ pub(super) enum OrderDst {
     Barista,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(super) struct MailBox<A: Eq + Hash> {
     pub(super) outgoing: HashSet<A>,
 }
@@ -56,6 +57,12 @@ impl<A: Hash + Eq> MailBox<A> {
 
     fn send(&mut self, msg: A) {
         self.outgoing.insert(msg);
+    }
+}
+
+impl<A: Eq + Hash> Default for MailBox<A> {
+    fn default() -> Self {
+        Self::empty()
     }
 }
 
