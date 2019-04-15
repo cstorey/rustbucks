@@ -1,21 +1,21 @@
 use crate::documents::DocMeta;
 use crate::ids::{Entity, Id};
-use crate::menu::Coffee;
+use crate::menu::Drink;
 use rand;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(super) struct Order {
     #[serde(flatten)]
     pub(super) meta: DocMeta<Order>,
-    pub(super) coffee_id: Id<Coffee>,
+    pub(super) drink_id: Id<Drink>,
 }
 
 impl Order {
-    pub(super) fn for_coffee(coffee_id: Id<Coffee>) -> Self {
+    pub(super) fn for_drink(drink_id: Id<Drink>) -> Self {
         let id = rand::random::<Id<Order>>();
         Order {
             meta: DocMeta::new_with_id(id),
-            coffee_id: coffee_id,
+            drink_id: drink_id,
         }
     }
 }

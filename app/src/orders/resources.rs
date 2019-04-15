@@ -12,7 +12,7 @@ use r2d2::Pool;
 use tokio_threadpool::{blocking, ThreadPool};
 
 use ids::Id;
-use menu::Coffee;
+use menu::Drink;
 use persistence::*;
 use templates::WeftResponse;
 use WithTemplate;
@@ -29,7 +29,7 @@ pub struct Orders {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct OrderForm {
-    coffee_id: Id<Coffee>,
+    drink_id: Id<Drink>,
 }
 
 #[derive(Debug, WeftRenderable)]
@@ -104,7 +104,7 @@ impl Orders {
 
     fn new_order(&self, order: OrderForm) -> impl Future<Item = Id<Order>, Error = failure::Error> {
         self.in_pool(move |docs| {
-            let order = Order::for_coffee(order.coffee_id);
+            let order = Order::for_drink(order.drink_id);
             docs.save(&order)?;
             debug!("Saved {:?}", order);
             Ok(order.meta.id)

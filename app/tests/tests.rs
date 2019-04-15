@@ -44,7 +44,7 @@ struct SomethingScenario {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct CoffeeRequest(String);
+struct DrinkRequest(String);
 
 struct SomethingBarista {
     browser: sulfur::DriverHolder,
@@ -89,11 +89,11 @@ impl SomethingCustomer {
         Ok(SomethingCustomer { browser, url })
     }
 
-    fn requests_coffee(&self, _: &SomethingCashier) -> Result<CoffeeRequest, Error> {
+    fn requests_drink(&self, _: &SomethingCashier) -> Result<DrinkRequest, Error> {
         self.browser.visit(&self.url)?;
 
-        let a_coffee_elt = self.browser.find_element(&By::css(".a-coffee"))?;
-        self.browser.click(&a_coffee_elt)?;
+        let a_drink_elt = self.browser.find_element(&By::css(".a-drink"))?;
+        self.browser.click(&a_drink_elt)?;
 
         let order_button = self.browser.find_element(&By::css("button.order"))?;
         self.browser.click(&order_button)?;
@@ -107,13 +107,13 @@ impl SomethingCustomer {
             .attribute(&elt, "data-order-id")
             .expect("find data-order-id")
             .expect("some data-order-id");
-        Ok(CoffeeRequest(id))
+        Ok(DrinkRequest(id))
     }
 
-    fn pays_cashier(&self, _: &CoffeeRequest, _: &SomethingCashier) -> CoffeeRequest {
+    fn pays_cashier(&self, _: &DrinkRequest, _: &SomethingCashier) -> DrinkRequest {
         unimplemented!("SomethingCustomer::pays_cashier")
     }
-    fn cannot_pay(&self, _: &CoffeeRequest, _: &SomethingCashier) -> CoffeeRequest {
+    fn cannot_pay(&self, _: &DrinkRequest, _: &SomethingCashier) -> DrinkRequest {
         unimplemented!("SomethingCustomer::cannot_pay")
     }
 }
@@ -123,11 +123,11 @@ impl SomethingCashier {
         Ok(SomethingCashier {})
     }
 
-    fn requests_payment_for(&self, _: &CoffeeRequest, _price: u64) -> Result<(), Error> {
+    fn requests_payment_for(&self, _: &DrinkRequest, _price: u64) -> Result<(), Error> {
         // TODO
         Ok(())
     }
-    fn issues_refund_to(&self, _: &CoffeeRequest, _: &SomethingCustomer) {
+    fn issues_refund_to(&self, _: &DrinkRequest, _: &SomethingCustomer) {
         unimplemented!("SomethingCashier::issues_refund_to")
     }
 }
@@ -138,20 +138,20 @@ impl SomethingBarista {
         let url = url.to_string();
         Ok(SomethingBarista { browser, url })
     }
-    fn prepares_coffee(&self, _: &CoffeeRequest) -> Result<(), Error> {
+    fn prepares_drink(&self, _: &DrinkRequest) -> Result<(), Error> {
         // Visits the barista UI
         self.browser.visit(&self.url)?;
         // Finds the named request
         // Presses buttons to do things
-        // Confirms coffee made
-        unimplemented!("SomethingBarista::prepares_coffee")
+        // Confirms drink made
+        unimplemented!("SomethingBarista::prepares_drink")
     }
 
-    fn delivers(&self, _: &CoffeeRequest, _: &SomethingCustomer) {
+    fn delivers(&self, _: &DrinkRequest, _: &SomethingCustomer) {
         unimplemented!("SomethingBarista::delivers")
     }
 
-    fn disposes(&self, _: &CoffeeRequest) {
+    fn disposes(&self, _: &DrinkRequest) {
         unimplemented!("SomethingBarista::delivers")
     }
 
@@ -161,7 +161,7 @@ impl SomethingBarista {
 }
 
 #[test]
-fn should_serve_coffee_partial() {
+fn should_serve_drink_partial() {
     pretty_env_logger::try_init().unwrap_or(());
 
     let scenario = SomethingScenario::new().expect("new scenario");
@@ -170,12 +170,12 @@ fn should_serve_coffee_partial() {
     let _barista = scenario.new_barista().expect("new barista");;
     let customer = scenario.new_customer().expect("new customer");
 
-    let _req = customer.requests_coffee(&cashier).expect("requests coffee");
+    let _req = customer.requests_drink(&cashier).expect("requests drink");
 }
 
 #[test]
 #[ignore]
-fn should_serve_coffee() {
+fn should_serve_drink() {
     pretty_env_logger::try_init().unwrap_or(());
 
     let scenario = SomethingScenario::new().expect("new scenario");
@@ -184,12 +184,12 @@ fn should_serve_coffee() {
     let barista = scenario.new_barista().expect("new barista");;
     let customer = scenario.new_customer().expect("new customer");
 
-    let req = customer.requests_coffee(&cashier).expect("requests coffee");
+    let req = customer.requests_drink(&cashier).expect("requests drink");
 
     cashier
         .requests_payment_for(&req, 42)
         .expect("requested payment");
-    barista.prepares_coffee(&req).expect("prepares_coffee");
+    barista.prepares_drink(&req).expect("prepares_drink");
     customer.pays_cashier(&req, &cashier);
     barista.delivers(&req, &customer);
 }
@@ -203,12 +203,12 @@ fn should_abort_if_customer_cannot_pay() {
     let barista = scenario.new_barista().expect("new barista");;
     let customer = scenario.new_customer().expect("new customer");
 
-    let req = customer.requests_coffee(&cashier).expect("requests coffee");
+    let req = customer.requests_drink(&cashier).expect("requests drink");
     cashier
         .requests_payment_for(&req, 42)
         .expect("requested payment");
 
-    barista.prepares_coffee(&req).expect("prepares_coffee");
+    barista.prepares_drink(&req).expect("prepares_drink");
 
     customer.cannot_pay(&req, &cashier);
 
@@ -224,7 +224,7 @@ fn should_give_refund_if_out_of_something() {
     let barista = scenario.new_barista().expect("new barista");;
     let customer = scenario.new_customer().expect("new customer");
 
-    let req = customer.requests_coffee(&cashier).expect("requests coffee");
+    let req = customer.requests_drink(&cashier).expect("requests drink");
     cashier
         .requests_payment_for(&req, 42)
         .expect("requested payment");
