@@ -30,6 +30,15 @@ impl<T> Default for DocMeta<T> {
     }
 }
 
+impl<T> DocMeta<T> {
+    pub(crate) fn new_with_id(id: Id<T>) -> Self {
+        DocMeta {
+            id,
+            ..Default::default()
+        }
+    }
+}
+
 impl std::str::FromStr for Version {
     type Err = Error;
     fn from_str(val: &str) -> Result<Self, Error> {

@@ -53,10 +53,7 @@ impl Menu {
                 .load(&id)
                 .context("load drink")?
                 .unwrap_or_else(|| Coffee {
-                    meta: DocMeta {
-                        id,
-                        ..Default::default()
-                    },
+                    meta: DocMeta::new_with_id(id),
                     ..Default::default()
                 });
             drink.name = name.into();
@@ -70,10 +67,7 @@ impl Menu {
                 docs.load(&id)
                     .context("load list")?
                     .unwrap_or_else(|| CoffeeList {
-                        meta: DocMeta {
-                            id,
-                            ..Default::default()
-                        },
+                        meta: DocMeta::new_with_id(id),
                         ..Default::default()
                     });
             list.drinks.insert(drink.meta.id);

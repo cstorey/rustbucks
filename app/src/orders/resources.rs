@@ -107,12 +107,8 @@ impl Orders {
     fn new_order(&self, order: OrderForm) -> impl Future<Item = Id<Order>, Error = failure::Error> {
         self.in_pool(move |docs| {
             let id = thread_rng().gen::<Id<Order>>();
-            let meta = DocMeta {
-                id,
-                ..Default::default()
-            };
             let order = Order {
-                meta: meta,
+                meta: DocMeta::new_with_id(id),
                 coffee_id: order.coffee_id,
             };
             docs.save(&order)?;
