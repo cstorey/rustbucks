@@ -24,7 +24,7 @@ pub trait Entity {
     const PREFIX: &'static str;
 }
 
-const DIVIDER: &str = "-";
+const DIVIDER: &str = ".";
 
 impl<T> Id<T> {
     pub fn hashed<H: Hash>(entity: H) -> Self {
@@ -59,9 +59,11 @@ impl<T> Distribution<Id<T>> for Standard {
     }
 }
 
+const ENCODED_BARE_ID_LEN: usize = 22;
+
 impl<T: Entity> fmt::Display for Id<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        let mut buf = [0u8; 22];
+        let mut buf = [0u8; ENCODED_BARE_ID_LEN];
         let sz = base64::encode_config_slice(&self.val, base64::URL_SAFE_NO_PAD, &mut buf);
         assert_eq!(sz, buf.len());
         write!(
@@ -86,17 +88,15 @@ impl<T> fmt::Debug for Id<T> {
 impl<T: Entity> std::str::FromStr for Id<T> {
     type Err = Error;
     fn from_str(src: &str) -> Result<Self, Self::Err> {
-        if T::PREFIX.len() > src.len() {
+        let expected_length = T::PREFIX.len() + DIVIDER.len() + ENCODED_BARE_ID_LEN;
+        if src.len() != expected_length {
             bail!(IdParseError::InvalidPrefix);
         };
         let (start, remainder) = src.split_at(T::PREFIX.len());
         if start != T::PREFIX {
             bail!(IdParseError::InvalidPrefix);
         }
-        if remainder.len() < 1 {
-            bail!(IdParseError::Unparseable);
-        }
-        let (divider, b64) = remainder.split_at(1);
+        let (divider, b64) = remainder.split_at(DIVIDER.len());
 
         if divider != DIVIDER {
             bail!(IdParseError::Unparseable);
