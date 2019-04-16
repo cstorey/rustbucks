@@ -26,7 +26,7 @@ const INSERT_SQL: &'static str = "WITH a as (
                                 SELECT $1::jsonb as body
                                 )
                                 INSERT INTO documents AS d (id, body)
-                                SELECT a.body ->> '_id', jsonb_set(a.body, '{_version}', to_jsonb(to_hex(txid_current())))
+                                SELECT a.body ->> '_id', a.body || jsonb_build_object('_version', to_hex(txid_current()))
                                 FROM a
                                 WHERE NOT EXISTS (
                                     SELECT 1 FROM documents d where d.id = a.body ->> '_id'
@@ -36,7 +36,7 @@ const UPDATE_SQL: &'static str = "WITH a as (
                                     SELECT $1::jsonb as body
                                     )
                                     UPDATE documents AS d
-                                        SET body = jsonb_set(a.body, '{_version}', to_jsonb(to_hex(txid_current())))
+                                        SET body = a.body || jsonb_build_object('_version', to_hex(txid_current()))
                                         FROM a
                                         WHERE id = a.body ->> '_id'
                                         AND d.body -> '_version' = a.body -> '_version'
