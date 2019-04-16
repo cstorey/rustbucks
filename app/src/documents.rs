@@ -74,3 +74,41 @@ impl<A: Eq + Hash> Default for MailBox<A> {
         Self::empty()
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn document_messaging_scratch_pad() {
+        #[derive(Debug, Default,Hash,PartialEq,Eq)]
+        struct Message;
+        struct Source {
+            mbox: MailBox<Message>,
+        }
+        struct Dest { items: u64 };
+        impl Source {
+            fn provoke(&mut self) {
+                self.mbox.send(Message);
+            }
+        }
+        impl Dest {
+            fn receive(&mut self, _: Message) {
+                self.items += 1
+            }
+        }
+        let mut src = Source { mbox: MailBox::default() };
+        let mut dst = Dest { items: 0 };
+
+        src.provoke();
+
+        // A miracle occurs!
+        for msg in src.mbox.outgoing.drain() {
+            println!("Message  {:?}", msg);
+            // Handler
+            dst.receive(msg);
+        }
+
+        // ... A miracle has now occurred. Honest.
+        assert_eq!(dst.items, 1);
+    }
+}
