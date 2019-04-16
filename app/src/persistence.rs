@@ -22,11 +22,19 @@ pub struct DocumentConnectionManager(PostgresConnectionManager);
 
 const SETUP_SQL: &'static str = include_str!("persistence.sql");
 const LOAD_SQL: &'static str = "SELECT body FROM documents WHERE id = $1";
+#[cfg(test)]
+const LOAD_NEXT_SQL: &'static str = "SELECT body
+                                     FROM documents
+                                     WHERE body @> jsonb '{\"_outgoing_present\": true}'
+                                     LIMIT 1
+";
 const INSERT_SQL: &'static str = "WITH a as (
                                 SELECT $1::jsonb as body
                                 )
                                 INSERT INTO documents AS d (id, body)
-                                SELECT a.body ->> '_id', a.body || jsonb_build_object('_version', to_hex(txid_current()))
+                                SELECT a.body ->> '_id',
+                                    a.body || jsonb_build_object('_version', to_hex(txid_current()))
+                                           || jsonb_build_object('_outgoing_present', jsonb_array_length(a.body -> '_outgoing') > 0)
                                 FROM a
                                 WHERE NOT EXISTS (
                                     SELECT 1 FROM documents d where d.id = a.body ->> '_id'
@@ -36,7 +44,9 @@ const UPDATE_SQL: &'static str = "WITH a as (
                                     SELECT $1::jsonb as body
                                     )
                                     UPDATE documents AS d
-                                        SET body = a.body || jsonb_build_object('_version', to_hex(txid_current()))
+                                        SET body = a.body
+                                            || jsonb_build_object('_version', to_hex(txid_current()))
+                                            || jsonb_build_object('_outgoing_present', jsonb_array_length(a.body -> '_outgoing') > 0)
                                         FROM a
                                         WHERE id = a.body ->> '_id'
                                         AND d.body -> '_version' = a.body -> '_version'
@@ -79,6 +89,22 @@ impl Documents {
     pub fn load<D: DeserializeOwned + Entity>(&self, id: &Id<D>) -> Result<Option<D>, Error> {
         let load = self.connection.prepare_cached(LOAD_SQL)?;
         let res = load.query(&[&id.to_string()])?;
+
+        if let Some(row) = res.iter().next() {
+            let json: serde_json::Value = row.get_opt(0).expect("Missing column in row?")?;
+            let doc = serde_json::from_value(json)?;
+
+            Ok(Some(doc))
+        } else {
+            Ok(None)
+        }
+    }
+
+    #[cfg(test)]
+    pub fn load_next_unsent<D: DeserializeOwned + Entity>(&self) -> Result<Option<D>, Error> {
+        let load = self.connection.prepare_cached(LOAD_NEXT_SQL)?;
+        let res = load.query(&[])?;
+        debug!("Cols: {:?}; Rows: {:?}", res.columns(), res.len());
 
         if let Some(row) = res.iter().next() {
             let json: serde_json::Value = row.get_opt(0).expect("Missing column in row?")?;
@@ -213,11 +239,14 @@ mod test {
         meta: DocMeta<ADocument>,
         name: String,
     }
+
+    #[derive(Debug, Clone, Default, Hash, PartialEq, Eq, Deserialize, Serialize)]
+    struct AMessage;
     impl Entity for ADocument {
         const PREFIX: &'static str = "adocument";
     }
     impl AsRef<DocMeta<ADocument>> for ADocument {
-        fn as_ref(&self) -> &DocMeta<ADocument> {
+        fn as_ref(&self) -> &DocMeta<Self> {
             &self.meta
         }
     }
@@ -416,4 +445,126 @@ mod test {
         );
         Ok(())
     }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    struct ChattyDoc {
+        #[serde(flatten)]
+        meta: DocMeta<ChattyDoc>,
+        #[serde(flatten)]
+        mbox: MailBox<AMessage>,
+    }
+
+    impl Entity for ChattyDoc {
+        const PREFIX: &'static str = "chatty";
+    }
+    impl AsRef<DocMeta<ChattyDoc>> for ChattyDoc {
+        fn as_ref(&self) -> &DocMeta<Self> {
+            &self.meta
+        }
+    }
+
+    #[test]
+    fn should_enqueue_nothing_by_default() -> Result<(), Error> {
+        env_logger::try_init().unwrap_or_default();
+        let pool = pool("should_enqueue_nothing_by_default")?;
+        let docs = pool.get()?;
+
+        let some_doc = ChattyDoc {
+            meta: DocMeta::new_with_id(IDGEN.generate()),
+            mbox: MailBox::default(),
+        };
+
+        info!("Original document: {:?}", some_doc);
+
+        docs.save(&some_doc).expect("save");
+
+        let docp = docs.load_next_unsent::<ChattyDoc>()?;
+        info!("Loaded something: {:?}", docp);
+
+        assert!(docp.is_none(), "Should find no document. Got: {:?}", docp);
+        Ok(())
+    }
+
+    #[test]
+    fn should_enqueue_on_create() -> Result<(), Error> {
+        env_logger::try_init().unwrap_or_default();
+        let pool = pool("should_enqueue_on_create")?;
+        let docs = pool.get()?;
+
+        let mut some_doc = ChattyDoc {
+            meta: DocMeta::new_with_id(IDGEN.generate()),
+            mbox: MailBox::default(),
+        };
+
+        some_doc.mbox.send(AMessage);
+        info!("Original document: {:?}", some_doc);
+        docs.save(&some_doc).expect("save");
+
+        let docp = docs.load_next_unsent::<ChattyDoc>()?;
+        info!("Loaded something: {:?}", docp);
+
+        let loaded = docs.load_next_unsent::<ChattyDoc>()?;
+        info!("Loaded something: {:?}", loaded);
+
+        assert_eq!(Some(some_doc.meta.id), loaded.map(|d| d.meta.id));
+
+        Ok(())
+    }
+
+    #[test]
+    fn should_enqueue_on_update() -> Result<(), Error> {
+        env_logger::try_init().unwrap_or_default();
+        let pool = pool("should_enqueue_on_update")?;
+        let docs = pool.get()?;
+
+        let mut some_doc = ChattyDoc {
+            meta: DocMeta::new_with_id(IDGEN.generate()),
+            mbox: MailBox::default(),
+        };
+
+        let vers = docs.save(&some_doc)?;
+        some_doc.meta.version = vers;
+
+        some_doc.mbox.send(AMessage);
+        info!("Original document: {:?}", some_doc);
+        docs.save(&some_doc).expect("save");
+
+        let loaded = docs.load_next_unsent::<ChattyDoc>()?;
+        info!("Loaded something: {:?}", loaded);
+
+        assert_eq!(Some(some_doc.meta.id), loaded.map(|d| d.meta.id));
+        Ok(())
+    }
+
+    #[test]
+    #[ignore]
+    fn should_enqueue_something_something() -> Result<(), Error> {
+        env_logger::try_init().unwrap_or_default();
+        let pool = pool("should_enqueue_something_something")?;
+
+        let mut some_doc = ChattyDoc {
+            meta: DocMeta::new_with_id(IDGEN.generate()),
+            mbox: MailBox::default(),
+        };
+        some_doc.mbox.send(AMessage);
+
+        let docs = pool.get()?;
+        info!("Original document: {:?}", some_doc);
+
+        let vers = docs.save(&some_doc)?;
+        some_doc.meta.version = vers;
+
+        let doc = docs
+            .load_next_unsent::<ChattyDoc>()?
+            .ok_or_else(|| failure::err_msg("missing document?"))?;;
+        info!("Loaded something: {:?}", doc);
+
+        assert_eq!(doc.meta.id, some_doc.meta.id);
+
+        Ok(())
+    }
+
+    #[test]
+    #[ignore]
+    fn should_only_load_messages_of_type() {}
 }
