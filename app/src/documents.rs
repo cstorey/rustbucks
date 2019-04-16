@@ -1,5 +1,9 @@
-use failure::Error;
 use std::marker::PhantomData;
+use std::cmp::Eq;
+use std::collections::HashSet;
+use std::hash::Hash;
+
+use failure::Error;
 
 use ids::{Entity, Id};
 
@@ -15,6 +19,11 @@ pub struct DocMeta<T> {
     pub version: Version,
     #[serde(skip)]
     pub _phantom: PhantomData<T>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(super) struct MailBox<A: Eq + Hash> {
+    pub(super) outgoing: HashSet<A>,
 }
 
 impl<T> Default for DocMeta<T> {
@@ -44,5 +53,24 @@ impl std::str::FromStr for Version {
     fn from_str(val: &str) -> Result<Self, Error> {
         let version = val.to_string();
         Ok(Version(version))
+    }
+}
+
+
+impl<A: Hash + Eq> MailBox<A> {
+    pub(crate) fn empty() -> Self {
+        let outgoing = HashSet::new();
+
+        MailBox { outgoing }
+    }
+
+    pub(crate) fn send(&mut self, msg: A) {
+        self.outgoing.insert(msg);
+    }
+}
+
+impl<A: Eq + Hash> Default for MailBox<A> {
+    fn default() -> Self {
+        Self::empty()
     }
 }
