@@ -167,7 +167,7 @@ mod test {
         }
     }
 
-    fn pool(schema: &str) -> Pool<DocumentConnectionManager> {
+    fn pool(schema: &str) -> Result<Pool<DocumentConnectionManager>, Error> {
         debug!("Build pool for {}", schema);
         let url = env::var("POSTGRES_URL").unwrap_or_else(|_| DEFAULT_URL.to_string());
         debug!("Use schema name: {}", schema);
@@ -175,19 +175,19 @@ mod test {
         let pool = r2d2::Pool::builder()
             .max_size(2)
             .connection_customizer(Box::new(UseTempSchema(schema.to_string())))
-            .build(DocumentConnectionManager(manager))
-            .expect("pool");
-        let conn = pool.get().expect("temp connection");
-        cleanup(&conn.connection, schema);
+            .build(DocumentConnectionManager(manager))?;
+
+        let conn = pool.get()?;
+        cleanup(&conn.connection, schema)?;
 
         debug!("Init schema in {}", schema);
-        conn.setup().expect("setup");
+        conn.setup()?;
 
-        pool
+        Ok(pool)
     }
 
-    fn cleanup(conn: &postgres::Connection, schema: &str) {
-        let t = conn.transaction().expect("begin");
+    fn cleanup(conn: &postgres::Connection, schema: &str) -> Result<(), Error> {
+        let t = conn.transaction()?;
         debug!("Clean old tables in {}", schema);
         for row in t
             .query(
@@ -196,16 +196,15 @@ mod test {
                  LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace \
                  WHERE n.nspname = $1 and c.relkind = 'r'",
                 &[&schema],
-            )
-            .expect("query tables")
+            )?
             .iter()
         {
             let schema = row.get::<_, String>(0);
             let table = row.get::<_, String>(1);
-            t.execute(&format!("DROP TABLE {}.{}", schema, table), &[])
-                .expect("drop table");
+            t.execute(&format!("DROP TABLE {}.{}", schema, table), &[])?;
         }
-        t.commit().expect("commit");
+        t.commit()?;
+        Ok(())
     }
 
     #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
@@ -224,29 +223,29 @@ mod test {
     }
 
     #[test]
-    fn load_missing_document_should_return_none() {
+    fn load_missing_document_should_return_none() -> Result<(), Error> {
         env_logger::try_init().unwrap_or_default();
-        let pool = pool("load_missing_document_should_return_none");
+        let pool = pool("load_missing_document_should_return_none")?;
 
-        let docs = pool.get().expect("temp connection");
+        let docs = pool.get()?;
 
         let loaded = docs.load::<ADocument>(&IDGEN.generate()).expect("load");
         info!("Loaded document: {:?}", loaded);
 
         assert_eq!(None, loaded);
+        Ok(())
     }
 
     #[test]
-    fn save_load() {
+    fn save_load() -> Result<(), Error> {
         env_logger::try_init().unwrap_or_default();
-        let pool = pool("save_load");
-
+        let pool = pool("save_load")?;
         let some_doc = ADocument {
             meta: DocMeta::new_with_id(IDGEN.generate()),
             name: "Dave".to_string(),
         };
 
-        let docs = pool.get().expect("temp connection");
+        let docs = pool.get()?;
 
         info!("Original document: {:?}", some_doc);
 
@@ -272,19 +271,20 @@ mod test {
         info!("Loaded document: {:?}", loaded);
 
         assert_eq!(Some(some_doc.name), loaded.map(|d| d.name));
+        Ok(())
     }
 
     #[test]
-    fn should_update_on_overwrite() {
+    fn should_update_on_overwrite() -> Result<(), Error> {
         env_logger::try_init().unwrap_or_default();
-        let pool = pool("should_update_on_overwrite");
+        let pool = pool("should_update_on_overwrite")?;
 
         let some_doc = ADocument {
             meta: DocMeta::new_with_id(IDGEN.generate()),
             name: "Version 1".to_string(),
         };
 
-        let docs = pool.get().expect("temp connection");
+        let docs = pool.get()?;
 
         info!("Original document: {:?}", some_doc);
         let version = docs.save(&some_doc).expect("save original");
@@ -303,35 +303,37 @@ mod test {
         info!("Loaded document: {:?}", loaded);
 
         assert_eq!(Some(modified_doc.name), loaded.map(|d| d.name));
+        Ok(())
     }
 
     #[test]
-    fn supports_connection() {
+    fn supports_connection() -> Result<(), Error> {
         env_logger::try_init().unwrap_or_default();
-        let pool = pool("supports_connection");
+        let pool = pool("supports_connection")?;
 
         let some_id = IDGEN.generate();
 
-        let docs = pool.get().expect("temp connection");
+        let docs = pool.get()?;
         docs.save(&ADocument {
             meta: DocMeta::new_with_id(IDGEN.generate()),
             name: "Dummy".to_string(),
         })
         .expect("save");
         let _ = docs.load::<ADocument>(&some_id).expect("load");
+        Ok(())
     }
 
     #[test]
-    fn should_fail_on_overwrite_with_new() {
+    fn should_fail_on_overwrite_with_new() -> Result<(), Error> {
         env_logger::try_init().unwrap_or_default();
-        let pool = pool("should_fail_on_overwrite_with_new");
+        let pool = pool("should_fail_on_overwrite_with_new")?;
 
         let some_doc = ADocument {
             meta: DocMeta::new_with_id(IDGEN.generate()),
             name: "Version 1".to_string(),
         };
 
-        let docs = pool.get().expect("temp connection");
+        let docs = pool.get()?;
 
         info!("Original document: {:?}", some_doc);
         docs.save(&some_doc).expect("save original");
@@ -353,12 +355,13 @@ mod test {
             "Error: {:?}",
             err
         );
+        Ok(())
     }
 
     #[test]
-    fn should_fail_on_overwrite_with_bogus_version() {
+    fn should_fail_on_overwrite_with_bogus_version() -> Result<(), Error> {
         env_logger::try_init().unwrap_or_default();
-        let pool = pool("should_fail_on_overwrite_with_bogus_version");
+        let pool = pool("should_fail_on_overwrite_with_bogus_version")?;
 
         let id = IDGEN.generate();
         let some_doc = ADocument {
@@ -366,7 +369,7 @@ mod test {
             name: "Version 1".to_string(),
         };
 
-        let docs = pool.get().expect("temp connection");
+        let docs = pool.get()?;
 
         info!("Original document: {:?}", some_doc);
         let actual = docs.save(&some_doc).expect("save original");
@@ -387,19 +390,20 @@ mod test {
             "Error: {:?}",
             err
         );
+        Ok(())
     }
 
     #[test]
-    fn should_fail_on_new_document_with_nonzero_version() {
+    fn should_fail_on_new_document_with_nonzero_version() -> Result<(), Error> {
         env_logger::try_init().unwrap_or_default();
-        let pool = pool("should_fail_on_new_document_with_nonzero_version");
+        let pool = pool("should_fail_on_new_document_with_nonzero_version")?;
 
         let mut meta = DocMeta::new_with_id(IDGEN.generate());
         meta.version = Version::from_str("garbage").expect("garbage version");
         let name = "Version 1".to_string();
         let some_doc = ADocument { meta, name };
 
-        let docs = pool.get().expect("temp connection");
+        let docs = pool.get()?;
 
         info!("new misAsRef<DocMeta> document: {:?}", some_doc);
         let err = docs.save(&some_doc).expect_err("save should fail");
@@ -410,5 +414,6 @@ mod test {
             "Error: {:?}",
             err
         );
+        Ok(())
     }
 }
