@@ -17,7 +17,7 @@ use persistence::*;
 use templates::WeftResponse;
 use WithTemplate;
 
-use super::models::{Coffee, CoffeeList};
+use super::models::{Drink, DrinkList};
 
 const PREFIX: &'static str = "/menu";
 
@@ -30,12 +30,12 @@ pub struct Menu {
 #[derive(Debug, WeftRenderable)]
 #[template(path = "src/menu/menu.html")]
 struct MenuWidget {
-    drink: Vec<(Id<Coffee>, Coffee)>,
+    drink: Vec<(Id<Drink>, Drink)>,
 }
 #[derive(Debug, WeftRenderable)]
 #[template(path = "src/menu/drink.html")]
 struct DrinkWidget {
-    drink: Coffee,
+    drink: Drink,
 }
 
 impl Menu {
@@ -52,7 +52,7 @@ impl Menu {
             let mut drink = docs
                 .load(&id)
                 .context("load drink")?
-                .unwrap_or_else(|| Coffee {
+                .unwrap_or_else(|| Drink {
                     meta: DocMeta::new_with_id(id),
                     ..Default::default()
                 });
@@ -62,11 +62,11 @@ impl Menu {
         };
 
         let list = {
-            let id = CoffeeList::id();
-            let mut list: CoffeeList =
+            let id = DrinkList::id();
+            let mut list: DrinkList =
                 docs.load(&id)
                     .context("load list")?
-                    .unwrap_or_else(|| CoffeeList {
+                    .unwrap_or_else(|| DrinkList {
                         meta: DocMeta::new_with_id(id),
                         ..Default::default()
                     });
@@ -119,7 +119,7 @@ impl Menu {
 
     fn detail(&self, req: &HttpRequest<Self>) -> FutureResponse<impl Responder> {
         let me = self.clone();
-        result(Path::<Id<Coffee>>::extract(req))
+        result(Path::<Id<Drink>>::extract(req))
             .and_then(move |id| {
                 let id = id.into_inner();
                 me.load_drink(id).from_err().map(move |drinkp| {
@@ -133,8 +133,8 @@ impl Menu {
             .responder()
     }
 
-    fn load_menu(&self) -> impl Future<Item = Vec<(Id<Coffee>, Coffee)>, Error = failure::Error> {
-        self.in_pool(move |docs| -> Result<Vec<(Id<Coffee>, Coffee)>, Error> {
+    fn load_menu(&self) -> impl Future<Item = Vec<(Id<Drink>, Drink)>, Error = failure::Error> {
+        self.in_pool(move |docs| -> Result<Vec<(Id<Drink>, Drink)>, Error> {
             trace!("load_menu {:?}", {
                 let t = ::std::thread::current();
                 t.name()
@@ -142,20 +142,20 @@ impl Menu {
                     .unwrap_or_else(|| format!("{:?}", t.id()))
             });
             let list = docs
-                .load::<CoffeeList>(&CoffeeList::id())?
+                .load::<DrinkList>(&DrinkList::id())?
                 .unwrap_or_default();
             let result = list
                 .drinks
                 .into_iter()
                 .map(|id| {
-                    docs.load::<Coffee>(&id)
-                        .and_then(|coffeep| {
-                            coffeep
-                                .ok_or_else(|| failure::err_msg(format!("missing coffee? {}", &id)))
+                    docs.load::<Drink>(&id)
+                        .and_then(|drinkp| {
+                            drinkp
+                                .ok_or_else(|| failure::err_msg(format!("missing drink? {}", &id)))
                         })
-                        .map(|coffee| (id, coffee))
+                        .map(|drink| (id, drink))
                 })
-                .collect::<Result<Vec<(Id<Coffee>, Coffee)>, Error>>()?;
+                .collect::<Result<Vec<(Id<Drink>, Drink)>, Error>>()?;
 
             Ok(result)
         })
@@ -163,8 +163,8 @@ impl Menu {
 
     fn load_drink(
         &self,
-        id: Id<Coffee>,
-    ) -> impl Future<Item = Option<Coffee>, Error = failure::Error> {
+        id: Id<Drink>,
+    ) -> impl Future<Item = Option<Drink>, Error = failure::Error> {
         self.in_pool(move |docs| {
             trace!("load_drink {:?}", {
                 let t = ::std::thread::current();
@@ -197,7 +197,7 @@ impl Menu {
 }
 
 impl MenuWidget {
-    fn drinks<'a>(&'a self) -> impl 'a + Iterator<Item = &'a (Id<Coffee>, Coffee)> {
+    fn drinks<'a>(&'a self) -> impl 'a + Iterator<Item = &'a (Id<Drink>, Drink)> {
         self.drink.iter()
     }
 }

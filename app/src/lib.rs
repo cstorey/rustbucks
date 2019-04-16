@@ -21,6 +21,9 @@ extern crate rand;
 extern crate serde_json;
 extern crate siphasher;
 extern crate tokio_threadpool;
+#[cfg(test)]
+#[macro_use]
+extern crate maplit;
 
 use std::env;
 use std::sync::Arc;

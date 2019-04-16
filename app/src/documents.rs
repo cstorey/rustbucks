@@ -13,7 +13,7 @@ pub struct DocMeta<T> {
     pub id: Id<T>,
     #[serde(rename = "_version")]
     pub version: Version,
-    #[serde(default)]
+    #[serde(skip)]
     pub _phantom: PhantomData<T>,
 }
 

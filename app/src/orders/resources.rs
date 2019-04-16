@@ -1,4 +1,3 @@
-use rand::prelude::*;
 use std::sync::Arc;
 
 use actix_web::server::{HttpHandler, HttpHandlerTask};
@@ -12,9 +11,8 @@ use futures::Future;
 use r2d2::Pool;
 use tokio_threadpool::{blocking, ThreadPool};
 
-use documents::DocMeta;
 use ids::Id;
-use menu::Coffee;
+use menu::Drink;
 use persistence::*;
 use templates::WeftResponse;
 use WithTemplate;
@@ -31,7 +29,7 @@ pub struct Orders {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct OrderForm {
-    coffee_id: Id<Coffee>,
+    drink_id: Id<Drink>,
 }
 
 #[derive(Debug, WeftRenderable)]
@@ -106,14 +104,10 @@ impl Orders {
 
     fn new_order(&self, order: OrderForm) -> impl Future<Item = Id<Order>, Error = failure::Error> {
         self.in_pool(move |docs| {
-            let id = thread_rng().gen::<Id<Order>>();
-            let order = Order {
-                meta: DocMeta::new_with_id(id),
-                coffee_id: order.coffee_id,
-            };
+            let order = Order::for_drink(order.drink_id);
             docs.save(&order)?;
             debug!("Saved {:?}", order);
-            Ok(id)
+            Ok(order.meta.id)
         })
     }
 

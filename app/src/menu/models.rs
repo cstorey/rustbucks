@@ -5,40 +5,40 @@ use crate::ids::Entity;
 use crate::ids::Id;
 
 #[derive(Deserialize, Serialize, Debug, Clone, Hash, Default)]
-pub struct Coffee {
+pub struct Drink {
     #[serde(flatten)]
-    pub(super) meta: DocMeta<Coffee>,
+    pub(super) meta: DocMeta<Drink>,
     pub(super) name: String,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
-pub struct CoffeeList {
+pub struct DrinkList {
     #[serde(flatten)]
-    pub(super) meta: DocMeta<CoffeeList>,
-    pub(super) drinks: BTreeSet<Id<Coffee>>,
+    pub(super) meta: DocMeta<DrinkList>,
+    pub(super) drinks: BTreeSet<Id<Drink>>,
 }
 
-impl CoffeeList {
-    pub(super) fn id() -> Id<CoffeeList> {
-        Id::hashed(&"CoffeeList")
+impl DrinkList {
+    pub(super) fn id() -> Id<DrinkList> {
+        Id::hashed(&"DrinkList")
     }
 }
 
-impl Entity for Coffee {
-    const PREFIX: &'static str = "coffee";
+impl Entity for Drink {
+    const PREFIX: &'static str = "drink";
 }
 
-impl AsRef<DocMeta<Coffee>> for Coffee {
-    fn as_ref(&self) -> &DocMeta<Coffee> {
+impl AsRef<DocMeta<Drink>> for Drink {
+    fn as_ref(&self) -> &DocMeta<Drink> {
         &self.meta
     }
 }
-impl Entity for CoffeeList {
-    const PREFIX: &'static str = "coffee_list";
+impl Entity for DrinkList {
+    const PREFIX: &'static str = "drink_list";
 }
 
-impl AsRef<DocMeta<CoffeeList>> for CoffeeList {
-    fn as_ref(&self) -> &DocMeta<CoffeeList> {
+impl AsRef<DocMeta<DrinkList>> for DrinkList {
+    fn as_ref(&self) -> &DocMeta<DrinkList> {
         &self.meta
     }
 }
