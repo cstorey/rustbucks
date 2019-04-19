@@ -25,7 +25,6 @@ extern crate tokio_threadpool;
 #[macro_use]
 extern crate maplit;
 
-use std::env;
 use std::sync::Arc;
 
 use actix_web::server::{HttpHandler, HttpHandlerTask};
@@ -49,7 +48,13 @@ pub struct WithTemplate<C> {
 }
 
 #[derive(Deserialize, Serialize, Debug, Default)]
-pub struct Config {}
+pub struct Config {
+    pub postgres: PgConfig,
+}
+#[derive(Deserialize, Serialize, Debug, Default)]
+pub struct PgConfig {
+    pub url: String,
+}
 
 #[derive(Clone)]
 pub struct RustBucks {
@@ -58,21 +63,23 @@ pub struct RustBucks {
 }
 
 impl RustBucks {
-    pub fn new(_config: &Config) -> Result<Self, Error> {
-        let db = Self::pool()?;
+    pub fn new(config: &Config) -> Result<Self, Error> {
+        let db = Self::pool(&config.postgres)?;
         let threads = Arc::new(ThreadPool::new());
         let menu = menu::Menu::new(db.clone(), threads.clone())?;
         let orders = orders::Orders::new(db.clone(), threads.clone())?;
         Ok(RustBucks { menu, orders })
     }
 
-    fn pool() -> Result<Pool<persistence::DocumentConnectionManager>, Error> {
+    fn pool(config: &PgConfig) -> Result<Pool<persistence::DocumentConnectionManager>, Error> {
         debug!("Build pool");
-        let url = env::var("POSTGRES_URL").context("$POSTGRES_URL")?;
         let manager = persistence::DocumentConnectionManager::new(
-            PostgresConnectionManager::new(&*url, TlsMode::None).context("connection manager")?,
+            PostgresConnectionManager::new(&*config.url, TlsMode::None)
+                .context("connection manager")?,
         );
-        let pool = r2d2::Pool::builder().build(manager).context("build pool")?;
+        let builder = r2d2::Pool::builder();
+        debug!("Pool builder: {:?}", builder);
+        let pool = builder.build(manager).context("build pool")?;
 
         debug!("Init schema");
         pool.get()?.setup().context("Setup persistence")?;
