@@ -27,10 +27,16 @@ struct Opt {
     config: PathBuf,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct Config {
     #[serde(flatten)]
     rustbucks: rustbucks::Config,
+    listener: Listener,
+}
+
+#[derive(Deserialize, Debug)]
+struct Listener {
+    addr: std::net::SocketAddr,
 }
 
 #[global_allocator]
@@ -50,7 +56,7 @@ fn main() -> Result<(), failure::Error> {
     let app = rustbucks::RustBucks::new(&config.rustbucks)?;
 
     let srv = actix_web::server::new(move || app.app())
-        .bind("0.0.0.0:3030")
+        .bind(&config.listener.addr)
         .context("bind")?;
     info!("Listening on: {:?}", srv.addrs());
     srv.start();
