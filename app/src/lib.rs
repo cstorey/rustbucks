@@ -48,6 +48,9 @@ pub struct WithTemplate<C> {
     value: C,
 }
 
+#[derive(Deserialize, Serialize, Debug, Default)]
+pub struct Config {}
+
 #[derive(Clone)]
 pub struct RustBucks {
     menu: menu::Menu,
@@ -55,7 +58,7 @@ pub struct RustBucks {
 }
 
 impl RustBucks {
-    pub fn new() -> Result<Self, Error> {
+    pub fn new(_config: &Config) -> Result<Self, Error> {
         let db = Self::pool()?;
         let threads = Arc::new(ThreadPool::new());
         let menu = menu::Menu::new(db.clone(), threads.clone())?;

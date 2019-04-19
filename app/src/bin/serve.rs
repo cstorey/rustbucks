@@ -7,11 +7,16 @@ extern crate log;
 extern crate jemallocator;
 extern crate pretty_env_logger;
 extern crate rustbucks;
-#[macro_use]
 extern crate structopt;
+extern crate toml;
+#[macro_use]
+extern crate serde_derive;
+
+use std::fs::File;
+use std::io::Read;
+use std::path::PathBuf;
 
 use failure::ResultExt;
-use std::path::PathBuf;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -20,6 +25,12 @@ struct Opt {
     /// Input file
     #[structopt(parse(from_os_str))]
     config: PathBuf,
+}
+
+#[derive(Deserialize)]
+struct Config {
+    #[serde(flatten)]
+    rustbucks: rustbucks::Config,
 }
 
 #[global_allocator]
@@ -32,7 +43,11 @@ fn main() -> Result<(), failure::Error> {
     let opt = Opt::from_args();
     debug!("Options: {:?}", opt);
 
-    let app = rustbucks::RustBucks::new()?;
+    let mut config_buf = String::new();
+    File::open(&opt.config)?.read_to_string(&mut config_buf)?;
+    let config: Config = toml::from_str(&config_buf)?;
+
+    let app = rustbucks::RustBucks::new(&config.rustbucks)?;
 
     let srv = actix_web::server::new(move || app.app())
         .bind("0.0.0.0:3030")

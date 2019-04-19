@@ -27,6 +27,7 @@ siphasher = "0.2.3"
 structopt = "0.2.15"
 tokio = "0.1.11"
 tokio-threadpool = "0.1.9"
+toml = "0.5.0"
 url = "1.7.1"
 
 [dependencies.postgres]

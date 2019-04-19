@@ -1,0 +1,14 @@
+[postgres]
+url="postgresql://cez@127.0.0.1:5432/"
+
+[env_logger]
+tests= "trace"
+actix= "info"
+actix_web= "info"
+rustbucks= "trace"
+postgres= "debug"
+cargo= "error"
+rustc_metadata= "error"
+html5ever= "error"
+
+default= "warn"
