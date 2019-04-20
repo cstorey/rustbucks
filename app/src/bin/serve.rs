@@ -30,7 +30,7 @@ struct Opt {
 #[derive(Deserialize, Debug)]
 struct Config {
     #[serde(flatten)]
-    rustbucks: rustbucks::Config,
+    rustbucks: rustbucks::config::Config,
     listener: Listener,
 }
 

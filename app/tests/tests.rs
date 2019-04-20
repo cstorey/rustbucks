@@ -61,7 +61,7 @@ struct SomethingCustomer {
 
 impl SomethingScenario {
     fn new() -> Result<Self, Error> {
-        let mut config = rustbucks::Config::default();
+        let mut config = rustbucks::config::Config::default();
         config.postgres.url = env::var("POSTGRES_URL").context("$POSTGRES_URL")?;
         let app = rustbucks::RustBucks::new(&config).expect("new rustbucks");
 
