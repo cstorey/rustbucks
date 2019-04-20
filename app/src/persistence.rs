@@ -25,7 +25,7 @@ const LOAD_SQL: &'static str = "SELECT body FROM documents WHERE id = $1";
 #[cfg(test)]
 const LOAD_NEXT_SQL: &'static str = "SELECT body
                                      FROM documents
-                                     WHERE body @> jsonb '{\"_outgoing_present\": true}'
+                                     WHERE jsonb_array_length(body -> '_outgoing') > 0
                                      LIMIT 1
 ";
 const INSERT_SQL: &'static str = "WITH a as (
@@ -34,7 +34,6 @@ const INSERT_SQL: &'static str = "WITH a as (
                                 INSERT INTO documents AS d (id, body)
                                 SELECT a.body ->> '_id',
                                     a.body || jsonb_build_object('_version', to_hex(txid_current()))
-                                           || jsonb_build_object('_outgoing_present', jsonb_array_length(a.body -> '_outgoing') > 0)
                                 FROM a
                                 WHERE NOT EXISTS (
                                     SELECT 1 FROM documents d where d.id = a.body ->> '_id'
@@ -46,7 +45,6 @@ const UPDATE_SQL: &'static str = "WITH a as (
                                     UPDATE documents AS d
                                         SET body = a.body
                                             || jsonb_build_object('_version', to_hex(txid_current()))
-                                            || jsonb_build_object('_outgoing_present', jsonb_array_length(a.body -> '_outgoing') > 0)
                                         FROM a
                                         WHERE id = a.body ->> '_id'
                                         AND d.body -> '_version' = a.body -> '_version'
