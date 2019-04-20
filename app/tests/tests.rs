@@ -17,9 +17,12 @@ extern crate tokio_threadpool;
 extern crate lazy_static;
 extern crate envy;
 
+use std::env;
+use std::net::SocketAddr;
+
 use actix_web::test;
 use failure::Error;
-use std::net::SocketAddr;
+use failure::ResultExt;
 use sulfur::{chrome, By};
 
 #[derive(Deserialize, Debug)]
@@ -58,7 +61,9 @@ struct SomethingCustomer {
 
 impl SomethingScenario {
     fn new() -> Result<Self, Error> {
-        let app = rustbucks::RustBucks::new().expect("new rustbucks");
+        let mut config = rustbucks::config::Config::default();
+        config.postgres.url = env::var("POSTGRES_URL").context("$POSTGRES_URL")?;
+        let app = rustbucks::RustBucks::new(&config).expect("new rustbucks");
 
         let _srv = test::TestServer::with_factory(move || app.app());
 
