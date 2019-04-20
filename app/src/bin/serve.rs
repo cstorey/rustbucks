@@ -32,6 +32,7 @@ struct Config {
     #[serde(flatten)]
     rustbucks: rustbucks::config::Config,
     listener: Listener,
+    env_logger: rustbucks::config::EnvLogger,
 }
 
 #[derive(Deserialize, Debug)]

@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate log;
 extern crate futures;
-extern crate pretty_env_logger;
 extern crate serde;
 extern crate tokio;
 #[macro_use]
@@ -24,6 +23,7 @@ extern crate tokio_threadpool;
 #[cfg(test)]
 #[macro_use]
 extern crate maplit;
+extern crate env_logger;
 
 use std::sync::Arc;
 

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::time::Duration;
 
 use failure::{Error, ResultExt};
@@ -20,6 +21,18 @@ pub struct PgConfig {
     idle_timeout: Option<Duration>,
     connection_timeout: Option<Duration>,
 }
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "lowercase")]
+enum LogLevel {
+    Off,
+    Error,
+    Warn,
+    Info,
+    Debug,
+    Trace,
+}
+
 impl PgConfig {
     pub(crate) fn build(&self) -> Result<Pool<persistence::DocumentConnectionManager>, Error> {
         debug!("Build pool from {:?}", self);
@@ -51,5 +64,39 @@ impl PgConfig {
         let pool = builder.build(manager).context("build pool")?;
 
         Ok(pool)
+    }
+}
+
+#[derive(Deserialize, Debug)]
+pub struct EnvLogger {
+    level: Option<LogLevel>,
+    modules: HashMap<String, LogLevel>,
+}
+
+impl LogLevel {
+    fn to_filter(&self) -> log::LevelFilter {
+        match self {
+            &LogLevel::Off => log::LevelFilter::Off,
+            &LogLevel::Error => log::LevelFilter::Error,
+            &LogLevel::Warn => log::LevelFilter::Warn,
+            &LogLevel::Info => log::LevelFilter::Info,
+            &LogLevel::Debug => log::LevelFilter::Debug,
+            &LogLevel::Trace => log::LevelFilter::Trace,
+        }
+    }
+}
+
+impl EnvLogger {
+    pub fn builder(&self) -> env_logger::Builder {
+        let mut b = env_logger::Builder::from_default_env();
+        if let Some(level) = self.level.as_ref() {
+            b.filter_level(level.to_filter());
+        }
+
+        for (module, level) in self.modules.iter() {
+            b.filter_module(&module, level.to_filter());
+        }
+
+        return b;
     }
 }
