@@ -1,8 +1,4 @@
-use std::cmp::Eq;
-use std::collections::HashSet;
-use std::hash::Hash;
-
-use crate::documents::DocMeta;
+use crate::documents::{DocMeta,MailBox};
 use crate::ids::{Entity, Id};
 use crate::menu::Drink;
 use rand;
@@ -18,11 +14,6 @@ pub(super) struct Order {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub(super) enum OrderDst {
     Barista,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(super) struct MailBox<A: Eq + Hash> {
-    pub(super) outgoing: HashSet<A>,
 }
 
 impl Order {
@@ -45,24 +36,6 @@ impl Entity for Order {
 impl AsRef<DocMeta<Order>> for Order {
     fn as_ref(&self) -> &DocMeta<Order> {
         &self.meta
-    }
-}
-
-impl<A: Hash + Eq> MailBox<A> {
-    fn empty() -> Self {
-        let outgoing = HashSet::new();
-
-        MailBox { outgoing }
-    }
-
-    fn send(&mut self, msg: A) {
-        self.outgoing.insert(msg);
-    }
-}
-
-impl<A: Eq + Hash> Default for MailBox<A> {
-    fn default() -> Self {
-        Self::empty()
     }
 }
 
