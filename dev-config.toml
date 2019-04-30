@@ -14,8 +14,10 @@ nanos = 0
 secs = 1
 nanos = 0
 
-
 [env_logger]
+level= "warn"
+
+[env_logger.modules]
 tests= "trace"
 actix= "info"
 actix_web= "info"
@@ -24,5 +26,3 @@ postgres= "debug"
 cargo= "error"
 rustc_metadata= "error"
 html5ever= "error"
-
-default= "warn"
