@@ -44,16 +44,16 @@ struct Listener {
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 fn main() -> Result<(), failure::Error> {
-    pretty_env_logger::init();
-    let sys = actix::System::new("rustbucks-app");
-
     let opt = Opt::from_args();
-    debug!("Options: {:?}", opt);
 
     let mut config_buf = String::new();
     File::open(&opt.config)?.read_to_string(&mut config_buf)?;
     let config: Config = toml::from_str(&config_buf)?;
 
+    eprintln!("{:#?}", config);
+    config.env_logger.builder().init();
+
+    let sys = actix::System::new("rustbucks-app");
     let app = rustbucks::RustBucks::new(&config.rustbucks)?;
 
     let srv = actix_web::server::new(move || app.app())
