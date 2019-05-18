@@ -7,9 +7,10 @@ use r2d2::Pool;
 use weft_actix::WeftResponse;
 use weft_derive::WeftRenderable;
 
-use crate::WithTemplate;
-use infra::ids::Id;
+use crate::drinker::Drinker;
 use infra::persistence::*;
+use crate::WithTemplate;
+use infra::ids::{Id, IdGen};
 use infra::untyped_ids::UntypedId;
 
 use super::models::{Drink, DrinkList};
@@ -19,6 +20,7 @@ const PREFIX: &str = "/menu";
 #[derive(Debug)]
 pub struct Menu<M: r2d2::ManageConnection> {
     db: Pool<M>,
+    idgen: IdGen,
 }
 
 #[derive(Debug, WeftRenderable)]
@@ -30,14 +32,15 @@ struct MenuWidget {
 #[template(path = "src/menu/drink.html", selector = "#content")]
 struct DrinkWidget {
     drink: Drink,
+    drinker: Drinker,
 }
 
 impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Menu<M> {
-    pub fn new(db: Pool<M>) -> Result<Self, Error> {
+    pub fn new(db: Pool<M>, idgen: IdGen) -> Result<Self, Error> {
         let conn = db.get()?;
         Self::insert(&conn, "Umbrella").context("insert umbrella")?;
         Self::insert(&conn, "Fnordy").context("insert fnordy")?;
-        Ok(Menu { db })
+        Ok(Menu { db, idgen })
     }
 
     fn insert(docs: &D, name: &str) -> Result<(), Error> {
@@ -100,10 +103,12 @@ impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Men
         id: Id<Drink>,
     ) -> impl Future<Item = impl Responder, Error = actix_web::Error> {
         let me = self.clone();
+        // 🤷
+        let drinker = Drinker::incarnate(&me.idgen);
         me.load_drink(id).from_err().map(move |drinkp| {
             drinkp.map(|drink| {
                 WeftResponse::of(WithTemplate {
-                    value: DrinkWidget { drink },
+                    value: DrinkWidget { drink, drinker },
                 })
             })
         })
@@ -173,7 +178,8 @@ impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Men
 impl<M: r2d2::ManageConnection> Clone for Menu<M> {
     fn clone(&self) -> Self {
         let db = self.db.clone();
-        Menu { db }
+        let idgen = self.idgen.clone();
+        Menu { db, idgen }
     }
 }
 

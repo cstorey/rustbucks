@@ -44,6 +44,10 @@ optional = false
 [dependencies.weft-actix]
 git = "https://github.com/cstorey/weft.git"
 
+[dependencies.postgres]
+features = ["with-serde_json"]
+version = "0.15.2"
+
 [dev-dependencies]
 serde_json = "1.0.41"
 lazy_static = "1.4.0"

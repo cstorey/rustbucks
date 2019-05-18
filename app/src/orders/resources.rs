@@ -15,6 +15,7 @@ use infra::persistence::*;
 use infra::untyped_ids::UntypedId;
 
 use super::models::Order;
+use crate::drinker::Drinker;
 
 const PREFIX: &str = "/orders";
 
@@ -27,6 +28,7 @@ pub struct Orders<M: r2d2::ManageConnection> {
 #[derive(Debug, Clone, Deserialize)]
 pub struct OrderForm {
     drink_id: Id<Drink>,
+    drinker_id: Id<Drinker>,
 }
 
 #[derive(Debug, WeftRenderable)]
@@ -109,10 +111,10 @@ impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Ord
             .from_err()
     }
 
-    fn new_order(&self, order: OrderForm) -> impl Future<Item = Id<Order>, Error = failure::Error> {
+    fn new_order(&self, form: OrderForm) -> impl Future<Item = Id<Order>, Error = failure::Error> {
         let me = self.clone();
         self.in_pool(move |docs| {
-            let mut order = Order::for_drink(order.drink_id, &me.idgen);
+            let mut order = form.to_order(&me.idgen);
             docs.save(&mut order)?;
             debug!("Saved {:?}", order);
             Ok(order.meta.id)
@@ -150,5 +152,11 @@ impl<M: r2d2::ManageConnection> Clone for Orders<M> {
         let db = self.db.clone();
         let idgen = self.idgen.clone();
         Orders { db, idgen }
+    }
+}
+
+impl OrderForm {
+    fn to_order(&self, idgen: &IdGen) -> Order {
+        Order::for_drink(self.drink_id, self.drinker_id, idgen)
     }
 }

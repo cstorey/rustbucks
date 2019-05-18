@@ -243,7 +243,7 @@ impl r2d2::CustomizeConnection<Documents, postgres::Error> for UseSchema {
 }
 
 #[cfg(test)]
-mod test {
+pub(crate) mod test {
     use super::*;
     use crate::documents::*;
     use crate::ids;

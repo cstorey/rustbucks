@@ -7,8 +7,11 @@ use infra::ids;
 use infra::persistence;
 
 pub mod config;
+mod drinker;
 mod menu;
 mod orders;
+#[cfg(test)]
+mod test;
 
 #[derive(Debug, WeftRenderable)]
 #[template(path = "src/base.html")]
@@ -30,7 +33,7 @@ impl RustBucks {
         db.get()?.setup().context("Setup persistence")?;
 
         let idgen = ids::IdGen::new();
-        let menu = menu::Menu::new(db.clone())?;
+        let menu = menu::Menu::new(db.clone(), idgen.clone())?;
         let orders = orders::Orders::new(db.clone(), idgen)?;
 
         Ok(RustBucks { menu, orders })
