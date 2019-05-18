@@ -4,7 +4,7 @@ extern crate base64;
 extern crate failure;
 extern crate futures;
 extern crate log;
-extern crate pretty_env_logger;
+extern crate env_logger;
 extern crate rustbucks;
 extern crate serde;
 #[macro_use]
@@ -167,7 +167,7 @@ impl SomethingBarista {
 
 #[test]
 fn should_serve_drink_partial() {
-    pretty_env_logger::try_init().unwrap_or(());
+    env_logger::try_init().unwrap_or(());
 
     let scenario = SomethingScenario::new().expect("new scenario");
 
@@ -181,7 +181,7 @@ fn should_serve_drink_partial() {
 #[test]
 #[ignore]
 fn should_serve_drink() {
-    pretty_env_logger::try_init().unwrap_or(());
+    env_logger::try_init().unwrap_or(());
 
     let scenario = SomethingScenario::new().expect("new scenario");
 

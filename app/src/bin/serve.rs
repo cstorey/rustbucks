@@ -5,7 +5,6 @@ extern crate hyper;
 #[macro_use]
 extern crate log;
 extern crate jemallocator;
-extern crate pretty_env_logger;
 extern crate rustbucks;
 extern crate structopt;
 extern crate toml;
