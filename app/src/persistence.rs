@@ -221,7 +221,7 @@ mod test {
 
     #[test]
     fn load_missing_document_should_return_none() {
-        pretty_env_logger::try_init().unwrap_or_default();
+        env_logger::try_init().unwrap_or_default();
         let pool = pool("load_missing_document_should_return_none");
 
         let docs = pool.get().expect("temp connection");
@@ -236,7 +236,7 @@ mod test {
 
     #[test]
     fn save_load() {
-        pretty_env_logger::try_init().unwrap_or_default();
+        env_logger::try_init().unwrap_or_default();
         let pool = pool("save_load");
 
         let some_doc = ADocument {
@@ -285,7 +285,7 @@ mod test {
 
     #[test]
     fn should_update_on_overwrite() {
-        pretty_env_logger::try_init().unwrap_or_default();
+        env_logger::try_init().unwrap_or_default();
         let pool = pool("should_update_on_overwrite");
 
         let some_doc = ADocument {
@@ -320,7 +320,7 @@ mod test {
 
     #[test]
     fn supports_connection() {
-        pretty_env_logger::try_init().unwrap_or_default();
+        env_logger::try_init().unwrap_or_default();
         let pool = pool("supports_connection");
 
         let some_id = random::<Id<ADocument>>();
@@ -339,7 +339,7 @@ mod test {
 
     #[test]
     fn should_fail_on_overwrite_with_new() {
-        pretty_env_logger::try_init().unwrap_or_default();
+        env_logger::try_init().unwrap_or_default();
         let pool = pool("should_fail_on_overwrite_with_new");
 
         let some_doc = ADocument {
@@ -377,7 +377,7 @@ mod test {
 
     #[test]
     fn should_fail_on_overwrite_with_bogus_version() {
-        pretty_env_logger::try_init().unwrap_or_default();
+        env_logger::try_init().unwrap_or_default();
         let pool = pool("should_fail_on_overwrite_with_bogus_version");
 
         let some_doc = ADocument {
@@ -416,7 +416,7 @@ mod test {
 
     #[test]
     fn should_fail_on_new_document_with_nonzero_version() {
-        pretty_env_logger::try_init().unwrap_or_default();
+        env_logger::try_init().unwrap_or_default();
         let pool = pool("should_fail_on_new_document_with_nonzero_version");
 
         let some_doc = ADocument {
