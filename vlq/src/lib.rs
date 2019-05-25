@@ -30,7 +30,36 @@ pub fn encode_vec<N: PrimInt>(n: N) -> Vec<u8> {
     out
 }
 
-#[inline(never)]
+pub fn encode_slice<N: PrimInt>(n: N, out: &mut [u8]) -> usize {
+    let mask = NumCast::from(0x7f).unwrap();
+    let zero = NumCast::from(0).unwrap();
+
+    if n == zero {
+        out[0] = 0;
+        return 1;
+    }
+
+    let nbits = std::mem::size_of::<N>() * 8;
+    let has_rem = (nbits % 7) != 0;
+    let places = (nbits / 7) + (if has_rem { 1 } else { 0 });
+    let it = (0..places)
+        .rev()
+        .map(|i| {
+            let shift = i * 7;
+            let byte = (n.unsigned_shr(shift as u32) & mask).to_u8().unwrap();
+            (i, byte)
+        })
+        .skip_while(|&(_, byte)| byte == 0)
+        .map(|(i, byte)| if i != 0 { 0x80u8 | byte } else { byte });
+
+    let mut i = 0;
+    for byte in it {
+        out[i] = byte;
+        i += 1;
+    }
+    i
+}
+
 pub fn decode_slice<N: PrimInt>(slice: &[u8]) -> (usize, N) {
     let zero: N = NumCast::from(0).unwrap();
 
@@ -52,9 +81,10 @@ pub fn decode_slice<N: PrimInt>(slice: &[u8]) -> (usize, N) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use suppositions::generators::*;
     use suppositions::*;
+
+    use super::*;
 
     macro_rules! test_encode {
         ($name: ident, $expected: expr, $input: expr) => {
@@ -191,4 +221,15 @@ mod tests {
             assert_eq!(bs.len(), sz, "Slice: {:?}", bs);
         });
     }
+
+    #[test]
+    fn encodes_to_slice_same_as_vec() {
+        property(u8s()).check(|v| {
+            let mut buf = [0u8; 8];
+            let bs = encode_vec(v);
+            let sz = encode_slice(v, &mut buf);
+            assert_eq!(bs, &buf[..sz]);
+        });
+    }
+
 }
