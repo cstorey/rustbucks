@@ -29,6 +29,7 @@ tokio = "0.1.11"
 tokio-threadpool = "0.1.9"
 toml = "0.5.0"
 url = "1.7.1"
+hybrid-clocks = { git = "https://github.com/cstorey/hybrid-clocks.git" }
 
 [dependencies.postgres]
 features = ["with-serde_json"]

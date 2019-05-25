@@ -1,4 +1,4 @@
-use crate::documents::{DocMeta,MailBox};
+use crate::documents::{DocMeta, MailBox};
 use crate::ids::{Entity, Id};
 use crate::menu::Drink;
 use rand;

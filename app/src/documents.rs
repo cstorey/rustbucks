@@ -1,7 +1,7 @@
-use std::marker::PhantomData;
 use std::cmp::Eq;
 use std::collections::HashSet;
 use std::hash::Hash;
+use std::marker::PhantomData;
 
 use failure::Error;
 
@@ -56,7 +56,6 @@ impl std::str::FromStr for Version {
     }
 }
 
-
 impl<A: Hash + Eq> MailBox<A> {
     pub(crate) fn empty() -> Self {
         let outgoing = HashSet::new();
@@ -80,12 +79,14 @@ mod test {
     use super::*;
     #[test]
     fn document_messaging_scratch_pad() {
-        #[derive(Debug, Default,Hash,PartialEq,Eq)]
+        #[derive(Debug, Default, Hash, PartialEq, Eq)]
         struct Message;
         struct Source {
             mbox: MailBox<Message>,
         }
-        struct Dest { items: u64 };
+        struct Dest {
+            items: u64,
+        };
         impl Source {
             fn provoke(&mut self) {
                 self.mbox.send(Message);
@@ -96,7 +97,9 @@ mod test {
                 self.items += 1
             }
         }
-        let mut src = Source { mbox: MailBox::default() };
+        let mut src = Source {
+            mbox: MailBox::default(),
+        };
         let mut dst = Dest { items: 0 };
 
         src.provoke();
