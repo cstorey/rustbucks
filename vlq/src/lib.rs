@@ -3,31 +3,11 @@ extern crate num_traits;
 use num_traits::{NumCast, PrimInt};
 
 pub fn encode_vec<N: PrimInt>(n: N) -> Vec<u8> {
-    let mask = NumCast::from(0x7f).unwrap();
-    let zero = NumCast::from(0).unwrap();
-    let mut out = Vec::new();
+    // Enough for u128
+    let mut buf = [0u8; 20];
+    let sz = encode_slice(n, &mut buf);
 
-    if n == zero {
-        out.push(0x0);
-        return out;
-    }
-
-    let nbits = std::mem::size_of::<N>() * 8;
-    let has_rem = (nbits % 7) != 0;
-    let places = (nbits / 7) + (if has_rem { 1 } else { 0 });
-    let it = (0..places)
-        .rev()
-        .map(|i| {
-            let shift = i * 7;
-            let byte = (n.unsigned_shr(shift as u32) & mask).to_u8().unwrap();
-            (i, byte)
-        })
-        .skip_while(|&(_, byte)| byte == 0)
-        .map(|(i, byte)| if i != 0 { 0x80u8 | byte } else { byte });
-
-    out.extend(it);
-
-    out
+    buf[..sz].to_vec()
 }
 
 pub fn encode_slice<N: PrimInt>(n: N, out: &mut [u8]) -> usize {
@@ -223,13 +203,39 @@ mod tests {
     }
 
     #[test]
-    fn encodes_to_slice_same_as_vec() {
+    fn encodes_to_slice_same_as_vec_u8() {
         property(u8s()).check(|v| {
-            let mut buf = [0u8; 8];
+            let mut buf = [0u8; 2];
             let bs = encode_vec(v);
             let sz = encode_slice(v, &mut buf);
             assert_eq!(bs, &buf[..sz]);
         });
     }
-
+    #[test]
+    fn encodes_to_slice_same_as_vec_u16() {
+        property(u16s()).check(|v| {
+            let mut buf = [0u8; 3];
+            let bs = encode_vec(v);
+            let sz = encode_slice(v, &mut buf);
+            assert_eq!(bs, &buf[..sz]);
+        });
+    }
+    #[test]
+    fn encodes_to_slice_same_as_vec_u32() {
+        property(u32s()).check(|v| {
+            let mut buf = [0u8; 5];
+            let bs = encode_vec(v);
+            let sz = encode_slice(v, &mut buf);
+            assert_eq!(bs, &buf[..sz]);
+        });
+    }
+    #[test]
+    fn encodes_to_slice_same_as_vec_u64() {
+        property(u64s()).check(|v| {
+            let mut buf = [0u8; 10];
+            let bs = encode_vec(v);
+            let sz = encode_slice(v, &mut buf);
+            assert_eq!(bs, &buf[..sz]);
+        });
+    }
 }
