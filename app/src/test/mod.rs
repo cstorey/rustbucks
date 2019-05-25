@@ -55,6 +55,26 @@ fn order_workflow() -> Fallible<()> {
     Ok(())
 }
 
+/*
+
+Other examples: Mirroring content of each Drink within the menu document itself.
+
+    let mut sys = OrderSystem::new(pool);
+    let menu = menu::Menu::new(); // whatever
+    sys.save(&menu);
+
+    let tea = menu::Drink::new("bubble tea");
+    tea.add_to(menu.meta.id);
+    let v1 = sys.save(&tea);
+
+    sys.run_until_quiescent();
+
+    let menu = sys.reload(menu);
+    assert!(menu.drink_ids().contains(tea.meta.id))
+
+
+*/
+
 #[cfg(never)]
 mod scratch {
     impl UnitOfWork {
