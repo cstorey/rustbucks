@@ -24,6 +24,10 @@ extern crate tokio_threadpool;
 #[macro_use]
 extern crate maplit;
 extern crate env_logger;
+extern crate hybrid_clocks;
+#[macro_use]
+extern crate lazy_static;
+extern crate time;
 
 use std::sync::Arc;
 
@@ -39,6 +43,10 @@ mod menu;
 mod orders;
 mod persistence;
 mod templates;
+
+lazy_static! {
+    static ref IDGEN: ids::IdGen = ids::IdGen::new();
+}
 
 #[derive(Debug, WeftRenderable)]
 #[template(path = "src/base.html")]

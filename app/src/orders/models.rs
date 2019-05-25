@@ -1,7 +1,7 @@
 use crate::documents::{DocMeta, MailBox};
 use crate::ids::{Entity, Id};
 use crate::menu::Drink;
-use rand;
+use crate::IDGEN;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(super) struct Order {
@@ -18,7 +18,7 @@ pub(super) enum OrderDst {
 
 impl Order {
     pub(super) fn for_drink(drink_id: Id<Drink>) -> Self {
-        let id = rand::random::<Id<Order>>();
+        let id = IDGEN.generate();
         let mut mbox = MailBox::empty();
         mbox.send(OrderDst::Barista);
 

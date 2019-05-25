@@ -120,8 +120,8 @@ impl r2d2::ManageConnection for DocumentConnectionManager {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::IDGEN;
     use documents::*;
-    use ids::Id;
     use r2d2::Pool;
     use r2d2_postgres::{PostgresConnectionManager, TlsMode};
     use rand::random;
@@ -204,7 +204,7 @@ mod test {
         t.commit().expect("commit");
     }
 
-    #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, Default)]
+    #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
     struct ADocument {
         #[serde(flatten)]
         meta: DocMeta<ADocument>,
@@ -226,9 +226,7 @@ mod test {
 
         let docs = pool.get().expect("temp connection");
 
-        let loaded = docs
-            .load::<ADocument>(&random::<Id<ADocument>>())
-            .expect("load");
+        let loaded = docs.load::<ADocument>(&IDGEN.generate()).expect("load");
         info!("Loaded document: {:?}", loaded);
 
         assert_eq!(None, loaded);
@@ -240,12 +238,8 @@ mod test {
         let pool = pool("save_load");
 
         let some_doc = ADocument {
-            meta: DocMeta {
-                id: random(),
-                ..Default::default()
-            },
+            meta: DocMeta::new_with_id(IDGEN.generate()),
             name: "Dave".to_string(),
-            ..Default::default()
         };
 
         let docs = pool.get().expect("temp connection");
@@ -256,22 +250,15 @@ mod test {
         // being the first in the data file.
         for _ in 0..4 {
             docs.save(&ADocument {
-                meta: DocMeta {
-                    id: random(),
-                    ..Default::default()
-                },
+                meta: DocMeta::new_with_id(IDGEN.generate()),
                 name: format!("{:x}", random::<usize>()),
-                ..Default::default()
             })
             .expect("save");
         }
         docs.save(&some_doc).expect("save");
         for _ in 0..4 {
             docs.save(&ADocument {
-                meta: DocMeta {
-                    id: random(),
-                    ..Default::default()
-                },
+                meta: DocMeta::new_with_id(IDGEN.generate()),
                 name: format!("{:x}", random::<usize>()),
             })
             .expect("save");
@@ -289,12 +276,8 @@ mod test {
         let pool = pool("should_update_on_overwrite");
 
         let some_doc = ADocument {
-            meta: DocMeta {
-                id: random(),
-                ..Default::default()
-            },
+            meta: DocMeta::new_with_id(IDGEN.generate()),
             name: "Version 1".to_string(),
-            ..Default::default()
         };
 
         let docs = pool.get().expect("temp connection");
@@ -323,14 +306,11 @@ mod test {
         env_logger::try_init().unwrap_or_default();
         let pool = pool("supports_connection");
 
-        let some_id = random::<Id<ADocument>>();
+        let some_id = IDGEN.generate();
 
         let docs = pool.get().expect("temp connection");
         docs.save(&ADocument {
-            meta: DocMeta {
-                id: some_id,
-                ..Default::default()
-            },
+            meta: DocMeta::new_with_id(IDGEN.generate()),
             name: "Dummy".to_string(),
         })
         .expect("save");
@@ -343,10 +323,7 @@ mod test {
         let pool = pool("should_fail_on_overwrite_with_new");
 
         let some_doc = ADocument {
-            meta: DocMeta {
-                id: random(),
-                ..Default::default()
-            },
+            meta: DocMeta::new_with_id(IDGEN.generate()),
             name: "Version 1".to_string(),
         };
 
@@ -361,7 +338,6 @@ mod test {
                 ..some_doc.meta
             },
             name: "Version 2".to_string(),
-            ..Default::default()
         };
 
         info!("Modified document: {:?}", modified_doc);
@@ -380,28 +356,23 @@ mod test {
         env_logger::try_init().unwrap_or_default();
         let pool = pool("should_fail_on_overwrite_with_bogus_version");
 
+        let id = IDGEN.generate();
         let some_doc = ADocument {
-            meta: DocMeta {
-                id: random(),
-                ..Default::default()
-            },
+            meta: DocMeta::new_with_id(id),
             name: "Version 1".to_string(),
-            ..Default::default()
         };
 
         let docs = pool.get().expect("temp connection");
 
         info!("Original document: {:?}", some_doc);
-        docs.save(&some_doc).expect("save original");
+        let actual = docs.save(&some_doc).expect("save original");
 
         let modified_doc = ADocument {
-            meta: DocMeta {
-                id: some_doc.meta.id,
-                version: Version::from_str("garbage").expect("garbage version"),
-                ..Default::default()
-            },
+            meta: DocMeta::new_with_id(id),
             name: "Version 2".to_string(),
         };
+
+        assert_ne!(actual, modified_doc.meta.version);
 
         info!("Modified document: {:?}", modified_doc);
         let err = docs.save(&modified_doc).expect_err("save should fail");
@@ -419,14 +390,10 @@ mod test {
         env_logger::try_init().unwrap_or_default();
         let pool = pool("should_fail_on_new_document_with_nonzero_version");
 
-        let some_doc = ADocument {
-            meta: DocMeta {
-                id: random(),
-                version: Version::from_str("garbage").expect("garbage version"),
-                ..Default::default()
-            },
-            name: "Version 1".to_string(),
-        };
+        let mut meta = DocMeta::new_with_id(IDGEN.generate());
+        meta.version = Version::from_str("garbage").expect("garbage version");
+        let name = "Version 1".to_string();
+        let some_doc = ADocument { meta, name };
 
         let docs = pool.get().expect("temp connection");
 

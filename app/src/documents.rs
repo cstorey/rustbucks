@@ -26,24 +26,14 @@ pub(super) struct MailBox<A: Eq + Hash> {
     pub(super) outgoing: HashSet<A>,
 }
 
-impl<T> Default for DocMeta<T> {
-    fn default() -> Self {
-        let id = Default::default();
-        let version = Default::default();
-        let _phantom = Default::default();
+impl<T> DocMeta<T> {
+    pub(crate) fn new_with_id(id: Id<T>) -> Self {
+        let version = Version::default();
+        let _phantom = PhantomData;
         DocMeta {
             id,
             version,
             _phantom,
-        }
-    }
-}
-
-impl<T> DocMeta<T> {
-    pub(crate) fn new_with_id(id: Id<T>) -> Self {
-        DocMeta {
-            id,
-            ..Default::default()
         }
     }
 }

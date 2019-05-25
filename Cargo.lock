@@ -845,8 +845,8 @@ dependencies = [
 
 [[package]]
 name = "hybrid-clocks"
-version = "0.3.4"
-source = "git+https://github.com/cstorey/hybrid-clocks/#8e4ef15e65cfe068c630f09d780f67b49c0bef69"
+version = "0.4.0"
+source = "git+https://github.com/cstorey/hybrid-clocks/#98b74b6c5e732d1ae0252fb12c199e15f029aa34"
 dependencies = [
  "quick-error 1.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "suppositions 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1697,7 +1697,7 @@ dependencies = [
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex-slice 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "hybrid-clocks 0.3.4 (git+https://github.com/cstorey/hybrid-clocks/)",
+ "hybrid-clocks 0.4.0 (git+https://github.com/cstorey/hybrid-clocks/)",
  "hyper 0.12.29 (registry+https://github.com/rust-lang/crates.io-index)",
  "jemallocator 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1713,6 +1713,7 @@ dependencies = [
  "siphasher 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "structopt 0.2.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "sulfur 0.1.0 (git+https://github.com/cstorey/sulfur.git)",
+ "time 0.1.42 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 0.1.20 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-threadpool 0.1.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "toml 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2761,7 +2762,7 @@ dependencies = [
 "checksum http-body 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "6741c859c1b2463a423a1dbce98d418e6c3c3fc720fb0d45528657320920292d"
 "checksum httparse 1.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "e8734b0cfd3bc3e101ec59100e101c2eecd19282202e87808b3037b442777a83"
 "checksum humantime 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "3ca7e5f2e110db35f93b837c81797f3714500b81d517bf20c431b16d3ca4f114"
-"checksum hybrid-clocks 0.3.4 (git+https://github.com/cstorey/hybrid-clocks/)" = "<none>"
+"checksum hybrid-clocks 0.4.0 (git+https://github.com/cstorey/hybrid-clocks/)" = "<none>"
 "checksum hyper 0.12.29 (registry+https://github.com/rust-lang/crates.io-index)" = "e2cd6adf83b3347d36e271f030621a8cf95fd1fd0760546b9fc5a24a0f1447c7"
 "checksum hyper-tls 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "3a800d6aa50af4b5850b2b0f659625ce9504df908e9733b635720483be26174f"
 "checksum idna 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)" = "38f09e0f0b1fb55fdee1f17470ad800da77af5186a1a76c026b679358b7e844e"

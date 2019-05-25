@@ -11,7 +11,6 @@ use actix_web::{
 use r2d2::Pool;
 use tokio_threadpool::{blocking, ThreadPool};
 
-use documents::DocMeta;
 use ids::Id;
 use persistence::*;
 use templates::WeftResponse;
@@ -52,24 +51,17 @@ impl Menu {
             let mut drink = docs
                 .load(&id)
                 .context("load drink")?
-                .unwrap_or_else(|| Drink {
-                    meta: DocMeta::new_with_id(id),
-                    ..Default::default()
-                });
-            drink.name = name.into();
+                .unwrap_or_else(|| Drink::new(id, name));
             docs.save(&drink).context("Save drink")?;
             drink
         };
 
         let list = {
             let id = DrinkList::id();
-            let mut list: DrinkList =
-                docs.load(&id)
-                    .context("load list")?
-                    .unwrap_or_else(|| DrinkList {
-                        meta: DocMeta::new_with_id(id),
-                        ..Default::default()
-                    });
+            let mut list: DrinkList = docs
+                .load(&id)
+                .context("load list")?
+                .unwrap_or_else(|| DrinkList::new(id));
             list.drinks.insert(drink.meta.id);
             docs.save(&list).context("save list")?;
             debug!("Updated list: {:?}", list);
@@ -143,7 +135,7 @@ impl Menu {
             });
             let list = docs
                 .load::<DrinkList>(&DrinkList::id())?
-                .unwrap_or_default();
+                .unwrap_or_else(|| unimplemented!());
             let result = list
                 .drinks
                 .into_iter()
