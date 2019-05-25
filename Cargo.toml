@@ -1,4 +1,4 @@
 [workspace]
-members = [ "app" ]
+members = [ "vlq", "app" ]
 [profile.release]
 debug = true
