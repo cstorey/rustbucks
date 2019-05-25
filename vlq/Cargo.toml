@@ -5,3 +5,4 @@ authors = ["Ceri Storey <cez@necrofish.org.uk>"]
 edition = "2018"
 
 [dependencies]
+num-traits = "0.2.8"
