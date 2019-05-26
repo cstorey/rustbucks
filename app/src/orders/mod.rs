@@ -1,4 +1,4 @@
 mod models;
 mod resources;
-pub use self::models::Order;
+pub(crate) use self::models::{Order, OrderDst};
 pub use self::resources::Orders;

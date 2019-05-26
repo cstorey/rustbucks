@@ -9,14 +9,14 @@ use infra::ids::{Entity, Id};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Order {
     #[serde(flatten)]
-    pub(super) meta: DocMeta<Order>,
+    pub(crate) meta: DocMeta<Order>,
     #[serde(default, flatten)]
-    pub(super) mbox: MailBox<OrderDst>,
+    pub(crate) mbox: MailBox<OrderDst>,
     pub(super) drink_id: Id<Drink>,
     pub(super) drinker_id: Id<Drinker>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub(super) enum OrderDst {
+pub(crate) enum OrderDst {
     Barista,
 }
 

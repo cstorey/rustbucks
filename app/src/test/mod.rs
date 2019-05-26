@@ -1,13 +1,15 @@
 //! Guarded with `#[cfg(test)]` from `lib.rs`
 
+use env_logger;
 use failure::Fallible;
+use log::*;
 use r2d2::Pool;
 use serde::Serialize;
 
 use crate::drinker::Drinker;
 use crate::ids::{Entity, IdGen};
-use crate::menu;
-use crate::orders;
+use crate::menu::Drink;
+use crate::orders::{Order, OrderDst};
 use crate::persistence::DocumentConnectionManager;
 use infra::documents::HasMeta;
 
@@ -25,12 +27,35 @@ impl OrderSystem {
     fn store<E: Entity + Serialize + HasMeta>(&mut self, entity: &mut E) -> Fallible<()> {
         let docs = self.pool.get()?;
         docs.save(entity)?;
+        debug!("Stored entity with id: {}", entity.meta().id);
+        Ok(())
+    }
+
+    fn run_until_quiescent(&self) -> Fallible<()> {
+        let docs = self.pool.get()?;
+        debug!("Scan for unprocessed entities");
+        while let Some(mut order) = docs.load_next_unsent::<Order>()? {
+            let order_id = order.meta.id;
+            debug!("Found unprocessed entity: {}", order_id);
+            for msg in order.mbox.drain() {
+                debug!("Entity: {}; msg:{:?}", order_id, msg);
+                match msg {
+                    OrderDst::Barista => {
+                        debug!("Entity: {}; do barista things", order_id);
+                    }
+                }
+                unimplemented!("Process msg: {:?}", msg);
+            }
+        }
+        debug!("Done scan for unprocessed entities");
         Ok(())
     }
 }
 
+#[ignore]
 #[test]
 fn order_workflow() -> Fallible<()> {
+    env_logger::try_init().unwrap_or_default();
     let pool = junk_drawer::pool("order_workflow")?;
     let idgen = IdGen::new();
     let mut sys = OrderSystem::new(pool);
@@ -38,20 +63,19 @@ fn order_workflow() -> Fallible<()> {
     let mut drinker = Drinker::incarnate(&idgen);
     sys.store(&mut drinker)?;
 
-    let tea = menu::Drink::new(idgen.generate(), "bubble tea");
+    let tea = Drink::new(idgen.generate(), "bubble tea");
 
-    let mut order = orders::Order::for_drink(tea.meta.id, drinker.meta.id, &idgen);
+    let mut order = Order::for_drink(tea.meta.id, drinker.meta.id, &idgen);
     sys.store(&mut order)?;
 
-    #[cfg(never)]
-    {
-        assert!(
-            drinker.has_drink(&item),
-            "Drinker {:?} should have received a {:?}",
-            drinker,
-            item
-        );
-    }
+    sys.run_until_quiescent()?;
+
+    assert!(
+        drinker.has_drink(tea.meta.id),
+        "Drinker {:?} should have received a {:?}",
+        drinker,
+        tea
+    );
     Ok(())
 }
 
