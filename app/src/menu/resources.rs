@@ -1,13 +1,9 @@
 use failure::{Error, ResultExt};
-use futures::future::{lazy, poll_fn, result};
+use futures::future::{lazy, poll_fn};
 use futures::Future;
 use std::sync::Arc;
 
-use actix_web::server::{HttpHandler, HttpHandlerTask};
-use actix_web::{
-    http, App, AsyncResponder, FromRequest, FutureResponse, HttpRequest, HttpResponse, Path,
-    Responder,
-};
+use actix_web::{http, web, HttpRequest, HttpResponse, Responder, Scope};
 use r2d2::Pool;
 use tokio_threadpool::{blocking, ThreadPool};
 
@@ -71,20 +67,21 @@ impl Menu {
         Ok(())
     }
 
-    pub fn app(&self) -> Box<dyn HttpHandler<Task = Box<dyn HttpHandlerTask>>> {
-        App::with_state(self.clone())
-            .prefix(PREFIX)
-            .resource("/", |r| {
-                r.get().f(move |req| req.state().index(req));
+    pub fn app(&self) -> Scope {
+        web::scope(PREFIX)
+            .service({
+                let me = self.clone();
+                web::resource("/").route(web::get().to_async(move || me.index()))
             })
-            .resource("/{id}", |r| {
-                r.get()
-                    .f(move |req: &HttpRequest<Self>| req.state().detail(req));
+            .service({
+                let me = self.clone();
+                web::resource("/{id}").route(
+                    web::get().to_async(move |id: web::Path<Id<Drink>>| me.detail(id.into_inner())),
+                )
             })
-            .boxed()
     }
 
-    pub fn index_redirect(req: &HttpRequest) -> Result<HttpResponse, Error> {
+    pub fn index_redirect(req: HttpRequest) -> Result<HttpResponse, Error> {
         debug!("Redirecting from: {}", req.uri());
         let url = format!("{}/", PREFIX);
         info!("Target {} → {}", req.uri(), url);
@@ -94,35 +91,30 @@ impl Menu {
             .finish())
     }
 
-    fn index(&self, _: &HttpRequest<Self>) -> FutureResponse<impl Responder> {
+    fn index(&self) -> impl Future<Item = impl Responder, Error = Error> {
         info!("Handle index");
         info!("Handle from : {:?}", ::std::thread::current());
-        self.load_menu()
-            .from_err()
-            .map(|menu| {
-                info!("Resume from : {:?}", ::std::thread::current());
-                let data = WithTemplate {
-                    value: MenuWidget { drink: menu },
-                };
-                WeftResponse::of(data)
-            })
-            .responder()
+        self.load_menu().from_err().map(|menu| {
+            info!("Resume from : {:?}", ::std::thread::current());
+            let data = WithTemplate {
+                value: MenuWidget { drink: menu },
+            };
+            WeftResponse::of(data)
+        })
     }
 
-    fn detail(&self, req: &HttpRequest<Self>) -> FutureResponse<impl Responder> {
+    fn detail(
+        &self,
+        id: Id<Drink>,
+    ) -> impl Future<Item = impl Responder, Error = actix_web::Error> {
         let me = self.clone();
-        result(Path::<Id<Drink>>::extract(req))
-            .and_then(move |id| {
-                let id = id.into_inner();
-                me.load_drink(id).from_err().map(move |drinkp| {
-                    drinkp.map(|drink| {
-                        WeftResponse::of(WithTemplate {
-                            value: DrinkWidget { drink: drink },
-                        })
-                    })
+        me.load_drink(id).from_err().map(move |drinkp| {
+            drinkp.map(|drink| {
+                WeftResponse::of(WithTemplate {
+                    value: DrinkWidget { drink: drink },
                 })
             })
-            .responder()
+        })
     }
 
     fn load_menu(&self) -> impl Future<Item = Vec<(Id<Drink>, Drink)>, Error = failure::Error> {

@@ -1,11 +1,7 @@
 use std::sync::Arc;
 
-use actix_web::server::{HttpHandler, HttpHandlerTask};
-use actix_web::{
-    App, AsyncResponder, Form, FutureResponse, HttpRequest, HttpResponse, Path, Responder, State,
-};
+use actix_web::{web, HttpRequest, HttpResponse, Responder, Scope};
 use failure::Error;
-use failure::ResultExt;
 use futures::future::{lazy, poll_fn};
 use futures::Future;
 use r2d2::Pool;
@@ -52,49 +48,58 @@ impl Orders {
         Ok(Orders { db, pool, idgen })
     }
 
-    pub fn app(&self) -> Box<dyn HttpHandler<Task = Box<dyn HttpHandlerTask>>> {
-        App::with_state(self.clone())
-            .prefix(PREFIX)
-            .resource("", |r| {
-                r.name("orders");
-                r.post().with(Orders::submit);
-                r.get().with(Orders::list);
-            })
-            .resource("{id}", |r| {
-                r.name("show");
-                r.get().with(Orders::show)
-            })
-            .boxed()
+    pub fn app(&self) -> Scope {
+        web::scope(PREFIX)
+            .service(
+                web::resource("")
+                    .name("orders")
+                    .route({
+                        let me = self.clone();
+                        web::get().to_async(move || me.list())
+                    })
+                    .route({
+                        let me = self.clone();
+                        web::post().to_async(
+                            move |(form, req): (web::Form<OrderForm>, HttpRequest)| {
+                                me.submit(form.into_inner(), req)
+                            },
+                        )
+                    }),
+            )
+            .service(web::resource("{id}").name("show").route({
+                let me = self.clone();
+                web::get().to_async(move |id: web::Path<Id<Order>>| me.show(id.into_inner()))
+            }))
     }
 
-    fn submit((form, req): (Form<OrderForm>, HttpRequest<Self>)) -> FutureResponse<impl Responder> {
+    fn submit(
+        &self,
+        form: OrderForm,
+        req: HttpRequest,
+    ) -> impl Future<Item = impl Responder, Error = failure::Error> {
         debug!("Submit form: {:?}", form);
-        req.state()
-            .new_order(form.into_inner())
+        self.new_order(form)
             .and_then(move |order_id| {
                 debug!("Some order id: {}", order_id);
                 let uri = req
                     .url_for("show", &[order_id.to_string()])
-                    .context("url for show")?;
+                    .map_err(|e| failure::err_msg(e.to_string()))?;
                 Ok(HttpResponse::SeeOther()
                     .header("location", uri.to_string())
                     .finish())
             })
             .from_err()
-            .responder()
     }
 
-    fn list(_state: State<Self>) -> Result<impl Responder, Error> {
+    fn list(&self) -> Result<impl Responder, Error> {
         let data = WithTemplate {
             value: OrderList {},
         };
         Ok(WeftResponse::of(data))
     }
 
-    fn show((state, id): (State<Self>, Path<Id<Order>>)) -> FutureResponse<impl Responder> {
-        let id = id.into_inner();
-        state
-            .load_order(id)
+    fn show(&self, id: Id<Order>) -> impl Future<Item = impl Responder, Error = Error> {
+        self.load_order(id)
             .map(|orderp| {
                 orderp.map(|order| {
                     let data = WithTemplate {
@@ -104,7 +109,6 @@ impl Orders {
                 })
             })
             .from_err()
-            .responder()
     }
 
     fn new_order(&self, order: OrderForm) -> impl Future<Item = Id<Order>, Error = failure::Error> {

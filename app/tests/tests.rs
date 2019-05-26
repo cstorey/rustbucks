@@ -1,4 +1,6 @@
 extern crate actix;
+extern crate actix_http;
+extern crate actix_http_test;
 extern crate actix_web;
 extern crate base64;
 extern crate env_logger;
@@ -20,7 +22,9 @@ extern crate envy;
 use std::env;
 use std::net::SocketAddr;
 
-use actix_web::test;
+use actix_http::HttpService;
+use actix_http_test::{TestServer, TestServerRuntime};
+use actix_web::App;
 use failure::Error;
 use failure::ResultExt;
 use sulfur::{chrome, By};
@@ -42,7 +46,7 @@ lazy_static! {
 }
 
 struct SomethingScenario {
-    _srv: test::TestServer,
+    _srv: TestServerRuntime,
     addr: SocketAddr,
 }
 
@@ -65,7 +69,7 @@ impl SomethingScenario {
         config.postgres.url = env::var("POSTGRES_URL").context("$POSTGRES_URL")?;
         let app = rustbucks::RustBucks::new(&config).expect("new rustbucks");
 
-        let _srv = test::TestServer::with_factory(move || app.app());
+        let _srv = TestServer::new(move || HttpService::new(App::new().service(app.app())));
 
         let addr = _srv.addr();
         println!("Listening on: {:?}", addr);

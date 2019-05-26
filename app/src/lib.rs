@@ -10,6 +10,7 @@ extern crate failure;
 extern crate weft;
 #[macro_use]
 extern crate weft_derive;
+extern crate actix_service;
 extern crate actix_web;
 extern crate base64;
 extern crate hex_slice;
@@ -33,8 +34,7 @@ extern crate time;
 
 use std::sync::Arc;
 
-use actix_web::server::{HttpHandler, HttpHandlerTask};
-use actix_web::App;
+use actix_web::{web, Scope};
 use failure::{Error, ResultExt};
 use tokio_threadpool::ThreadPool;
 
@@ -73,10 +73,12 @@ impl RustBucks {
         Ok(RustBucks { menu, orders })
     }
 
-    pub fn app(&self) -> Vec<Box<dyn HttpHandler<Task = Box<dyn HttpHandlerTask>>>> {
+    pub fn app(&self) -> Scope {
         info!("Booting rustbucks");
-
-        let redir_root = App::new().resource("/", |r| r.get().f(menu::Menu::index_redirect));
-        vec![self.menu.app(), self.orders.app(), redir_root.boxed()]
+        let redir_root = web::resource("/").route(web::get().to_async(menu::Menu::index_redirect));
+        web::scope("")
+            .service(redir_root)
+            .service(self.menu.app())
+            .service(self.orders.app())
     }
 }
