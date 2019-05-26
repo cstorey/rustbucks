@@ -27,6 +27,7 @@ extern crate env_logger;
 extern crate hybrid_clocks;
 #[macro_use]
 extern crate lazy_static;
+extern crate rustbucks_vlq as vlq;
 extern crate time;
 
 use std::sync::Arc;
@@ -45,6 +46,7 @@ mod persistence;
 mod templates;
 
 lazy_static! {
+    #[deprecated]
     static ref IDGEN: ids::IdGen = ids::IdGen::new();
 }
 

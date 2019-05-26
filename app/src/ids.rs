@@ -1,5 +1,4 @@
 use std::cmp::Ordering;
-use std::convert::TryInto;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
@@ -76,9 +75,18 @@ impl IdGen {
 }
 
 impl<T> Id<T> {
-    fn from_bytes(bytes: [u8; 20]) -> Self {
-        let stamp = Timestamp::<WallMST>::from_bytes(bytes[0..16].try_into().unwrap());
-        let random = u32::from_be_bytes(bytes[16..16 + 4].try_into().unwrap());
+    fn from_bytes(bytes: &[u8]) -> Self {
+        let mut off = 0;
+        let (i, epoch) = vlq::decode_slice(&bytes[off..]);
+        off += i;
+        let (i, time_ms) = vlq::decode_slice(&bytes[off..]);
+        off += i;
+        let (i, count) = vlq::decode_slice(&bytes[off..]);
+        off += i;
+        let (_, random) = vlq::decode_slice(&bytes[off..]);
+
+        let time = WallMST::of_u64(time_ms);
+        let stamp = Timestamp { epoch, time, count };
         let phantom = PhantomData;
 
         Id {
@@ -88,11 +96,15 @@ impl<T> Id<T> {
         }
     }
 
-    fn to_bytes(&self) -> [u8; 20] {
+    fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = [0u8; 20];
-        bytes[0..16].copy_from_slice(&self.stamp.to_bytes());
-        bytes[16..20].copy_from_slice(&self.random.to_be_bytes());
-        bytes
+        let mut off = 0;
+
+        off += vlq::encode_slice(self.stamp.epoch, &mut bytes[off..]);
+        off += vlq::encode_slice(self.stamp.time.as_u64(), &mut bytes[off..]);
+        off += vlq::encode_slice(self.stamp.count, &mut bytes[off..]);
+        off += vlq::encode_slice(self.random, &mut bytes[off..]);
+        bytes[..off].to_vec()
     }
 }
 
@@ -102,13 +114,13 @@ impl<T: Entity> fmt::Display for Id<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         let mut buf = [0u8; ENCODED_BARE_ID_LEN];
         let sz = base64::encode_config_slice(&self.to_bytes(), base64::URL_SAFE_NO_PAD, &mut buf);
-        assert_eq!(sz, buf.len());
+
         write!(
             fmt,
             "{}{}{}",
             T::PREFIX,
             DIVIDER,
-            String::from_utf8_lossy(&buf)
+            String::from_utf8_lossy(&buf[..sz])
         )?;
         Ok(())
     }
@@ -117,8 +129,8 @@ impl<T: Entity> fmt::Display for Id<T> {
 impl<T: Entity> std::str::FromStr for Id<T> {
     type Err = Error;
     fn from_str(src: &str) -> Result<Self, Self::Err> {
-        let expected_length = T::PREFIX.len() + DIVIDER.len() + ENCODED_BARE_ID_LEN;
-        if src.len() != expected_length {
+        let expected_length = T::PREFIX.len() + DIVIDER.len();
+        if src.len() < expected_length {
             bail!(IdParseError::InvalidPrefix);
         };
         let (start, remainder) = src.split_at(T::PREFIX.len());
@@ -133,11 +145,8 @@ impl<T: Entity> std::str::FromStr for Id<T> {
 
         let mut bytes = [0u8; 16 + 4];
         let sz = base64::decode_config_slice(b64, base64::URL_SAFE_NO_PAD, &mut bytes)?;
-        if sz != std::mem::size_of_val(&bytes) {
-            bail!(IdParseError::Unparseable);
-        }
 
-        return Ok(Self::from_bytes(bytes));
+        return Ok(Self::from_bytes(&bytes[..sz]));
     }
 }
 
@@ -216,6 +225,15 @@ mod test {
     #[test]
     fn round_trips_via_to_from_str() {
         let id = Id::<Canary>::hashed(&"Hi!");
+        let s = id.to_string();
+        println!("String: {}", s);
+        let id2 = s.parse::<Id<Canary>>().expect("parse id");
+        assert_eq!(id, id2);
+    }
+
+    #[test]
+    fn round_trips_via_to_from_str_now() {
+        let id = IdGen::new().generate::<Canary>();
         let s = id.to_string();
         println!("String: {}", s);
         let id2 = s.parse::<Id<Canary>>().expect("parse id");
