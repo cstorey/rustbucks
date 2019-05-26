@@ -21,7 +21,6 @@ extern crate r2d2_postgres;
 extern crate rand;
 extern crate serde_json;
 extern crate siphasher;
-extern crate tokio_threadpool;
 #[cfg(test)]
 #[macro_use]
 extern crate maplit;
@@ -33,11 +32,8 @@ extern crate lazy_static;
 extern crate rustbucks_vlq as vlq;
 extern crate time;
 
-use std::sync::Arc;
-
 use actix_web::{web, Scope};
 use failure::{Error, ResultExt};
-use tokio_threadpool::ThreadPool;
 
 pub mod config;
 mod documents;
@@ -67,9 +63,8 @@ impl RustBucks {
         db.get()?.setup().context("Setup persistence")?;
 
         let idgen = ids::IdGen::new();
-        let threads = Arc::new(ThreadPool::new());
         let menu = menu::Menu::new(db.clone())?;
-        let orders = orders::Orders::new(db.clone(), threads.clone(), idgen)?;
+        let orders = orders::Orders::new(db.clone(), idgen)?;
 
         Ok(RustBucks { menu, orders })
     }

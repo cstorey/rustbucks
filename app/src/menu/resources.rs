@@ -1,7 +1,5 @@
 use failure::{Error, ResultExt};
-use futures::future::{lazy, poll_fn};
 use futures::Future;
-use std::sync::Arc;
 
 use actix_threadpool::BlockingError;
 use actix_web::{http, web, HttpRequest, HttpResponse, Responder, Scope};
@@ -172,7 +170,7 @@ impl Menu {
         })
         .map_err(|e| match e {
             BlockingError::Error(e) => e.into(),
-            BlockingError::Canceled => failure::err_msg("Cancelled"),
+            c @ BlockingError::Canceled => format_err!("{}", c),
         })
     }
 }

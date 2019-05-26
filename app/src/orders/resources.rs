@@ -1,11 +1,8 @@
-use std::sync::Arc;
-
+use actix_threadpool::BlockingError;
 use actix_web::{web, HttpRequest, HttpResponse, Responder, Scope};
 use failure::Error;
-use futures::future::{lazy, poll_fn};
 use futures::Future;
 use r2d2::Pool;
-use tokio_threadpool::{blocking, ThreadPool};
 
 use ids::{Id, IdGen};
 use menu::Drink;
@@ -20,7 +17,6 @@ const PREFIX: &'static str = "/orders";
 #[derive(Debug, Clone)]
 pub struct Orders {
     db: Pool<DocumentConnectionManager>,
-    pool: Arc<ThreadPool>,
     idgen: IdGen,
 }
 
@@ -40,12 +36,8 @@ struct OrderWidget {
 }
 
 impl Orders {
-    pub fn new(
-        db: Pool<DocumentConnectionManager>,
-        pool: Arc<ThreadPool>,
-        idgen: IdGen,
-    ) -> Result<Self, Error> {
-        Ok(Orders { db, pool, idgen })
+    pub fn new(db: Pool<DocumentConnectionManager>, idgen: IdGen) -> Result<Self, Error> {
+        Ok(Orders { db, idgen })
     }
 
     pub fn app(&self) -> Scope {
@@ -136,15 +128,13 @@ impl Orders {
         f: F,
     ) -> impl Future<Item = R, Error = failure::Error> {
         let db = self.db.clone();
-        let f = lazy(|| {
-            poll_fn(move || {
-                blocking(|| {
-                    let docs = db.get()?;
-                    f(&*docs)
-                })
-            })
-            .map_err(Error::from)
-        });
-        self.pool.spawn_handle(f).and_then(futures::future::result)
+        web::block(move || {
+            let docs = db.get()?;
+            f(&*docs)
+        })
+        .map_err(|e| match e {
+            BlockingError::Error(e) => e.into(),
+            c @ BlockingError::Canceled => format_err!("{}", c),
+        })
     }
 }

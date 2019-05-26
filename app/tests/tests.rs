@@ -14,7 +14,6 @@ extern crate serde_derive;
 extern crate siphasher;
 extern crate sulfur;
 extern crate tokio;
-extern crate tokio_threadpool;
 #[macro_use]
 extern crate lazy_static;
 extern crate envy;
