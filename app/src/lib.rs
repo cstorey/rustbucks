@@ -25,6 +25,7 @@ extern crate tokio_threadpool;
 extern crate maplit;
 extern crate env_logger;
 extern crate hybrid_clocks;
+#[cfg(test)]
 #[macro_use]
 extern crate lazy_static;
 extern crate rustbucks_vlq as vlq;
@@ -45,11 +46,6 @@ mod orders;
 mod persistence;
 mod templates;
 
-lazy_static! {
-    #[deprecated]
-    static ref IDGEN: ids::IdGen = ids::IdGen::new();
-}
-
 #[derive(Debug, WeftRenderable)]
 #[template(path = "src/base.html")]
 pub struct WithTemplate<C> {
@@ -69,7 +65,7 @@ impl RustBucks {
         debug!("Init schema");
         db.get()?.setup().context("Setup persistence")?;
 
-        let idgen = IDGEN.clone();
+        let idgen = ids::IdGen::new();
         let threads = Arc::new(ThreadPool::new());
         let menu = menu::Menu::new(db.clone(), threads.clone())?;
         let orders = orders::Orders::new(db.clone(), threads.clone(), idgen)?;
