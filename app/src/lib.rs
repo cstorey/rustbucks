@@ -24,6 +24,12 @@ extern crate tokio_threadpool;
 #[macro_use]
 extern crate maplit;
 extern crate env_logger;
+extern crate hybrid_clocks;
+#[cfg(test)]
+#[macro_use]
+extern crate lazy_static;
+extern crate rustbucks_vlq as vlq;
+extern crate time;
 
 use std::sync::Arc;
 
@@ -59,9 +65,10 @@ impl RustBucks {
         debug!("Init schema");
         db.get()?.setup().context("Setup persistence")?;
 
+        let idgen = ids::IdGen::new();
         let threads = Arc::new(ThreadPool::new());
         let menu = menu::Menu::new(db.clone(), threads.clone())?;
-        let orders = orders::Orders::new(db.clone(), threads.clone())?;
+        let orders = orders::Orders::new(db.clone(), threads.clone(), idgen)?;
 
         Ok(RustBucks { menu, orders })
     }

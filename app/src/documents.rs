@@ -1,7 +1,7 @@
-use std::marker::PhantomData;
 use std::cmp::Eq;
 use std::collections::HashSet;
 use std::hash::Hash;
+use std::marker::PhantomData;
 
 use failure::Error;
 
@@ -26,24 +26,14 @@ pub(super) struct MailBox<A: Eq + Hash> {
     pub(super) outgoing: HashSet<A>,
 }
 
-impl<T> Default for DocMeta<T> {
-    fn default() -> Self {
-        let id = Default::default();
-        let version = Default::default();
-        let _phantom = Default::default();
+impl<T> DocMeta<T> {
+    pub(crate) fn new_with_id(id: Id<T>) -> Self {
+        let version = Version::default();
+        let _phantom = PhantomData;
         DocMeta {
             id,
             version,
             _phantom,
-        }
-    }
-}
-
-impl<T> DocMeta<T> {
-    pub(crate) fn new_with_id(id: Id<T>) -> Self {
-        DocMeta {
-            id,
-            ..Default::default()
         }
     }
 }
@@ -55,7 +45,6 @@ impl std::str::FromStr for Version {
         Ok(Version(version))
     }
 }
-
 
 impl<A: Hash + Eq> MailBox<A> {
     pub(crate) fn empty() -> Self {
@@ -80,12 +69,14 @@ mod test {
     use super::*;
     #[test]
     fn document_messaging_scratch_pad() {
-        #[derive(Debug, Default,Hash,PartialEq,Eq)]
+        #[derive(Debug, Default, Hash, PartialEq, Eq)]
         struct Message;
         struct Source {
             mbox: MailBox<Message>,
         }
-        struct Dest { items: u64 };
+        struct Dest {
+            items: u64,
+        };
         impl Source {
             fn provoke(&mut self) {
                 self.mbox.send(Message);
@@ -96,7 +87,9 @@ mod test {
                 self.items += 1
             }
         }
-        let mut src = Source { mbox: MailBox::default() };
+        let mut src = Source {
+            mbox: MailBox::default(),
+        };
         let mut dst = Dest { items: 0 };
 
         src.provoke();

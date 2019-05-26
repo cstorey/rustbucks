@@ -2,15 +2,16 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
+use std::sync::{Arc, Mutex};
 
 use failure::Error;
-use hex_slice::AsHex;
-use rand::distributions::{Distribution, Standard};
+use hybrid_clocks::{Clock, Timestamp, WallMS, WallMST};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-#[derive(Hash)]
+#[derive(Debug, Hash)]
 pub struct Id<T> {
-    val: [u8; 16],
+    stamp: Timestamp<WallMST>,
+    random: u32,
     phantom: PhantomData<T>,
 }
 
@@ -24,72 +25,113 @@ pub trait Entity {
     const PREFIX: &'static str;
 }
 
+#[derive(Debug, Clone)]
+pub struct IdGen {
+    clock: Arc<Mutex<Clock<WallMS>>>,
+}
+
 const DIVIDER: &str = ".";
 
 impl<T> Id<T> {
+    /// Returns a id nominally at time zero, but with a random portion derived
+    /// from the given entity.
     pub fn hashed<H: Hash>(entity: H) -> Self {
-        let mut val = [0u8; 16];
-        let stride = 0u64.to_be_bytes().len();
-        let hs = (0..val.len() / stride)
-            .map(|i| siphasher::sip::SipHasher24::new_with_keys(0, i as u64))
-            .map(|mut h| {
-                entity.hash(&mut h);
-                h
-            })
-            .map(|h| h.finish().to_be_bytes());
-        for (i, bs) in hs.enumerate() {
-            let start = i as usize * stride;
-            let end = (i + 1) as usize * stride;
-            val[start..end].copy_from_slice(&bs);
-        }
+        let zero = time::Timespec::new(0, 0);
+        let stamp = Timestamp {
+            epoch: 0,
+            time: WallMST::from_timespec(zero),
+            count: 0,
+        };
+
+        let mut h = siphasher::sip::SipHasher24::new_with_keys(0, 0);
+        entity.hash(&mut h);
+        let random = h.finish() as u32;
+
+        let phantom = PhantomData;
         Id {
-            val,
-            phantom: PhantomData,
+            random,
+            stamp,
+            phantom,
         }
     }
 }
 
-impl<T> Distribution<Id<T>> for Standard {
-    fn sample<R: ?Sized + rand::Rng>(&self, rng: &mut R) -> Id<T> {
-        let val = rng.gen();
+impl IdGen {
+    pub fn new() -> Self {
+        let clock = Arc::new(Mutex::new(Clock::wall_ms()));
+        IdGen { clock }
+    }
+
+    pub fn generate<T>(&self) -> Id<T> {
+        let stamp = self.clock.lock().expect("clock lock").now();
+        let random = rand::random();
+        let phantom = PhantomData;
+
         Id {
-            val,
-            phantom: PhantomData,
+            random,
+            stamp,
+            phantom,
         }
     }
 }
 
-const ENCODED_BARE_ID_LEN: usize = 22;
+impl<T> Id<T> {
+    fn from_bytes(bytes: &[u8]) -> Self {
+        let mut off = 0;
+        let (i, epoch) = vlq::decode_slice(&bytes[off..]);
+        off += i;
+        let (i, time_ms) = vlq::decode_slice(&bytes[off..]);
+        off += i;
+        let (i, count) = vlq::decode_slice(&bytes[off..]);
+        off += i;
+        let (_, random) = vlq::decode_slice(&bytes[off..]);
+
+        let time = WallMST::of_u64(time_ms);
+        let stamp = Timestamp { epoch, time, count };
+        let phantom = PhantomData;
+
+        Id {
+            stamp,
+            random,
+            phantom,
+        }
+    }
+
+    fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = [0u8; 20];
+        let mut off = 0;
+
+        off += vlq::encode_slice(self.stamp.epoch, &mut bytes[off..]);
+        off += vlq::encode_slice(self.stamp.time.as_u64(), &mut bytes[off..]);
+        off += vlq::encode_slice(self.stamp.count, &mut bytes[off..]);
+        off += vlq::encode_slice(self.random, &mut bytes[off..]);
+        bytes[..off].to_vec()
+    }
+}
+
+const ENCODED_BARE_ID_LEN: usize = 22 + 5;
 
 impl<T: Entity> fmt::Display for Id<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         let mut buf = [0u8; ENCODED_BARE_ID_LEN];
-        let sz = base64::encode_config_slice(&self.val, base64::URL_SAFE_NO_PAD, &mut buf);
-        assert_eq!(sz, buf.len());
+        let sz = base64::encode_config_slice(&self.to_bytes(), base64::URL_SAFE_NO_PAD, &mut buf);
+
         write!(
             fmt,
             "{}{}{}",
             T::PREFIX,
             DIVIDER,
-            String::from_utf8_lossy(&buf)
+            String::from_utf8_lossy(&buf[..sz])
         )?;
         Ok(())
-    }
-}
-
-impl<T> fmt::Debug for Id<T> {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt.debug_struct("Id")
-            .field("val", &format_args!("{:x}", self.val.as_hex()))
-            .finish()
     }
 }
 
 impl<T: Entity> std::str::FromStr for Id<T> {
     type Err = Error;
     fn from_str(src: &str) -> Result<Self, Self::Err> {
-        let expected_length = T::PREFIX.len() + DIVIDER.len() + ENCODED_BARE_ID_LEN;
-        if src.len() != expected_length {
+        let expected_length = T::PREFIX.len() + DIVIDER.len();
+        if src.len() < expected_length {
             bail!(IdParseError::InvalidPrefix);
         };
         let (start, remainder) = src.split_at(T::PREFIX.len());
@@ -102,26 +144,16 @@ impl<T: Entity> std::str::FromStr for Id<T> {
             bail!(IdParseError::Unparseable);
         }
 
-        let mut id = Id::default();
-        let sz = base64::decode_config_slice(b64, base64::URL_SAFE_NO_PAD, &mut id.val)?;
-        if sz != std::mem::size_of_val(&id.val) {
-            bail!(IdParseError::Unparseable);
-        }
-        Ok(id)
-    }
-}
+        let mut bytes = [0u8; 16 + 4];
+        let sz = base64::decode_config_slice(b64, base64::URL_SAFE_NO_PAD, &mut bytes)?;
 
-impl<T> Default for Id<T> {
-    fn default() -> Self {
-        let val = Default::default();
-        let phantom = PhantomData;
-        Id { val, phantom }
+        return Ok(Self::from_bytes(&bytes[..sz]));
     }
 }
 
 impl<T> PartialEq for Id<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.val == other.val
+        self.stamp == other.stamp && self.random == other.random
     }
 }
 
@@ -135,14 +167,17 @@ impl<T> PartialOrd for Id<T> {
 
 impl<T> Ord for Id<T> {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.val.cmp(&other.val)
+        self.stamp
+            .cmp(&other.stamp)
+            .then_with(|| self.random.cmp(&other.random))
     }
 }
 
 impl<T> Clone for Id<T> {
     fn clone(&self) -> Self {
         Id {
-            val: self.val,
+            stamp: self.stamp,
+            random: self.random,
             phantom: self.phantom,
         }
     }
@@ -178,7 +213,6 @@ impl<'de, T: Entity> Deserialize<'de> for Id<T> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use rand::prelude::*;
     use serde_json;
 
     #[derive(Debug)]
@@ -191,6 +225,15 @@ mod test {
     #[test]
     fn round_trips_via_to_from_str() {
         let id = Id::<Canary>::hashed(&"Hi!");
+        let s = id.to_string();
+        println!("String: {}", s);
+        let id2 = s.parse::<Id<Canary>>().expect("parse id");
+        assert_eq!(id, id2);
+    }
+
+    #[test]
+    fn round_trips_via_to_from_str_now() {
+        let id = IdGen::new().generate::<Canary>();
         let s = id.to_string();
         println!("String: {}", s);
         let id2 = s.parse::<Id<Canary>>().expect("parse id");
@@ -218,22 +261,20 @@ mod test {
 
     #[test]
     fn should_allow_random_generation() {
-        let mut rng = rand::thread_rng();
-
-        let id = rng.gen::<Id<Canary>>();
-        let id2 = rng.gen::<Id<Canary>>();
+        let idgen = IdGen::new();
+        let id = idgen.generate::<Canary>();
+        let id2 = idgen.generate::<Canary>();
 
         assert_ne!(id, id2);
     }
 
     #[test]
     fn should_allow_ordering() {
-        let mut rng = rand::thread_rng();
-
-        let id = rng.gen::<Id<Canary>>();
-        let mut id2 = rng.gen::<Id<Canary>>();
+        let idgen = IdGen::new();
+        let id = idgen.generate::<Canary>();
+        let mut id2 = idgen.generate::<Canary>();
         while id2 == id {
-            id2 = rng.gen::<Id<Canary>>();
+            id2 = idgen.generate::<Canary>();
         }
 
         assert!(id < id2 || id > id2);
@@ -241,9 +282,8 @@ mod test {
 
     #[test]
     fn to_string_should_be_prefixed_with_type_name() {
-        let mut rng = rand::thread_rng();
-
-        let id = rng.gen::<Id<Canary>>();
+        let idgen = IdGen::new();
+        let id = idgen.generate::<Canary>();
 
         let s = id.to_string();
 
@@ -257,7 +297,6 @@ mod test {
     #[test]
     fn should_verify_has_correct_entity_prefix() {
         let s = "wrongy-yxdgMe3dIHOX4NvCH90t4w";
-        println!("sample: {}", rand::random::<Id<Canary>>());
 
         let result = s.parse::<Id<Canary>>();
 
@@ -279,7 +318,6 @@ mod test {
             const PREFIX: &'static str = "pseudopseudohypoparathyroidism";
         }
         let s = "wrong-yxdgMe3dIHOX4NvCH90t4w";
-        println!("sample: {}", rand::random::<Id<Canary>>());
 
         let result = s.parse::<Id<Long>>();
 

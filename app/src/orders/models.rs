@@ -1,7 +1,7 @@
-use crate::documents::{DocMeta,MailBox};
+use crate::documents::{DocMeta, MailBox};
+use crate::ids::IdGen;
 use crate::ids::{Entity, Id};
 use crate::menu::Drink;
-use rand;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(super) struct Order {
@@ -17,8 +17,8 @@ pub(super) enum OrderDst {
 }
 
 impl Order {
-    pub(super) fn for_drink(drink_id: Id<Drink>) -> Self {
-        let id = rand::random::<Id<Order>>();
+    pub(super) fn for_drink(drink_id: Id<Drink>, idgen: &IdGen) -> Self {
+        let id = idgen.generate();
         let mut mbox = MailBox::empty();
         mbox.send(OrderDst::Barista);
 
@@ -47,7 +47,8 @@ mod test {
     #[test]
     fn should_request_coffee_made_on_creation() {
         let drink = Id::hashed(&"english breakfast");
-        let order = Order::for_drink(drink);
+        let idgen = IdGen::new();
+        let order = Order::for_drink(drink, &idgen);
 
         assert_eq!(
             order.mbox.outgoing,

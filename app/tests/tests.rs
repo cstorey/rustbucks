@@ -1,10 +1,10 @@
 extern crate actix;
 extern crate actix_web;
 extern crate base64;
+extern crate env_logger;
 extern crate failure;
 extern crate futures;
 extern crate log;
-extern crate env_logger;
 extern crate rustbucks;
 extern crate serde;
 #[macro_use]

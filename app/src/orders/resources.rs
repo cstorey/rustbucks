@@ -11,7 +11,7 @@ use futures::Future;
 use r2d2::Pool;
 use tokio_threadpool::{blocking, ThreadPool};
 
-use ids::Id;
+use ids::{Id, IdGen};
 use menu::Drink;
 use persistence::*;
 use templates::WeftResponse;
@@ -25,6 +25,7 @@ const PREFIX: &'static str = "/orders";
 pub struct Orders {
     db: Pool<DocumentConnectionManager>,
     pool: Arc<ThreadPool>,
+    idgen: IdGen,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -43,8 +44,12 @@ struct OrderWidget {
 }
 
 impl Orders {
-    pub fn new(db: Pool<DocumentConnectionManager>, pool: Arc<ThreadPool>) -> Result<Self, Error> {
-        Ok(Orders { db, pool })
+    pub fn new(
+        db: Pool<DocumentConnectionManager>,
+        pool: Arc<ThreadPool>,
+        idgen: IdGen,
+    ) -> Result<Self, Error> {
+        Ok(Orders { db, pool, idgen })
     }
 
     pub fn app(&self) -> Box<dyn HttpHandler<Task = Box<dyn HttpHandlerTask>>> {
@@ -103,8 +108,9 @@ impl Orders {
     }
 
     fn new_order(&self, order: OrderForm) -> impl Future<Item = Id<Order>, Error = failure::Error> {
+        let me = self.clone();
         self.in_pool(move |docs| {
-            let order = Order::for_drink(order.drink_id);
+            let order = Order::for_drink(order.drink_id, &me.idgen);
             docs.save(&order)?;
             debug!("Saved {:?}", order);
             Ok(order.meta.id)
