@@ -25,6 +25,7 @@ pub trait Entity {
     const PREFIX: &'static str;
 }
 
+#[derive(Debug, Clone)]
 pub struct IdGen {
     clock: Arc<Mutex<Clock<WallMS>>>,
 }

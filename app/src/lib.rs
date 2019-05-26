@@ -69,9 +69,10 @@ impl RustBucks {
         debug!("Init schema");
         db.get()?.setup().context("Setup persistence")?;
 
+        let idgen = IDGEN.clone();
         let threads = Arc::new(ThreadPool::new());
         let menu = menu::Menu::new(db.clone(), threads.clone())?;
-        let orders = orders::Orders::new(db.clone(), threads.clone())?;
+        let orders = orders::Orders::new(db.clone(), threads.clone(), idgen)?;
 
         Ok(RustBucks { menu, orders })
     }
