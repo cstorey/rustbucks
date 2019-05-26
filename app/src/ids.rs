@@ -213,7 +213,6 @@ impl<'de, T: Entity> Deserialize<'de> for Id<T> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::IDGEN;
     use serde_json;
 
     #[derive(Debug)]
@@ -262,18 +261,20 @@ mod test {
 
     #[test]
     fn should_allow_random_generation() {
-        let id = IDGEN.generate::<Canary>();
-        let id2 = IDGEN.generate::<Canary>();
+        let idgen = IdGen::new();
+        let id = idgen.generate::<Canary>();
+        let id2 = idgen.generate::<Canary>();
 
         assert_ne!(id, id2);
     }
 
     #[test]
     fn should_allow_ordering() {
-        let id = IDGEN.generate::<Canary>();
-        let mut id2 = IDGEN.generate::<Canary>();
+        let idgen = IdGen::new();
+        let id = idgen.generate::<Canary>();
+        let mut id2 = idgen.generate::<Canary>();
         while id2 == id {
-            id2 = IDGEN.generate::<Canary>();
+            id2 = idgen.generate::<Canary>();
         }
 
         assert!(id < id2 || id > id2);
@@ -281,7 +282,8 @@ mod test {
 
     #[test]
     fn to_string_should_be_prefixed_with_type_name() {
-        let id = IDGEN.generate::<Canary>();
+        let idgen = IdGen::new();
+        let id = idgen.generate::<Canary>();
 
         let s = id.to_string();
 
@@ -295,7 +297,6 @@ mod test {
     #[test]
     fn should_verify_has_correct_entity_prefix() {
         let s = "wrongy-yxdgMe3dIHOX4NvCH90t4w";
-        println!("sample: {}", IDGEN.generate::<Canary>());
 
         let result = s.parse::<Id<Canary>>();
 
@@ -317,7 +318,6 @@ mod test {
             const PREFIX: &'static str = "pseudopseudohypoparathyroidism";
         }
         let s = "wrong-yxdgMe3dIHOX4NvCH90t4w";
-        println!("sample: {}", IDGEN.generate::<Canary>());
 
         let result = s.parse::<Id<Long>>();
 
