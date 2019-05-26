@@ -11,6 +11,7 @@ extern crate weft;
 #[macro_use]
 extern crate weft_derive;
 extern crate actix_service;
+extern crate actix_threadpool;
 extern crate actix_web;
 extern crate base64;
 extern crate hex_slice;
@@ -67,7 +68,7 @@ impl RustBucks {
 
         let idgen = ids::IdGen::new();
         let threads = Arc::new(ThreadPool::new());
-        let menu = menu::Menu::new(db.clone(), threads.clone())?;
+        let menu = menu::Menu::new(db.clone())?;
         let orders = orders::Orders::new(db.clone(), threads.clone(), idgen)?;
 
         Ok(RustBucks { menu, orders })

@@ -3,9 +3,9 @@ use futures::future::{lazy, poll_fn};
 use futures::Future;
 use std::sync::Arc;
 
+use actix_threadpool::BlockingError;
 use actix_web::{http, web, HttpRequest, HttpResponse, Responder, Scope};
 use r2d2::Pool;
-use tokio_threadpool::{blocking, ThreadPool};
 
 use ids::Id;
 use persistence::*;
@@ -19,7 +19,6 @@ const PREFIX: &'static str = "/menu";
 #[derive(Debug, Clone)]
 pub struct Menu {
     db: Pool<DocumentConnectionManager>,
-    pool: Arc<ThreadPool>,
 }
 
 #[derive(Debug, WeftRenderable)]
@@ -34,11 +33,11 @@ struct DrinkWidget {
 }
 
 impl Menu {
-    pub fn new(db: Pool<DocumentConnectionManager>, pool: Arc<ThreadPool>) -> Result<Self, Error> {
+    pub fn new(db: Pool<DocumentConnectionManager>) -> Result<Self, Error> {
         let conn = db.get()?;
         Self::insert(&conn, "Umbrella").context("insert umbrella")?;
         Self::insert(&conn, "Fnordy").context("insert fnordy")?;
-        Ok(Menu { db, pool })
+        Ok(Menu { db })
     }
 
     fn insert(docs: &Documents, name: &str) -> Result<(), Error> {
@@ -167,16 +166,14 @@ impl Menu {
         f: F,
     ) -> impl Future<Item = R, Error = failure::Error> {
         let db = self.db.clone();
-        let f = lazy(|| {
-            poll_fn(move || {
-                blocking(|| {
-                    let docs = db.get()?;
-                    f(&*docs)
-                })
-            })
-            .map_err(Error::from)
-        });
-        self.pool.spawn_handle(f).and_then(futures::future::result)
+        web::block(move || {
+            let docs = db.get()?;
+            f(&*docs)
+        })
+        .map_err(|e| match e {
+            BlockingError::Error(e) => e.into(),
+            BlockingError::Canceled => failure::err_msg("Cancelled"),
+        })
     }
 }
 
