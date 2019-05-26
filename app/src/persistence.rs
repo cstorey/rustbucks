@@ -120,12 +120,16 @@ impl r2d2::ManageConnection for DocumentConnectionManager {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::IDGEN;
+    use crate::ids;
     use documents::*;
     use r2d2::Pool;
     use r2d2_postgres::{PostgresConnectionManager, TlsMode};
     use rand::random;
     use std::env;
+
+    lazy_static! {
+        static ref IDGEN: ids::IdGen = ids::IdGen::new();
+    }
 
     const DEFAULT_URL: &'static str = "postgres://postgres@localhost/";
 
