@@ -55,7 +55,7 @@ fn main() -> Result<(), failure::Error> {
 
     let sys = actix::System::new("rustbucks-app");
     let rb = rustbucks::RustBucks::new(&config.rustbucks)?;
-    let srv = HttpServer::new(move || App::new().service(rb.app()))
+    let srv = HttpServer::new(move || App::new().configure(|cfg| rb.configure(cfg)))
         .bind(&config.listener.addr)
         .context("bind")?;
     info!("Listening on: {:?}", srv.addrs());

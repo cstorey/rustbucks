@@ -2,7 +2,7 @@ use failure::{Error, ResultExt};
 use futures::Future;
 
 use actix_threadpool::BlockingError;
-use actix_web::{http, web, HttpRequest, HttpResponse, Responder, Scope};
+use actix_web::{http, web, HttpRequest, HttpResponse, Responder};
 use r2d2::Pool;
 
 use ids::Id;
@@ -64,8 +64,8 @@ impl Menu {
         Ok(())
     }
 
-    pub fn app(&self) -> Scope {
-        web::scope(PREFIX)
+    pub fn configure(&self, cfg: &mut web::ServiceConfig) {
+        let scope = web::scope(PREFIX)
             .service({
                 let me = self.clone();
                 web::resource("/").route(web::get().to_async(move || me.index()))
@@ -75,7 +75,9 @@ impl Menu {
                 web::resource("/{id}").route(
                     web::get().to_async(move |id: web::Path<Id<Drink>>| me.detail(id.into_inner())),
                 )
-            })
+            });
+
+        cfg.service(scope);
     }
 
     pub fn index_redirect(req: HttpRequest) -> Result<HttpResponse, Error> {

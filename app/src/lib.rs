@@ -32,7 +32,7 @@ extern crate lazy_static;
 extern crate rustbucks_vlq as vlq;
 extern crate time;
 
-use actix_web::{web, Scope};
+use actix_web::web;
 use failure::{Error, ResultExt};
 
 pub mod config;
@@ -69,12 +69,10 @@ impl RustBucks {
         Ok(RustBucks { menu, orders })
     }
 
-    pub fn app(&self) -> Scope {
-        info!("Booting rustbucks");
+    pub fn configure(&self, cfg: &mut web::ServiceConfig) {
         let redir_root = web::resource("/").route(web::get().to_async(menu::Menu::index_redirect));
-        web::scope("")
-            .service(redir_root)
-            .service(self.menu.app())
-            .service(self.orders.app())
+        cfg.service(redir_root);
+        self.menu.configure(cfg);
+        self.orders.configure(cfg);
     }
 }

@@ -68,7 +68,9 @@ impl SomethingScenario {
         config.postgres.url = env::var("POSTGRES_URL").context("$POSTGRES_URL")?;
         let app = rustbucks::RustBucks::new(&config).expect("new rustbucks");
 
-        let _srv = TestServer::new(move || HttpService::new(App::new().service(app.app())));
+        let _srv = TestServer::new(move || {
+            HttpService::new(App::new().configure(|cfg| app.configure(cfg)))
+        });
 
         let addr = _srv.addr();
         println!("Listening on: {:?}", addr);

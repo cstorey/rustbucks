@@ -1,5 +1,5 @@
 use actix_threadpool::BlockingError;
-use actix_web::{web, HttpRequest, HttpResponse, Responder, Scope};
+use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use failure::Error;
 use futures::Future;
 use r2d2::Pool;
@@ -40,8 +40,8 @@ impl Orders {
         Ok(Orders { db, idgen })
     }
 
-    pub fn app(&self) -> Scope {
-        web::scope(PREFIX)
+    pub fn configure(&self, cfg: &mut web::ServiceConfig) {
+        let scope = web::scope(PREFIX)
             .service(
                 web::resource("")
                     .name("orders")
@@ -61,7 +61,8 @@ impl Orders {
             .service(web::resource("{id}").name("show").route({
                 let me = self.clone();
                 web::get().to_async(move |id: web::Path<Id<Order>>| me.show(id.into_inner()))
-            }))
+            }));
+        cfg.service(scope);
     }
 
     fn submit(
