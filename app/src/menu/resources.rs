@@ -1,15 +1,9 @@
 use failure::{Error, ResultExt};
-use futures::future::{lazy, poll_fn, result};
 use futures::Future;
-use std::sync::Arc;
 
-use actix_web::server::{HttpHandler, HttpHandlerTask};
-use actix_web::{
-    http, App, AsyncResponder, FromRequest, FutureResponse, HttpRequest, HttpResponse, Path,
-    Responder,
-};
+use actix_threadpool::BlockingError;
+use actix_web::{http, web, HttpRequest, HttpResponse, Responder};
 use r2d2::Pool;
-use tokio_threadpool::{blocking, ThreadPool};
 
 use ids::Id;
 use persistence::*;
@@ -23,7 +17,6 @@ const PREFIX: &'static str = "/menu";
 #[derive(Debug, Clone)]
 pub struct Menu {
     db: Pool<DocumentConnectionManager>,
-    pool: Arc<ThreadPool>,
 }
 
 #[derive(Debug, WeftRenderable)]
@@ -38,11 +31,11 @@ struct DrinkWidget {
 }
 
 impl Menu {
-    pub fn new(db: Pool<DocumentConnectionManager>, pool: Arc<ThreadPool>) -> Result<Self, Error> {
+    pub fn new(db: Pool<DocumentConnectionManager>) -> Result<Self, Error> {
         let conn = db.get()?;
         Self::insert(&conn, "Umbrella").context("insert umbrella")?;
         Self::insert(&conn, "Fnordy").context("insert fnordy")?;
-        Ok(Menu { db, pool })
+        Ok(Menu { db })
     }
 
     fn insert(docs: &Documents, name: &str) -> Result<(), Error> {
@@ -71,20 +64,23 @@ impl Menu {
         Ok(())
     }
 
-    pub fn app(&self) -> Box<dyn HttpHandler<Task = Box<dyn HttpHandlerTask>>> {
-        App::with_state(self.clone())
-            .prefix(PREFIX)
-            .resource("/", |r| {
-                r.get().f(move |req| req.state().index(req));
+    pub fn configure(&self, cfg: &mut web::ServiceConfig) {
+        let scope = web::scope(PREFIX)
+            .service({
+                let me = self.clone();
+                web::resource("/").route(web::get().to_async(move || me.index()))
             })
-            .resource("/{id}", |r| {
-                r.get()
-                    .f(move |req: &HttpRequest<Self>| req.state().detail(req));
-            })
-            .boxed()
+            .service({
+                let me = self.clone();
+                web::resource("/{id}").route(
+                    web::get().to_async(move |id: web::Path<Id<Drink>>| me.detail(id.into_inner())),
+                )
+            });
+
+        cfg.service(scope);
     }
 
-    pub fn index_redirect(req: &HttpRequest) -> Result<HttpResponse, Error> {
+    pub fn index_redirect(req: HttpRequest) -> Result<HttpResponse, Error> {
         debug!("Redirecting from: {}", req.uri());
         let url = format!("{}/", PREFIX);
         info!("Target {} → {}", req.uri(), url);
@@ -94,35 +90,30 @@ impl Menu {
             .finish())
     }
 
-    fn index(&self, _: &HttpRequest<Self>) -> FutureResponse<impl Responder> {
+    fn index(&self) -> impl Future<Item = impl Responder, Error = Error> {
         info!("Handle index");
         info!("Handle from : {:?}", ::std::thread::current());
-        self.load_menu()
-            .from_err()
-            .map(|menu| {
-                info!("Resume from : {:?}", ::std::thread::current());
-                let data = WithTemplate {
-                    value: MenuWidget { drink: menu },
-                };
-                WeftResponse::of(data)
-            })
-            .responder()
+        self.load_menu().from_err().map(|menu| {
+            info!("Resume from : {:?}", ::std::thread::current());
+            let data = WithTemplate {
+                value: MenuWidget { drink: menu },
+            };
+            WeftResponse::of(data)
+        })
     }
 
-    fn detail(&self, req: &HttpRequest<Self>) -> FutureResponse<impl Responder> {
+    fn detail(
+        &self,
+        id: Id<Drink>,
+    ) -> impl Future<Item = impl Responder, Error = actix_web::Error> {
         let me = self.clone();
-        result(Path::<Id<Drink>>::extract(req))
-            .and_then(move |id| {
-                let id = id.into_inner();
-                me.load_drink(id).from_err().map(move |drinkp| {
-                    drinkp.map(|drink| {
-                        WeftResponse::of(WithTemplate {
-                            value: DrinkWidget { drink: drink },
-                        })
-                    })
+        me.load_drink(id).from_err().map(move |drinkp| {
+            drinkp.map(|drink| {
+                WeftResponse::of(WithTemplate {
+                    value: DrinkWidget { drink: drink },
                 })
             })
-            .responder()
+        })
     }
 
     fn load_menu(&self) -> impl Future<Item = Vec<(Id<Drink>, Drink)>, Error = failure::Error> {
@@ -175,16 +166,14 @@ impl Menu {
         f: F,
     ) -> impl Future<Item = R, Error = failure::Error> {
         let db = self.db.clone();
-        let f = lazy(|| {
-            poll_fn(move || {
-                blocking(|| {
-                    let docs = db.get()?;
-                    f(&*docs)
-                })
-            })
-            .map_err(Error::from)
-        });
-        self.pool.spawn_handle(f).and_then(futures::future::result)
+        web::block(move || {
+            let docs = db.get()?;
+            f(&*docs)
+        })
+        .map_err(|e| match e {
+            BlockingError::Error(e) => e.into(),
+            c @ BlockingError::Canceled => format_err!("{}", c),
+        })
     }
 }
 

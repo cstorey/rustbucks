@@ -10,6 +10,8 @@ extern crate failure;
 extern crate weft;
 #[macro_use]
 extern crate weft_derive;
+extern crate actix_service;
+extern crate actix_threadpool;
 extern crate actix_web;
 extern crate base64;
 extern crate hex_slice;
@@ -19,7 +21,6 @@ extern crate r2d2_postgres;
 extern crate rand;
 extern crate serde_json;
 extern crate siphasher;
-extern crate tokio_threadpool;
 #[cfg(test)]
 #[macro_use]
 extern crate maplit;
@@ -31,12 +32,8 @@ extern crate lazy_static;
 extern crate rustbucks_vlq as vlq;
 extern crate time;
 
-use std::sync::Arc;
-
-use actix_web::server::{HttpHandler, HttpHandlerTask};
-use actix_web::App;
+use actix_web::web;
 use failure::{Error, ResultExt};
-use tokio_threadpool::ThreadPool;
 
 pub mod config;
 mod documents;
@@ -66,17 +63,16 @@ impl RustBucks {
         db.get()?.setup().context("Setup persistence")?;
 
         let idgen = ids::IdGen::new();
-        let threads = Arc::new(ThreadPool::new());
-        let menu = menu::Menu::new(db.clone(), threads.clone())?;
-        let orders = orders::Orders::new(db.clone(), threads.clone(), idgen)?;
+        let menu = menu::Menu::new(db.clone())?;
+        let orders = orders::Orders::new(db.clone(), idgen)?;
 
         Ok(RustBucks { menu, orders })
     }
 
-    pub fn app(&self) -> Vec<Box<dyn HttpHandler<Task = Box<dyn HttpHandlerTask>>>> {
-        info!("Booting rustbucks");
-
-        let redir_root = App::new().resource("/", |r| r.get().f(menu::Menu::index_redirect));
-        vec![self.menu.app(), self.orders.app(), redir_root.boxed()]
+    pub fn configure(&self, cfg: &mut web::ServiceConfig) {
+        let redir_root = web::resource("/").route(web::get().to_async(menu::Menu::index_redirect));
+        cfg.service(redir_root);
+        self.menu.configure(cfg);
+        self.orders.configure(cfg);
     }
 }

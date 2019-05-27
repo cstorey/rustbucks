@@ -12,10 +12,10 @@ impl<T> WeftResponse<T> {
 }
 
 impl<T: WeftRenderable> Responder for WeftResponse<T> {
-    type Item = HttpResponse;
+    type Future = Result<HttpResponse, Self::Error>;
     type Error = actix_web::Error;
 
-    fn respond_to<S: 'static>(self, _: &HttpRequest<S>) -> Result<Self::Item, Self::Error> {
+    fn respond_to(self, _: &HttpRequest) -> Result<HttpResponse, Self::Error> {
         let WeftResponse(data) = self;
         weft::render_to_string(&data)
             .map_err(|e| actix_web::Error::from(e))
