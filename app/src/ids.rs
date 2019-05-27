@@ -8,7 +8,7 @@ use failure::Error;
 use hybrid_clocks::{Clock, Timestamp, WallMS, WallMST};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-#[derive(Debug, Hash)]
+#[derive(Debug)]
 pub struct Id<T> {
     stamp: Timestamp<WallMST>,
     random: u32,
@@ -184,6 +184,13 @@ impl<T> Clone for Id<T> {
 }
 
 impl<T> Copy for Id<T> {}
+
+impl<T> Hash for Id<T> {
+    fn hash<H: Hasher>(&self, hasher: &mut H) {
+        self.stamp.hash(hasher);
+        self.random.hash(hasher);
+    }
+}
 
 impl<T: Entity> Serialize for Id<T> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
