@@ -4,10 +4,10 @@ use env_logger;
 use failure::Fallible;
 use log::*;
 use r2d2::Pool;
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize};
 
 use crate::drinker::Drinker;
-use crate::ids::{Entity, IdGen};
+use crate::ids::{Entity, Id, IdGen};
 use crate::menu::Drink;
 use crate::orders::{Order, OrderDst};
 use crate::persistence::DocumentConnectionManager;
@@ -31,6 +31,13 @@ impl OrderSystem {
         Ok(())
     }
 
+    fn load<E: Entity + DeserializeOwned>(&mut self, id: &Id<E>) -> Fallible<Option<E>> {
+        let docs = self.pool.get()?;
+        debug!("Loading entity with id: {}", id);
+        let res = docs.load(id)?;
+        Ok(res)
+    }
+
     fn run_until_quiescent(&self) -> Fallible<()> {
         let docs = self.pool.get()?;
         debug!("Scan for unprocessed entities");
@@ -41,18 +48,24 @@ impl OrderSystem {
                 debug!("Entity: {}; msg:{:?}", order_id, msg);
                 match msg {
                     OrderDst::Barista => {
+                        // This is _totally_ a massive cheat.
                         debug!("Entity: {}; do barista things", order_id);
+                        let mut drinker = docs
+                            .load::<Drinker>(&order.drinker_id)?
+                            .expect("drinker not found?");
+                        drinker.deliver_drink(order.drink_id);
+                        docs.save(&mut drinker)?;
                     }
                 }
-                unimplemented!("Process msg: {:?}", msg);
             }
+
+            docs.save(&mut order)?;
         }
         debug!("Done scan for unprocessed entities");
         Ok(())
     }
 }
 
-#[ignore]
 #[test]
 fn order_workflow() -> Fallible<()> {
     env_logger::try_init().unwrap_or_default();
@@ -69,6 +82,8 @@ fn order_workflow() -> Fallible<()> {
     sys.store(&mut order)?;
 
     sys.run_until_quiescent()?;
+
+    let drinker = sys.load(&drinker.meta.id)?.expect("drinker");
 
     assert!(
         drinker.has_drink(tea.meta.id),
