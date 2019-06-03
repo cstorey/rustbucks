@@ -12,12 +12,12 @@ pub struct Order {
     pub(crate) meta: DocMeta<Order>,
     #[serde(default, flatten)]
     pub(crate) mbox: MailBox<OrderDst>,
-    pub(crate) drink_id: Id<Drink>,
-    pub(crate) drinker_id: Id<Drinker>,
+    pub(super) drink_id: Id<Drink>,
+    pub(super) drinker_id: Id<Drinker>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub(crate) enum OrderDst {
-    Barista,
+    Barista(Id<Drinker>, Id<Drink>),
 }
 
 impl Order {
@@ -32,7 +32,7 @@ impl Order {
             drink_id,
             drinker_id,
         };
-        me.mbox.send(OrderDst::Barista);
+        me.mbox.send(OrderDst::Barista(drinker_id, drink_id));
         me
     }
 }
@@ -67,7 +67,7 @@ mod test {
         assert_eq!(
             order.mbox.outgoing,
             hashset! {
-                OrderDst::Barista,
+                OrderDst::Barista(drinker, drink),
             }
         )
     }

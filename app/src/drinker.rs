@@ -3,7 +3,6 @@ use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 
 use crate::menu;
-use crate::menu::Drink;
 use infra::documents::{DocMeta, HasMeta};
 use infra::ids::{Entity, Id, IdGen};
 
@@ -31,7 +30,7 @@ impl Drinker {
     }
 
     #[cfg(test)]
-    pub fn deliver_drink(&mut self, drink_id: Id<Drink>) {
+    pub fn deliver_drink(&mut self, drink_id: Id<menu::Drink>) {
         self.received_drinks.insert(drink_id);
     }
 }
