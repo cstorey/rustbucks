@@ -15,7 +15,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 
-use actix_web::{App, HttpServer};
+use actix_web::{middleware::Logger, App, HttpServer};
 use failure::ResultExt;
 use structopt::StructOpt;
 
@@ -55,7 +55,12 @@ fn main() -> Result<(), failure::Error> {
 
     let sys = actix::System::new("rustbucks-app");
     let rb = rustbucks::RustBucks::new(&config.rustbucks)?;
-    let srv = HttpServer::new(move || App::new().configure(|cfg| rb.configure(cfg)))
+    let factory = move || {
+        App::new()
+            .wrap(Logger::default())
+            .configure(|cfg| rb.configure(cfg))
+    };
+    let srv = HttpServer::new(factory)
         .bind(&config.listener.addr)
         .context("bind")?;
     info!("Listening on: {:?}", srv.addrs());
