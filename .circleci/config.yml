@@ -42,7 +42,7 @@ jobs:
       - *SAVE_REGISTRY
       - run: rustc --version | tee ~/rust-version
       - *RESTORE_DEPS
-      - run: cargo build --tests
+      - run: cargo build --tests --locked
       - *SAVE_DEPS
       - run:
           name: Waiting for Postgres to be ready
@@ -54,5 +54,5 @@ jobs:
               sleep 1
             done
             echo Failed waiting for Postgres && exit 1
-      - run: env RUST_BACKTRACE=1 cargo test -p rustbucks-vlq
-      - run: env RUST_BACKTRACE=1 cargo test -p rustbucks
+      - run: env RUST_BACKTRACE=1 cargo test -p rustbucks-vlq --locked
+      - run: env RUST_BACKTRACE=1 cargo test -p rustbucks --locked
