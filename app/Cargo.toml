@@ -35,6 +35,7 @@ actix-service = "0.4.1"
 actix-http-test = "0.2.1"
 actix-http = "0.2.1"
 actix-threadpool = "0.1.1"
+jemallocator-global = "0.3.2"
 
 [dependencies.postgres]
 features = ["with-serde_json"]
