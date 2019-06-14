@@ -4,7 +4,6 @@ extern crate failure;
 extern crate hyper;
 #[macro_use]
 extern crate log;
-extern crate jemallocator;
 extern crate rustbucks;
 extern crate structopt;
 extern crate toml;
@@ -39,9 +38,6 @@ struct Config {
 struct Listener {
     addr: std::net::SocketAddr,
 }
-
-#[global_allocator]
-static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 fn main() -> Result<(), failure::Error> {
     let opt = Opt::from_args();
