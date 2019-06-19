@@ -150,12 +150,11 @@ mod test {
     use r2d2_postgres::{PostgresConnectionManager, TlsMode};
     use rand::random;
     use std::env;
+    use failure::ResultExt;
 
     lazy_static! {
         static ref IDGEN: ids::IdGen = ids::IdGen::new();
     }
-
-    const DEFAULT_URL: &'static str = "postgres://postgres@localhost/";
 
     #[derive(Debug)]
     struct UseTempSchema(String);
@@ -193,7 +192,7 @@ mod test {
 
     fn pool(schema: &str) -> Result<Pool<DocumentConnectionManager>, Error> {
         debug!("Build pool for {}", schema);
-        let url = env::var("POSTGRES_URL").unwrap_or_else(|_| DEFAULT_URL.to_string());
+        let url = env::var("POSTGRES_URL").context("$POSTGRES_URL")?;
         debug!("Use schema name: {}", schema);
         let manager = PostgresConnectionManager::new(&*url, TlsMode::None).expect("postgres");
         let pool = r2d2::Pool::builder()
