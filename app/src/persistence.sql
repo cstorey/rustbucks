@@ -50,3 +50,8 @@ SELECT apply_migration(text '0003 Ensure all documents have versions', text $$
         SET body = jsonb_set(body, '{_version}', to_jsonb(to_hex(txid_current())))
         WHERE (body ->> '_version') IS NULL;
 $$);
+
+SELECT apply_migration(text '0004 Add index for outbox', text $$
+    CREATE INDEX ON documents (jsonb_array_length(body -> '_outgoing'))
+        WHERE jsonb_array_length(body -> '_outgoing') > 0
+$$);

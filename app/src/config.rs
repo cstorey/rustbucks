@@ -71,6 +71,7 @@ impl PgConfig {
 pub struct EnvLogger {
     level: Option<LogLevel>,
     modules: HashMap<String, LogLevel>,
+    timestamp_nanos: bool,
 }
 
 impl LogLevel {
@@ -96,6 +97,8 @@ impl EnvLogger {
         for (module, level) in self.modules.iter() {
             b.filter_module(&module, level.to_filter());
         }
+
+        b.default_format_timestamp_nanos(self.timestamp_nanos);
 
         return b;
     }

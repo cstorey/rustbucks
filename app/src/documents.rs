@@ -23,6 +23,7 @@ pub struct DocMeta<T> {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(super) struct MailBox<A: Eq + Hash> {
+    #[serde(rename = "_outgoing")]
     pub(super) outgoing: HashSet<A>,
 }
 

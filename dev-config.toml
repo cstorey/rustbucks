@@ -16,6 +16,7 @@ nanos = 0
 
 [env_logger]
 level= "warn"
+timestamp_nanos = true
 
 [env_logger.modules]
 tests= "trace"
