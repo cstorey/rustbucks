@@ -14,9 +14,9 @@ use super::models::{Drink, DrinkList};
 
 const PREFIX: &'static str = "/menu";
 
-#[derive(Debug, Clone)]
-pub struct Menu {
-    db: Pool<DocumentConnectionManager>,
+#[derive(Debug)]
+pub struct Menu<M: r2d2::ManageConnection> {
+    db: Pool<M>,
 }
 
 #[derive(Debug, WeftRenderable)]
@@ -30,8 +30,8 @@ struct DrinkWidget {
     drink: Drink,
 }
 
-impl Menu {
-    pub fn new(db: Pool<DocumentConnectionManager>) -> Result<Self, Error> {
+impl<M: r2d2::ManageConnection<Connection=Documents>> Menu<M> {
+    pub fn new(db: Pool<M>) -> Result<Self, Error> {
         let conn = db.get()?;
         Self::insert(&conn, "Umbrella").context("insert umbrella")?;
         Self::insert(&conn, "Fnordy").context("insert fnordy")?;
@@ -164,6 +164,13 @@ impl Menu {
             BlockingError::Error(e) => e.into(),
             c @ BlockingError::Canceled => format_err!("{}", c),
         })
+    }
+}
+
+impl<M: r2d2::ManageConnection> Clone for Menu<M> {
+    fn clone(&self) -> Self {
+        let db = self.db.clone();
+        Menu { db }
     }
 }
 
