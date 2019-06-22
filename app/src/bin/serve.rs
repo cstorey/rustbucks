@@ -55,6 +55,7 @@ fn main() -> Result<(), failure::Error> {
         App::new()
             .wrap(Logger::default())
             .configure(|cfg| rb.configure(cfg))
+            .service(actix_files::Files::new("/", "app/static/"))
     };
     let srv = HttpServer::new(factory)
         .bind(&config.listener.addr)

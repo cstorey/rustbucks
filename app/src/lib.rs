@@ -29,6 +29,7 @@ extern crate hybrid_clocks;
 #[cfg(test)]
 #[macro_use]
 extern crate lazy_static;
+extern crate actix_files;
 extern crate rustbucks_vlq as vlq;
 extern crate time;
 
