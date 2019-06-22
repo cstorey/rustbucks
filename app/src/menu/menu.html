@@ -10,19 +10,22 @@
   </head>
   <body>
     <main id="content">
-      <ul weft-for="(id, drink) in self.drinks()">
-        <li>
-          <h3>
+      <ul
+        class="max-w-sm rounded overflow-hidden shadow-lg"
+        weft-for="(id, drink) in self.drinks()"
+      >
+        <li class="px-6 py-4">
+          <h3 class="font-bold text-xl mb-2">
             <a
               class="a-drink"
               href="/menu/{{id.display()}}"
               weft-content="drink.name"
-              >An name</a
+              >Some drink</a
             >
           </h3>
-          <dl>
-            <dt>Id</dt>
-            <dd weft-content="id.display()">???</dd>
+          <dl class="text-gray-700 text-base">
+            <dt>Drink Id</dt>
+            <dd class="ml-4" weft-content="id.display()">Lorem Ipsum…</dd>
           </dl>
         </li>
       </ul>
