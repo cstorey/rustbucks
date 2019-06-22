@@ -3,19 +3,36 @@
   <head>
     <title>Rustbucks Drink</title>
     <link href="/tailwind.min.css" rel="stylesheet" />
-    <!--
-      <link
+    <!-- <link
       href="https://unpkg.com/tailwindcss@^1.0/dist/tailwind.min.css"
       rel="stylesheet"
-    />
-  --></head>
+    />-->
+  </head>
   <body>
     <main id="content">
-      <p weft-content="self.drink.name.display()">Drink name here</p>
-      <form method="POST" action="/orders">
-        <input type="hidden" name="drink_id" value="{{self.drink.meta.id}}" />
-        <button class="order" type="submit">Order</button>
-      </form>
+      <div class="w-full max-w-xs">
+        <form
+          class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4"
+          method="POST"
+          action="/orders"
+        >
+          <p
+            class="block text-gray-700 text-sm font-bold mb-2"
+            weft-content="self.drink.name.display()"
+          >
+            Some Drink
+          </p>
+          <input type="hidden" name="drink_id" value="{{self.drink.meta.id}}" />
+          <div class="flex items-center justify-between">
+            <button
+              class="order bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-4 rounded focus:outline-none focus:shadow-outline"
+              type="submit"
+            >
+              Place order
+            </button>
+          </div>
+        </form>
+      </div>
     </main>
   </body>
 </html>
