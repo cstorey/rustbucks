@@ -146,11 +146,11 @@ mod test {
     use super::*;
     use crate::ids;
     use documents::*;
+    use failure::ResultExt;
     use r2d2::Pool;
     use r2d2_postgres::{PostgresConnectionManager, TlsMode};
     use rand::random;
     use std::env;
-    use failure::ResultExt;
 
     lazy_static! {
         static ref IDGEN: ids::IdGen = ids::IdGen::new();
