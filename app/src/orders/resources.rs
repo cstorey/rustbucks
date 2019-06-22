@@ -30,7 +30,7 @@ pub struct OrderForm {
 struct OrderList {}
 
 #[derive(Debug, WeftRenderable)]
-#[template(path = "src/orders/order.html")]
+#[template(path = "src/orders/order.html", selector="#content")]
 struct OrderWidget {
     order: Order,
 }
