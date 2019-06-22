@@ -71,7 +71,7 @@ impl RustBucks {
     }
 
     pub fn configure(&self, cfg: &mut web::ServiceConfig) {
-        let redir_root = web::resource("/").route(web::get().to_async(menu::Menu::index_redirect));
+        let redir_root = web::resource("/").route(web::get().to_async(menu::index_redirect));
         cfg.service(redir_root);
         self.menu.configure(cfg);
         self.orders.configure(cfg);

@@ -80,16 +80,6 @@ impl Menu {
         cfg.service(scope);
     }
 
-    pub fn index_redirect(req: HttpRequest) -> Result<HttpResponse, Error> {
-        debug!("Redirecting from: {}", req.uri());
-        let url = format!("{}/", PREFIX);
-        info!("Target {} → {}", req.uri(), url);
-
-        Ok(HttpResponse::SeeOther()
-            .header(http::header::LOCATION, url)
-            .finish())
-    }
-
     fn index(&self) -> impl Future<Item = impl Responder, Error = Error> {
         info!("Handle index");
         info!("Handle from : {:?}", ::std::thread::current());
@@ -175,6 +165,16 @@ impl Menu {
             c @ BlockingError::Canceled => format_err!("{}", c),
         })
     }
+}
+
+pub fn index_redirect(req: HttpRequest) -> Result<HttpResponse, Error> {
+    debug!("Redirecting from: {}", req.uri());
+    let url = format!("{}/", PREFIX);
+    info!("Target {} → {}", req.uri(), url);
+
+    Ok(HttpResponse::SeeOther()
+        .header(http::header::LOCATION, url)
+        .finish())
 }
 
 impl MenuWidget {
