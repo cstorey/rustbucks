@@ -9,6 +9,14 @@ use r2d2_postgres::PostgresConnectionManager;
 use documents::{DocMeta, Version};
 use ids::{Entity, Id};
 
+pub trait Storage {
+    fn load<D: DeserializeOwned + Entity>(&self, id: &Id<D>) -> Result<Option<D>, Error>;
+    fn save<D: Serialize + Entity + AsRef<DocMeta<D>>>(
+        &self,
+        document: &D,
+    ) -> Result<Version, Error>;
+}
+
 #[derive(Fail, Debug, PartialEq, Eq)]
 #[fail(display = "stale version")]
 pub struct ConcurrencyError;
@@ -112,6 +120,19 @@ impl Documents {
         } else {
             Ok(None)
         }
+    }
+}
+
+impl Storage for Documents {
+    fn load<D: DeserializeOwned + Entity>(&self, id: &Id<D>) -> Result<Option<D>, Error> {
+        Documents::load(self, id)
+    }
+
+    fn save<D: Serialize + Entity + AsRef<DocMeta<D>>>(
+        &self,
+        document: &D,
+    ) -> Result<Version, Error> {
+        Documents::save(self, document)
     }
 }
 
