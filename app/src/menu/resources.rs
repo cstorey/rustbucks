@@ -25,7 +25,7 @@ struct MenuWidget {
     drink: Vec<(Id<Drink>, Drink)>,
 }
 #[derive(Debug, WeftRenderable)]
-#[template(path = "src/menu/drink.html")]
+#[template(path = "src/menu/drink.html", selector = "#content")]
 struct DrinkWidget {
     drink: Drink,
 }

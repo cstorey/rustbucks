@@ -1,5 +1,21 @@
-<p weft-content="self.drink.name.display()">Drink name here</p>
-<form method="POST" action="/orders">
-  <input type="hidden" name="drink_id" value="{{self.drink.meta.id}}" />
-  <button class="order" type="submit">Order</button>
-</form>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Rustbucks Drink</title>
+    <link href="/tailwind.min.css" rel="stylesheet" />
+    <!--
+      <link
+      href="https://unpkg.com/tailwindcss@^1.0/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+  --></head>
+  <body>
+    <main id="content">
+      <p weft-content="self.drink.name.display()">Drink name here</p>
+      <form method="POST" action="/orders">
+        <input type="hidden" name="drink_id" value="{{self.drink.meta.id}}" />
+        <button class="order" type="submit">Order</button>
+      </form>
+    </main>
+  </body>
+</html>
