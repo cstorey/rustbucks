@@ -30,7 +30,7 @@ struct DrinkWidget {
     drink: Drink,
 }
 
-impl<M: r2d2::ManageConnection<Connection=Documents>> Menu<M> {
+impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Menu<M> {
     pub fn new(db: Pool<M>) -> Result<Self, Error> {
         let conn = db.get()?;
         Self::insert(&conn, "Umbrella").context("insert umbrella")?;
@@ -38,7 +38,7 @@ impl<M: r2d2::ManageConnection<Connection=Documents>> Menu<M> {
         Ok(Menu { db })
     }
 
-    fn insert(docs: &Documents, name: &str) -> Result<(), Error> {
+    fn insert(docs: &D, name: &str) -> Result<(), Error> {
         let drink = {
             let id = Id::hashed(name);
             let mut drink = docs
@@ -151,7 +151,7 @@ impl<M: r2d2::ManageConnection<Connection=Documents>> Menu<M> {
         })
     }
 
-    fn in_pool<R: Send + 'static, F: Fn(&Documents) -> Result<R, Error> + Send + 'static>(
+    fn in_pool<R: Send + 'static, F: Fn(&D) -> Result<R, Error> + Send + 'static>(
         &self,
         f: F,
     ) -> impl Future<Item = R, Error = failure::Error> {

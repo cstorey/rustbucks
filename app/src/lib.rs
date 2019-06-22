@@ -53,7 +53,7 @@ pub struct WithTemplate<C> {
 #[derive(Clone)]
 pub struct RustBucks {
     menu: menu::Menu<persistence::DocumentConnectionManager>,
-    orders: orders::Orders,
+    orders: orders::Orders<persistence::DocumentConnectionManager>,
 }
 
 impl RustBucks {

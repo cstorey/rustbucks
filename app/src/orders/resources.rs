@@ -14,9 +14,9 @@ use super::models::Order;
 
 const PREFIX: &'static str = "/orders";
 
-#[derive(Debug, Clone)]
-pub struct Orders {
-    db: Pool<DocumentConnectionManager>,
+#[derive(Debug)]
+pub struct Orders<M: r2d2::ManageConnection> {
+    db: Pool<M>,
     idgen: IdGen,
 }
 
@@ -35,8 +35,8 @@ struct OrderWidget {
     order: Order,
 }
 
-impl Orders {
-    pub fn new(db: Pool<DocumentConnectionManager>, idgen: IdGen) -> Result<Self, Error> {
+impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Orders<M> {
+    pub fn new(db: Pool<M>, idgen: IdGen) -> Result<Self, Error> {
         Ok(Orders { db, idgen })
     }
 
@@ -124,7 +124,7 @@ impl Orders {
             Ok(order)
         })
     }
-    fn in_pool<R: Send + 'static, F: Fn(&Documents) -> Result<R, Error> + Send + 'static>(
+    fn in_pool<R: Send + 'static, F: Fn(&D) -> Result<R, Error> + Send + 'static>(
         &self,
         f: F,
     ) -> impl Future<Item = R, Error = failure::Error> {
@@ -137,5 +137,13 @@ impl Orders {
             BlockingError::Error(e) => e.into(),
             c @ BlockingError::Canceled => format_err!("{}", c),
         })
+    }
+}
+
+impl<M: r2d2::ManageConnection> Clone for Orders<M> {
+    fn clone(&self) -> Self {
+        let db = self.db.clone();
+        let idgen = self.idgen.clone();
+        Orders { db, idgen }
     }
 }
