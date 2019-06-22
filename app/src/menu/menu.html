@@ -1,13 +1,31 @@
-<ul weft-for="(id, drink) in self.drinks()">
-  <li>
-    <h3>
-      <a class="a-drink" href="/menu/{{id.display()}}" weft-content="drink.name"
-        >An name</a
-      >
-    </h3>
-    <dl>
-      <dt>Id</dt>
-      <dd weft-content="id.display()">???</dd>
-    </dl>
-  </li>
-</ul>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Rustbucks Menu</title>
+    <link href="/tailwind.min.css" rel="stylesheet" />
+    <!-- <link
+      href="https://unpkg.com/tailwindcss@^1.0/dist/tailwind.min.css"
+      rel="stylesheet"
+    /> -->
+  </head>
+  <body>
+    <main id="content">
+      <ul weft-for="(id, drink) in self.drinks()">
+        <li>
+          <h3>
+            <a
+              class="a-drink"
+              href="/menu/{{id.display()}}"
+              weft-content="drink.name"
+              >An name</a
+            >
+          </h3>
+          <dl>
+            <dt>Id</dt>
+            <dd weft-content="id.display()">???</dd>
+          </dl>
+        </li>
+      </ul>
+    </main>
+  </body>
+</html>
