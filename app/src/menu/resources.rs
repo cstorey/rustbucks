@@ -14,9 +14,9 @@ use super::models::{Drink, DrinkList};
 
 const PREFIX: &'static str = "/menu";
 
-#[derive(Debug, Clone)]
-pub struct Menu {
-    db: Pool<DocumentConnectionManager>,
+#[derive(Debug)]
+pub struct Menu<M: r2d2::ManageConnection> {
+    db: Pool<M>,
 }
 
 #[derive(Debug, WeftRenderable)]
@@ -30,15 +30,15 @@ struct DrinkWidget {
     drink: Drink,
 }
 
-impl Menu {
-    pub fn new(db: Pool<DocumentConnectionManager>) -> Result<Self, Error> {
+impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Menu<M> {
+    pub fn new(db: Pool<M>) -> Result<Self, Error> {
         let conn = db.get()?;
         Self::insert(&conn, "Umbrella").context("insert umbrella")?;
         Self::insert(&conn, "Fnordy").context("insert fnordy")?;
         Ok(Menu { db })
     }
 
-    fn insert(docs: &Documents, name: &str) -> Result<(), Error> {
+    fn insert(docs: &D, name: &str) -> Result<(), Error> {
         let drink = {
             let id = Id::hashed(name);
             let mut drink = docs
@@ -78,16 +78,6 @@ impl Menu {
             });
 
         cfg.service(scope);
-    }
-
-    pub fn index_redirect(req: HttpRequest) -> Result<HttpResponse, Error> {
-        debug!("Redirecting from: {}", req.uri());
-        let url = format!("{}/", PREFIX);
-        info!("Target {} → {}", req.uri(), url);
-
-        Ok(HttpResponse::SeeOther()
-            .header(http::header::LOCATION, url)
-            .finish())
     }
 
     fn index(&self) -> impl Future<Item = impl Responder, Error = Error> {
@@ -161,7 +151,7 @@ impl Menu {
         })
     }
 
-    fn in_pool<R: Send + 'static, F: Fn(&Documents) -> Result<R, Error> + Send + 'static>(
+    fn in_pool<R: Send + 'static, F: Fn(&D) -> Result<R, Error> + Send + 'static>(
         &self,
         f: F,
     ) -> impl Future<Item = R, Error = failure::Error> {
@@ -175,6 +165,23 @@ impl Menu {
             c @ BlockingError::Canceled => format_err!("{}", c),
         })
     }
+}
+
+impl<M: r2d2::ManageConnection> Clone for Menu<M> {
+    fn clone(&self) -> Self {
+        let db = self.db.clone();
+        Menu { db }
+    }
+}
+
+pub fn index_redirect(req: HttpRequest) -> Result<HttpResponse, Error> {
+    debug!("Redirecting from: {}", req.uri());
+    let url = format!("{}/", PREFIX);
+    info!("Target {} → {}", req.uri(), url);
+
+    Ok(HttpResponse::SeeOther()
+        .header(http::header::LOCATION, url)
+        .finish())
 }
 
 impl MenuWidget {
