@@ -1,10 +1,25 @@
-<section>
-  <p data-order-id="{{ self.order.meta.id.display() }}">
-    This is totally an order for:
-    <tt weft-content="self.order.drink_id.display()">A drink</tt>
-  </p>
-  <pre weft-content='format!("{:#?}", self.order)'>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Rustbucks Placed Order</title>
+    <link href="/tailwind.min.css" rel="stylesheet" />
+    <!-- <link
+      href="https://unpkg.com/tailwindcss@^1.0/dist/tailwind.min.css"
+      rel="stylesheet"
+    />-->
+  </head>
+  <body>
+    <main id="content">
+      <section>
+        <p data-order-id="{{ self.order.meta.id.display() }}">
+          This is totally an order for:
+          <tt weft-content="self.order.drink_id.display()">A drink</tt>
+        </p>
+        <pre weft-content='format!("{:#?}", self.order)'>
         Some order detail
     </pre
-  >
-</section>
+        >
+      </section>
+    </main>
+  </body>
+</html>
