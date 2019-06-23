@@ -10,14 +10,25 @@
   </head>
   <body>
     <main id="content">
-      <section>
-        <p data-order-id="{{ self.order.meta.id.display() }}">
-          This is totally an order for:
-          <tt weft-content="self.order.drink_id.display()">A drink</tt>
-        </p>
+      <section class="" data-order-id="{{ self.order.meta.id.display() }}">
+        <h3 class="px-4 font-bold text-xl mb-2 text-white bg-purple-800">
+          Your order:
+        </h3>
+        <dl class="px-4 text-gray-700 text-base">
+          <dt>Order Id:</dt>
+          <dd class="ml-4">
+            <tt weft-content="self.order.meta.id.display()">A drink</tt>
+          </dd>
+          <dt>Drink Id:</dt>
+          <dd class="ml-4">
+            <tt weft-content="self.order.drink_id.display()">A drink</tt>
+          </dd>
+        </dl>
+      </section>
+      <section class="hidden">
         <pre weft-content='format!("{:#?}", self.order)'>
-        Some order detail
-    </pre
+            Debug repr of a drink.
+          </pre
         >
       </section>
     </main>
