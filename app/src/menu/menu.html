@@ -11,11 +11,11 @@
   <body>
     <main id="content">
       <ul
-        class="max-w-sm rounded overflow-hidden shadow-lg"
+        class="max-w-sm rounded overflow-hidden "
         weft-for="(id, drink) in self.drinks()"
       >
-        <li class="px-6 py-4">
-          <h3 class="font-bold text-xl mb-2">
+        <li class="mt-4">
+          <h3 class="px-4 font-bold text-xl mb-2 text-white bg-purple-800">
             <a
               class="a-drink"
               href="/menu/{{id.display()}}"
@@ -23,7 +23,7 @@
               >Some drink</a
             >
           </h3>
-          <dl class="text-gray-700 text-base">
+          <dl class="px-4 text-gray-700 text-base">
             <dt>Drink Id</dt>
             <dd class="ml-4" weft-content="id.display()">Lorem Ipsum…</dd>
           </dl>
