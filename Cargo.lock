@@ -2328,12 +2328,12 @@ dependencies = [
 [[package]]
 name = "sulfur"
 version = "0.1.0"
-source = "git+https://github.com/cstorey/sulfur.git#e75a22ac9e69ebd340d58a2697444bbfa596f4fd"
+source = "git+https://github.com/cstorey/sulfur.git#32dbb8bff164c1f5f88082443d75b268ef3db310"
 dependencies = [
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure_derive 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "rand 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rand 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "reqwest 0.9.17 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.94 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.94 (registry+https://github.com/rust-lang/crates.io-index)",
