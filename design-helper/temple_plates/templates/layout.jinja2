@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>{% block title %}Fnord{% endblock title %}</title>
+    <link href="/tailwind.min.css" rel="stylesheet" />
+
+    <!-- Custom styles for this scaffold -->
+    <link href="{{request.static_url('temple_plates:static/theme.css')}}" rel="stylesheet">
+    <link href="https://unpkg.com/tailwindcss@^1.0/dist/tailwind.min.css" rel="stylesheet">
+
+  </head>
+
+  <body>
+    <header>
+      <nav
+        class="flex items-center justify-between flex-wrap bg-indigo-500 p-6"
+      >
+        <div class="flex items-center flex-shrink-0 text-white mr-6">
+          <span class="font-semibold text-xl tracking-tight"
+            ><a href="/"> Canary </a></span
+          >
+        </div>
+        <div class="w-full block flex-grow lg:flex lg:items-center lg:w-auto">
+          <div class="text-sm lg:flex-grow">
+            <a
+              href="#"
+              class="block mt-4 lg:inline-block lg:mt-0 text-indigo-200 hover:text-white mr-4"
+            >
+              Something
+            </a>
+            <a
+              href="#"
+              class="block mt-4 lg:inline-block lg:mt-0 text-indigo-200 hover:text-white mr-4"
+            >
+              🐶
+            </a>
+            <a
+              href="#responsive-header"
+              class="block mt-4 lg:inline-block lg:mt-0 text-indigo-200 hover:text-white"
+            >
+              🐭
+            </a>
+          </div>
+          <div>
+            <a
+              href="#"
+              class="inline-block text-sm leading-none text-indigo-200 hover:text-white mt-4 lg:mt-0"
+              >🧙🏼‍♀️</a
+            >
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main id="content" weft-content="self.value">
+      {% block content %}
+          <p>No content</p>
+      {% endblock content %}
+    </main>
+  </body>
+</html>
+
+</html>

@@ -1,0 +1,3 @@
+[run]
+source = temple_plates
+omit = temple_plates/test*
