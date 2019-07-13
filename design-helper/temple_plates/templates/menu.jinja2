@@ -1,0 +1,28 @@
+{% extends "layout.jinja2" %}
+
+{% block title %}
+Menu
+{% endblock title %}
+
+{% block content %}
+    <main id="content">
+      <ul
+        class="max-w-sm rounded overflow-hidden "
+      >
+        <li class="mt-4">
+          <h3 class="px-4 font-bold text-xl mb-2 text-white bg-purple-800">
+            <a
+              class="a-drink"
+              href="/menu/a-drink"
+              weft-content="drink.name"
+              >Some drink</a
+            >
+          </h3>
+          <dl class="px-4 text-gray-700 text-base">
+            <dt>Drink Id</dt>
+            <dd class="ml-4">A Drink id</dd>
+          </dl>
+        </li>
+      </ul>
+    </main>
+{% endblock content %}
