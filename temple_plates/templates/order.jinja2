@@ -1,0 +1,27 @@
+{% extends "layout.jinja2" %}
+
+{% block content %}
+    <main id="content">
+      <section class="" data-order-id="{{drink_id}}">
+        <h3 class="px-4 font-bold text-xl mb-2 text-white bg-purple-800">
+          Your order:
+        </h3>
+        <dl class="px-4 text-gray-700 text-base">
+          <dt>Order Id:</dt>
+          <dd class="ml-4">
+            <tt>A drink</tt>
+          </dd>
+          <dt>Drink Id:</dt>
+          <dd class="ml-4">
+            <tt>A drink</tt>
+          </dd>
+        </dl>
+      </section>
+      <section class="hidden">
+        <pre>
+            Debug repr of a drink.
+          </pre
+        >
+      </section>
+    </main>
+{% endblock content %}
