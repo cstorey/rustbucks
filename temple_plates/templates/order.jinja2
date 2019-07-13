@@ -1,5 +1,9 @@
 {% extends "layout.jinja2" %}
 
+{% block title %}
+Order for {{ drink_id }}
+{% endblock title %}
+
 {% block content %}
     <main id="content">
       <section class="" data-order-id="{{drink_id}}">

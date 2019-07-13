@@ -1,5 +1,9 @@
 {% extends "layout.jinja2" %}
 
+{% block title %}
+Drink: {{ drink_id }}
+{% endblock title %}
+
 {% block content %}
     <main id="content">
       <div class="w-full max-w-xs">
@@ -13,7 +17,7 @@
           >
             Some Drink
           </h3>
-          <input type="hidden" name="drink_id" value="{{context.drink_id}}" />
+          <input type="hidden" name="drink_id" value="{{drink_id}}" />
           <div class="flex items-center justify-between">
             <button
               class="order bg-indigo-500 hover:bg-indigo-700 text-white font-bold py-1 px-4 rounded focus:outline-none focus:shadow-outline"
