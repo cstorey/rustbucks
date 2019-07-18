@@ -41,7 +41,7 @@ impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Men
     fn insert(docs: &D, name: &str) -> Result<(), Error> {
         let drink = {
             let id = Id::hashed(name);
-            let mut drink = docs
+            let drink = docs
                 .load(&id)
                 .context("load drink")?
                 .unwrap_or_else(|| Drink::new(id, name));
