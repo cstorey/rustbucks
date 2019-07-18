@@ -31,7 +31,7 @@ hybrid-clocks = { git = "https://github.com/cstorey/hybrid-clocks.git" }
 time = "0.1.42"
 rustbucks-vlq = { path = "../vlq" }
 actix-service = "0.4.1"
-actix-http-test = "0.2.3"
+actix-http-test = "0.2.4"
 actix-http = "0.2.5"
 actix-threadpool = "0.1.1"
 jemallocator-global = "0.3.2"
