@@ -1,8 +1,6 @@
 #[macro_use]
 extern crate serde_derive;
 #[macro_use]
-extern crate failure;
-#[macro_use]
 extern crate weft_derive;
 #[cfg(test)]
 #[macro_use]

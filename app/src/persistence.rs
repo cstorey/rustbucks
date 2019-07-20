@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use failure::Error;
+use failure::Fail;
 use log::*;
 use r2d2_postgres::PostgresConnectionManager;
 use serde::{de::DeserializeOwned, Serialize};
