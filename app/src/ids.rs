@@ -9,6 +9,8 @@ use failure::Error;
 use hybrid_clocks::{Clock, Timestamp, WallMS, WallMST};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
+use rustbucks_vlq as vlq;
+
 #[derive(Debug)]
 pub struct Id<T> {
     stamp: Timestamp<WallMST>,

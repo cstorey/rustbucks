@@ -1,5 +1,3 @@
-extern crate rustbucks_vlq as vlq;
-
 use actix_web::web;
 use failure::{Error, ResultExt};
 use log::*;
