@@ -1,13 +1,14 @@
 use std::str::FromStr;
 
 use failure::Error;
+use failure::Fail;
+use log::*;
+use r2d2_postgres::PostgresConnectionManager;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json;
 
-use r2d2_postgres::PostgresConnectionManager;
-
-use documents::{DocMeta, Version};
-use ids::{Entity, Id};
+use crate::documents::{DocMeta, Version};
+use crate::ids::{Entity, Id};
 
 pub trait Storage {
     fn load<D: DeserializeOwned + Entity>(&self, id: &Id<D>) -> Result<Option<D>, Error>;
@@ -165,12 +166,14 @@ impl r2d2::ManageConnection for DocumentConnectionManager {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::documents::*;
     use crate::ids;
-    use documents::*;
     use failure::ResultExt;
+    use lazy_static::lazy_static;
     use r2d2::Pool;
     use r2d2_postgres::{PostgresConnectionManager, TlsMode};
     use rand::random;
+    use serde::{Deserialize, Serialize};
     use std::env;
 
     lazy_static! {

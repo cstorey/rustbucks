@@ -1,40 +1,7 @@
-#[macro_use]
-extern crate log;
-extern crate futures;
-extern crate serde;
-extern crate tokio;
-#[macro_use]
-extern crate serde_derive;
-#[macro_use]
-extern crate failure;
-extern crate weft;
-#[macro_use]
-extern crate weft_derive;
-extern crate actix_service;
-extern crate actix_threadpool;
-extern crate actix_web;
-extern crate base64;
-extern crate hex_slice;
-extern crate postgres;
-extern crate r2d2;
-extern crate r2d2_postgres;
-extern crate rand;
-extern crate serde_json;
-extern crate siphasher;
-#[cfg(test)]
-#[macro_use]
-extern crate maplit;
-extern crate env_logger;
-extern crate hybrid_clocks;
-#[cfg(test)]
-#[macro_use]
-extern crate lazy_static;
-extern crate actix_files;
-extern crate rustbucks_vlq as vlq;
-extern crate time;
-
 use actix_web::web;
 use failure::{Error, ResultExt};
+use log::*;
+use weft_derive::WeftRenderable;
 
 pub mod config;
 mod documents;

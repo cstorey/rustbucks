@@ -3,12 +3,14 @@ use futures::Future;
 
 use actix_threadpool::BlockingError;
 use actix_web::{http, web, HttpRequest, HttpResponse, Responder};
+use log::*;
 use r2d2::Pool;
+use weft_derive::WeftRenderable;
 
-use ids::Id;
-use persistence::*;
-use templates::WeftResponse;
-use WithTemplate;
+use crate::ids::Id;
+use crate::persistence::*;
+use crate::templates::WeftResponse;
+use crate::WithTemplate;
 
 use super::models::{Drink, DrinkList};
 
@@ -162,7 +164,7 @@ impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Men
         })
         .map_err(|e| match e {
             BlockingError::Error(e) => e.into(),
-            c @ BlockingError::Canceled => format_err!("{}", c),
+            c @ BlockingError::Canceled => failure::format_err!("{}", c),
         })
     }
 }

@@ -4,8 +4,9 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 
 use failure::Error;
+use serde::{Deserialize, Serialize};
 
-use ids::{Entity, Id};
+use crate::ids::{Entity, Id};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default, Hash)]
 pub struct Version(String);

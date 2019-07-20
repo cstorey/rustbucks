@@ -1,3 +1,4 @@
+use failure::{bail, Fail};
 use std::cmp::Ordering;
 use std::fmt;
 use std::hash::{Hash, Hasher};
@@ -7,6 +8,8 @@ use std::sync::{Arc, Mutex};
 use failure::Error;
 use hybrid_clocks::{Clock, Timestamp, WallMS, WallMST};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+
+use rustbucks_vlq as vlq;
 
 #[derive(Debug)]
 pub struct Id<T> {

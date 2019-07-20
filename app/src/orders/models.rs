@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use crate::documents::{DocMeta, MailBox};
 use crate::ids::IdGen;
 use crate::ids::{Entity, Id};
@@ -43,6 +45,7 @@ impl AsRef<DocMeta<Order>> for Order {
 mod test {
     use super::*;
     use crate::ids::Id;
+    use maplit::hashset;
 
     #[test]
     fn should_request_coffee_made_on_creation() {

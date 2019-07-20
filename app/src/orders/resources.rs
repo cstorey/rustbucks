@@ -2,13 +2,16 @@ use actix_threadpool::BlockingError;
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use failure::Error;
 use futures::Future;
+use log::*;
 use r2d2::Pool;
+use serde::Deserialize;
+use weft_derive::WeftRenderable;
 
-use ids::{Id, IdGen};
-use menu::Drink;
-use persistence::*;
-use templates::WeftResponse;
-use WithTemplate;
+use crate::ids::{Id, IdGen};
+use crate::menu::Drink;
+use crate::persistence::*;
+use crate::templates::WeftResponse;
+use crate::WithTemplate;
 
 use super::models::Order;
 
@@ -135,7 +138,7 @@ impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Ord
         })
         .map_err(|e| match e {
             BlockingError::Error(e) => e.into(),
-            c @ BlockingError::Canceled => format_err!("{}", c),
+            c @ BlockingError::Canceled => failure::format_err!("{}", c),
         })
     }
 }
