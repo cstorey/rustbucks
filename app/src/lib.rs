@@ -1,5 +1,3 @@
-#[macro_use]
-extern crate serde_derive;
 extern crate rustbucks_vlq as vlq;
 
 use actix_web::web;

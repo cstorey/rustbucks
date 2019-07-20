@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use crate::documents::{DocMeta, MailBox};
 use crate::ids::IdGen;
 use crate::ids::{Entity, Id};

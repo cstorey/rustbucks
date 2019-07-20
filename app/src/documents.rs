@@ -4,6 +4,7 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 
 use failure::Error;
+use serde::{Deserialize, Serialize};
 
 use crate::ids::{Entity, Id};
 

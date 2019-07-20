@@ -173,6 +173,7 @@ mod test {
     use r2d2::Pool;
     use r2d2_postgres::{PostgresConnectionManager, TlsMode};
     use rand::random;
+    use serde::{Deserialize, Serialize};
     use std::env;
 
     lazy_static! {

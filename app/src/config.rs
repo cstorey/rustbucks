@@ -5,6 +5,7 @@ use failure::{Error, ResultExt};
 use log::*;
 use r2d2::Pool;
 use r2d2_postgres::{PostgresConnectionManager, TlsMode};
+use serde::{Deserialize, Serialize};
 
 use crate::persistence;
 
