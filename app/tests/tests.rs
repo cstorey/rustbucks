@@ -1,31 +1,20 @@
-extern crate actix;
-extern crate actix_http;
-extern crate actix_http_test;
-extern crate actix_web;
-extern crate base64;
-extern crate env_logger;
-extern crate failure;
-extern crate futures;
-extern crate log;
-extern crate rustbucks;
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-extern crate siphasher;
-extern crate sulfur;
-extern crate tokio;
-#[macro_use]
-extern crate lazy_static;
-extern crate envy;
-
 use std::env;
 use std::net::SocketAddr;
 
+use actix_http;
 use actix_http::HttpService;
+use actix_http_test;
 use actix_http_test::{TestServer, TestServerRuntime};
+use actix_web;
 use actix_web::App;
+use env_logger;
+use failure;
 use failure::Error;
 use failure::ResultExt;
+use lazy_static::lazy_static;
+use rustbucks;
+use serde::Deserialize;
+use sulfur;
 use sulfur::{chrome, By};
 
 #[derive(Deserialize, Debug)]
