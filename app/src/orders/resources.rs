@@ -4,6 +4,7 @@ use failure::Error;
 use futures::Future;
 use log::*;
 use r2d2::Pool;
+use weft_derive::WeftRenderable;
 
 use crate::ids::{Id, IdGen};
 use crate::menu::Drink;

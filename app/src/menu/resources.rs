@@ -5,6 +5,7 @@ use actix_threadpool::BlockingError;
 use actix_web::{http, web, HttpRequest, HttpResponse, Responder};
 use log::*;
 use r2d2::Pool;
+use weft_derive::WeftRenderable;
 
 use crate::ids::Id;
 use crate::persistence::*;
