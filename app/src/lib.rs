@@ -1,6 +1,4 @@
 #[macro_use]
-extern crate log;
-#[macro_use]
 extern crate serde_derive;
 #[macro_use]
 extern crate failure;
@@ -16,6 +14,7 @@ extern crate rustbucks_vlq as vlq;
 
 use actix_web::web;
 use failure::{Error, ResultExt};
+use log::*;
 
 pub mod config;
 mod documents;

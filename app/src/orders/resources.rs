@@ -2,6 +2,7 @@ use actix_threadpool::BlockingError;
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use failure::Error;
 use futures::Future;
+use log::*;
 use r2d2::Pool;
 
 use crate::ids::{Id, IdGen};

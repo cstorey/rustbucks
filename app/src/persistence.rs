@@ -1,10 +1,10 @@
 use std::str::FromStr;
 
 use failure::Error;
+use log::*;
+use r2d2_postgres::PostgresConnectionManager;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json;
-
-use r2d2_postgres::PostgresConnectionManager;
 
 use crate::documents::{DocMeta, Version};
 use crate::ids::{Entity, Id};

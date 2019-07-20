@@ -3,6 +3,7 @@ use futures::Future;
 
 use actix_threadpool::BlockingError;
 use actix_web::{http, web, HttpRequest, HttpResponse, Responder};
+use log::*;
 use r2d2::Pool;
 
 use crate::ids::Id;
