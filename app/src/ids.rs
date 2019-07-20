@@ -1,5 +1,6 @@
 use failure::{bail, Fail};
 use std::cmp::Ordering;
+use std::convert::TryInto;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
@@ -8,8 +9,6 @@ use std::sync::{Arc, Mutex};
 use failure::Error;
 use hybrid_clocks::{Clock, Timestamp, WallMS, WallMST};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-
-use rustbucks_vlq as vlq;
 
 #[derive(Debug)]
 pub struct Id<T> {
@@ -80,17 +79,9 @@ impl IdGen {
 
 impl<T> Id<T> {
     fn from_bytes(bytes: &[u8]) -> Self {
-        let mut off = 0;
-        let (i, epoch) = vlq::decode_slice(&bytes[off..]);
-        off += i;
-        let (i, time_ms) = vlq::decode_slice(&bytes[off..]);
-        off += i;
-        let (i, count) = vlq::decode_slice(&bytes[off..]);
-        off += i;
-        let (_, random) = vlq::decode_slice(&bytes[off..]);
+        let stamp = Timestamp::<WallMST>::from_bytes(bytes[0..16].try_into().unwrap());
+        let random = u32::from_be_bytes(bytes[16..16 + 4].try_into().unwrap());
 
-        let time = WallMST::of_u64(time_ms);
-        let stamp = Timestamp { epoch, time, count };
         let phantom = PhantomData;
 
         Id {
@@ -101,14 +92,10 @@ impl<T> Id<T> {
     }
 
     fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = [0u8; 20];
-        let mut off = 0;
-
-        off += vlq::encode_slice(self.stamp.epoch, &mut bytes[off..]);
-        off += vlq::encode_slice(self.stamp.time.as_u64(), &mut bytes[off..]);
-        off += vlq::encode_slice(self.stamp.count, &mut bytes[off..]);
-        off += vlq::encode_slice(self.random, &mut bytes[off..]);
-        bytes[..off].to_vec()
+        let mut bytes = Vec::with_capacity(20);
+        bytes.extend(&self.stamp.to_bytes());
+        bytes.extend(&self.random.to_be_bytes());
+        bytes
     }
 }
 

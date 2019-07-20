@@ -1,9 +1,0 @@
-[package]
-name = "rustbucks-vlq"
-version = "0.1.0"
-authors = ["Ceri Storey <cez@necrofish.org.uk>"]
-edition = "2018"
-
-[dependencies]
-num-traits = "0.2.8"
-suppositions = "0.1.4"
