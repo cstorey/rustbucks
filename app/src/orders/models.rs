@@ -43,6 +43,7 @@ impl AsRef<DocMeta<Order>> for Order {
 mod test {
     use super::*;
     use crate::ids::Id;
+    use maplit::hashset;
 
     #[test]
     fn should_request_coffee_made_on_creation() {
