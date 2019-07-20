@@ -118,7 +118,7 @@ impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Men
             });
             let list = docs
                 .load::<DrinkList>(&DrinkList::id())?
-                .unwrap_or_else(|| unimplemented!());
+                .ok_or_else(|| failure::format_err!("Menu not found: {}", DrinkList::id()))?;
             let result = list
                 .drinks
                 .into_iter()

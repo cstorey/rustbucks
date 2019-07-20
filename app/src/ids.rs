@@ -1,20 +1,20 @@
 use failure::{bail, Fail};
 use std::cmp::Ordering;
+use std::convert::TryInto;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
-use std::sync::{Arc, Mutex};
+use std::time::SystemTime;
 
+use data_encoding::BASE32_DNSSEC;
 use failure::Error;
-use hybrid_clocks::{Clock, Timestamp, WallMS, WallMST};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-
-use rustbucks_vlq as vlq;
 
 #[derive(Debug)]
 pub struct Id<T> {
-    stamp: Timestamp<WallMST>,
-    random: u32,
+    // Unix time in ms
+    stamp: u64,
+    random: u64,
     phantom: PhantomData<T>,
 }
 
@@ -29,9 +29,7 @@ pub trait Entity {
 }
 
 #[derive(Debug, Clone)]
-pub struct IdGen {
-    clock: Arc<Mutex<Clock<WallMS>>>,
-}
+pub struct IdGen {}
 
 const DIVIDER: &str = ".";
 
@@ -39,21 +37,16 @@ impl<T> Id<T> {
     /// Returns a id nominally at time zero, but with a random portion derived
     /// from the given entity.
     pub fn hashed<H: Hash>(entity: H) -> Self {
-        let zero = time::Timespec::new(0, 0);
-        let stamp = Timestamp {
-            epoch: 0,
-            time: WallMST::from_timespec(zero),
-            count: 0,
-        };
+        let stamp = 0;
 
         let mut h = siphasher::sip::SipHasher24::new_with_keys(0, 0);
         entity.hash(&mut h);
-        let random = h.finish() as u32;
+        let random = h.finish();
 
         let phantom = PhantomData;
         Id {
-            random,
             stamp,
+            random,
             phantom,
         }
     }
@@ -61,12 +54,19 @@ impl<T> Id<T> {
 
 impl IdGen {
     pub fn new() -> Self {
-        let clock = Arc::new(Mutex::new(Clock::wall_ms()));
-        IdGen { clock }
+        IdGen {}
     }
 
     pub fn generate<T>(&self) -> Id<T> {
-        let stamp = self.clock.lock().expect("clock lock").now();
+        let stamp_epoch = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .expect("now");
+        let stamp_s: u64 = stamp_epoch
+            .as_secs()
+            .checked_mul(1000)
+            .expect("secs * 1000");
+        let stamp_ms: u64 = stamp_epoch.subsec_millis().into();
+        let stamp = stamp_s + stamp_ms;
         let random = rand::random();
         let phantom = PhantomData;
 
@@ -80,17 +80,9 @@ impl IdGen {
 
 impl<T> Id<T> {
     fn from_bytes(bytes: &[u8]) -> Self {
-        let mut off = 0;
-        let (i, epoch) = vlq::decode_slice(&bytes[off..]);
-        off += i;
-        let (i, time_ms) = vlq::decode_slice(&bytes[off..]);
-        off += i;
-        let (i, count) = vlq::decode_slice(&bytes[off..]);
-        off += i;
-        let (_, random) = vlq::decode_slice(&bytes[off..]);
+        let stamp = u64::from_be_bytes(bytes[0..8].try_into().expect("stamp bytes"));
+        let random = u64::from_be_bytes(bytes[8..8 + 8].try_into().expect("random bytes"));
 
-        let time = WallMST::of_u64(time_ms);
-        let stamp = Timestamp { epoch, time, count };
         let phantom = PhantomData;
 
         Id {
@@ -101,30 +93,26 @@ impl<T> Id<T> {
     }
 
     fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = [0u8; 20];
-        let mut off = 0;
-
-        off += vlq::encode_slice(self.stamp.epoch, &mut bytes[off..]);
-        off += vlq::encode_slice(self.stamp.time.as_u64(), &mut bytes[off..]);
-        off += vlq::encode_slice(self.stamp.count, &mut bytes[off..]);
-        off += vlq::encode_slice(self.random, &mut bytes[off..]);
-        bytes[..off].to_vec()
+        let mut bytes = Vec::with_capacity(16);
+        bytes.extend(&self.stamp.to_be_bytes());
+        bytes.extend(&self.random.to_be_bytes());
+        bytes
     }
 }
 
-const ENCODED_BARE_ID_LEN: usize = 22 + 5;
+const ENCODED_BARE_ID_LEN: usize = 26;
 
 impl<T: Entity> fmt::Display for Id<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         let mut buf = [0u8; ENCODED_BARE_ID_LEN];
-        let sz = base64::encode_config_slice(&self.to_bytes(), base64::URL_SAFE_NO_PAD, &mut buf);
+        BASE32_DNSSEC.encode_mut(&self.to_bytes(), &mut buf);
 
         write!(
             fmt,
             "{}{}{}",
             T::PREFIX,
             DIVIDER,
-            String::from_utf8_lossy(&buf[..sz])
+            String::from_utf8_lossy(&buf[..])
         )?;
         Ok(())
     }
@@ -147,10 +135,12 @@ impl<T: Entity> std::str::FromStr for Id<T> {
             bail!(IdParseError::Unparseable);
         }
 
-        let mut bytes = [0u8; 16 + 4];
-        let sz = base64::decode_config_slice(b64, base64::URL_SAFE_NO_PAD, &mut bytes)?;
+        let mut bytes = [0u8; 16];
+        BASE32_DNSSEC
+            .decode_mut(b64.as_bytes(), &mut bytes)
+            .map_err(|e| failure::format_err!("{:?}", e))?;
 
-        return Ok(Self::from_bytes(&bytes[..sz]));
+        return Ok(Self::from_bytes(&bytes[..]));
     }
 }
 

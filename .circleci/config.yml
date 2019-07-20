@@ -54,5 +54,4 @@ jobs:
               sleep 1
             done
             echo Failed waiting for Postgres && exit 1
-      - run: env RUST_BACKTRACE=1 cargo test -p rustbucks-vlq --locked
       - run: env RUST_BACKTRACE=1 cargo test -p rustbucks --locked
