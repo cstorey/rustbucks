@@ -165,8 +165,8 @@ impl r2d2::ManageConnection for DocumentConnectionManager {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::ids;
     use crate::documents::*;
+    use crate::ids;
     use failure::ResultExt;
     use r2d2::Pool;
     use r2d2_postgres::{PostgresConnectionManager, TlsMode};
