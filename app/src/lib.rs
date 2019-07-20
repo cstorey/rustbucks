@@ -5,9 +5,6 @@ extern crate weft_derive;
 #[cfg(test)]
 #[macro_use]
 extern crate maplit;
-#[cfg(test)]
-#[macro_use]
-extern crate lazy_static;
 extern crate rustbucks_vlq as vlq;
 
 use actix_web::web;

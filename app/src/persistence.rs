@@ -173,6 +173,7 @@ mod test {
     use r2d2_postgres::{PostgresConnectionManager, TlsMode};
     use rand::random;
     use std::env;
+    use lazy_static::lazy_static;
 
     lazy_static! {
         static ref IDGEN: ids::IdGen = ids::IdGen::new();
