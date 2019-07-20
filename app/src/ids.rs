@@ -13,7 +13,7 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 pub struct Id<T> {
     // Unix time in ms
     stamp: u64,
-    random: u32,
+    random: u64,
     phantom: PhantomData<T>,
 }
 
@@ -40,7 +40,7 @@ impl<T> Id<T> {
 
         let mut h = siphasher::sip::SipHasher24::new_with_keys(0, 0);
         entity.hash(&mut h);
-        let random = h.finish() as u32;
+        let random = h.finish();
 
         let phantom = PhantomData;
         Id {
@@ -80,7 +80,7 @@ impl IdGen {
 impl<T> Id<T> {
     fn from_bytes(bytes: &[u8]) -> Self {
         let stamp = u64::from_be_bytes(bytes[0..8].try_into().expect("stamp bytes"));
-        let random = u32::from_be_bytes(bytes[8..8 + 4].try_into().expect("random bytes"));
+        let random = u64::from_be_bytes(bytes[8..8 + 8].try_into().expect("random bytes"));
 
         let phantom = PhantomData;
 
@@ -92,7 +92,7 @@ impl<T> Id<T> {
     }
 
     fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(20);
+        let mut bytes = Vec::with_capacity(16);
         bytes.extend(&self.stamp.to_be_bytes());
         bytes.extend(&self.random.to_be_bytes());
         bytes
