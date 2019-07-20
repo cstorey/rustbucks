@@ -6,8 +6,8 @@ use serde_json;
 
 use r2d2_postgres::PostgresConnectionManager;
 
-use documents::{DocMeta, Version};
-use ids::{Entity, Id};
+use crate::documents::{DocMeta, Version};
+use crate::ids::{Entity, Id};
 
 pub trait Storage {
     fn load<D: DeserializeOwned + Entity>(&self, id: &Id<D>) -> Result<Option<D>, Error>;
@@ -166,7 +166,7 @@ impl r2d2::ManageConnection for DocumentConnectionManager {
 mod test {
     use super::*;
     use crate::ids;
-    use documents::*;
+    use crate::documents::*;
     use failure::ResultExt;
     use r2d2::Pool;
     use r2d2_postgres::{PostgresConnectionManager, TlsMode};

@@ -5,10 +5,10 @@ use actix_threadpool::BlockingError;
 use actix_web::{http, web, HttpRequest, HttpResponse, Responder};
 use r2d2::Pool;
 
-use ids::Id;
-use persistence::*;
-use templates::WeftResponse;
-use WithTemplate;
+use crate::ids::Id;
+use crate::persistence::*;
+use crate::templates::WeftResponse;
+use crate::WithTemplate;
 
 use super::models::{Drink, DrinkList};
 

@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 
 use failure::Error;
 
-use ids::{Entity, Id};
+use crate::ids::{Entity, Id};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default, Hash)]
 pub struct Version(String);
