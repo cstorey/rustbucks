@@ -6,6 +6,7 @@ use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::time::SystemTime;
 
+use data_encoding::BASE32_DNSSEC;
 use failure::Error;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -60,11 +61,11 @@ impl IdGen {
         let stamp_epoch = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .expect("now");
-        let stamp_s : u64 = stamp_epoch
+        let stamp_s: u64 = stamp_epoch
             .as_secs()
             .checked_mul(1000)
             .expect("secs * 1000");
-        let stamp_ms : u64 = stamp_epoch.subsec_millis().into();
+        let stamp_ms: u64 = stamp_epoch.subsec_millis().into();
         let stamp = stamp_s + stamp_ms;
         let random = rand::random();
         let phantom = PhantomData;
@@ -99,19 +100,19 @@ impl<T> Id<T> {
     }
 }
 
-const ENCODED_BARE_ID_LEN: usize = 22 + 5;
+const ENCODED_BARE_ID_LEN: usize = 26;
 
 impl<T: Entity> fmt::Display for Id<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         let mut buf = [0u8; ENCODED_BARE_ID_LEN];
-        let sz = base64::encode_config_slice(&self.to_bytes(), base64::URL_SAFE_NO_PAD, &mut buf);
+        BASE32_DNSSEC.encode_mut(&self.to_bytes(), &mut buf);
 
         write!(
             fmt,
             "{}{}{}",
             T::PREFIX,
             DIVIDER,
-            String::from_utf8_lossy(&buf[..sz])
+            String::from_utf8_lossy(&buf[..])
         )?;
         Ok(())
     }
@@ -134,10 +135,12 @@ impl<T: Entity> std::str::FromStr for Id<T> {
             bail!(IdParseError::Unparseable);
         }
 
-        let mut bytes = [0u8; 16 + 4];
-        let sz = base64::decode_config_slice(b64, base64::URL_SAFE_NO_PAD, &mut bytes)?;
+        let mut bytes = [0u8; 16];
+        BASE32_DNSSEC
+            .decode_mut(b64.as_bytes(), &mut bytes)
+            .map_err(|e| failure::format_err!("{:?}", e))?;
 
-        return Ok(Self::from_bytes(&bytes[..sz]));
+        return Ok(Self::from_bytes(&bytes[..]));
     }
 }
 
