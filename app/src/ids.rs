@@ -4,15 +4,15 @@ use std::convert::TryInto;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
-use std::sync::{Arc, Mutex};
+use std::time::SystemTime;
 
 use failure::Error;
-use hybrid_clocks::{Clock, Timestamp, WallMS, WallMST};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 #[derive(Debug)]
 pub struct Id<T> {
-    stamp: Timestamp<WallMST>,
+    // Unix time in ms
+    stamp: u64,
     random: u32,
     phantom: PhantomData<T>,
 }
@@ -28,9 +28,7 @@ pub trait Entity {
 }
 
 #[derive(Debug, Clone)]
-pub struct IdGen {
-    clock: Arc<Mutex<Clock<WallMS>>>,
-}
+pub struct IdGen {}
 
 const DIVIDER: &str = ".";
 
@@ -38,12 +36,7 @@ impl<T> Id<T> {
     /// Returns a id nominally at time zero, but with a random portion derived
     /// from the given entity.
     pub fn hashed<H: Hash>(entity: H) -> Self {
-        let zero = time::Timespec::new(0, 0);
-        let stamp = Timestamp {
-            epoch: 0,
-            time: WallMST::from_timespec(zero),
-            count: 0,
-        };
+        let stamp = 0;
 
         let mut h = siphasher::sip::SipHasher24::new_with_keys(0, 0);
         entity.hash(&mut h);
@@ -51,8 +44,8 @@ impl<T> Id<T> {
 
         let phantom = PhantomData;
         Id {
-            random,
             stamp,
+            random,
             phantom,
         }
     }
@@ -60,12 +53,19 @@ impl<T> Id<T> {
 
 impl IdGen {
     pub fn new() -> Self {
-        let clock = Arc::new(Mutex::new(Clock::wall_ms()));
-        IdGen { clock }
+        IdGen {}
     }
 
     pub fn generate<T>(&self) -> Id<T> {
-        let stamp = self.clock.lock().expect("clock lock").now();
+        let stamp_epoch = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .expect("now");
+        let stamp_s : u64 = stamp_epoch
+            .as_secs()
+            .checked_mul(1000)
+            .expect("secs * 1000");
+        let stamp_ms : u64 = stamp_epoch.subsec_millis().into();
+        let stamp = stamp_s + stamp_ms;
         let random = rand::random();
         let phantom = PhantomData;
 
@@ -79,8 +79,8 @@ impl IdGen {
 
 impl<T> Id<T> {
     fn from_bytes(bytes: &[u8]) -> Self {
-        let stamp = Timestamp::<WallMST>::from_bytes(bytes[0..16].try_into().unwrap());
-        let random = u32::from_be_bytes(bytes[16..16 + 4].try_into().unwrap());
+        let stamp = u64::from_be_bytes(bytes[0..8].try_into().expect("stamp bytes"));
+        let random = u32::from_be_bytes(bytes[8..8 + 4].try_into().expect("random bytes"));
 
         let phantom = PhantomData;
 
@@ -93,7 +93,7 @@ impl<T> Id<T> {
 
     fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(20);
-        bytes.extend(&self.stamp.to_bytes());
+        bytes.extend(&self.stamp.to_be_bytes());
         bytes.extend(&self.random.to_be_bytes());
         bytes
     }
