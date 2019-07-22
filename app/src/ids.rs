@@ -289,6 +289,21 @@ mod test {
             "canary"
         )
     }
+
+    #[test]
+    fn should_parse_correct_example() {
+        let s = "canary.0000000000001q5nnvfqq7krfo";
+
+        let result = s.parse::<Id<Canary>>();
+
+        assert!(
+            result.is_ok(),
+            "Parsing {:?} should return ok; got {:?}",
+            s,
+            result,
+        )
+    }
+
     #[test]
     fn should_verify_has_correct_entity_prefix() {
         let s = "wrongy-0000000000001q5nnvfqq7krfo";

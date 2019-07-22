@@ -179,6 +179,20 @@ mod test {
     }
 
     #[test]
+    fn should_parse_expected_len() {
+        let s = "0000000000001q5nnvfqq7krfo";
+
+        let result = s.parse::<UntypedId>();
+
+        assert!(
+            result.is_ok(),
+            "Parsing {:?} should return ok; got {:?}",
+            s,
+            result,
+        )
+    }
+
+    #[test]
     fn should_verify_has_no_entity_prefix() {
         let s = "wrong.0000000000001q5nnvfqq7krfo";
 
