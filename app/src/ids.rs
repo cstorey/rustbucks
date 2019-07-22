@@ -69,6 +69,17 @@ impl<T> Id<T> {
     fn to_bytes(&self) -> Vec<u8> {
         self.inner.to_bytes()
     }
+
+    pub(crate) fn from_untyped(src: UntypedId) -> Self {
+        Id {
+            inner: src,
+            phantom: PhantomData,
+        }
+    }
+
+    pub(crate) fn untyped(&self) -> UntypedId {
+        self.inner
+    }
 }
 
 impl<T: Entity> fmt::Display for Id<T> {
@@ -184,21 +195,6 @@ impl fmt::Display for IdParseError {
     }
 }
 
-impl<T> From<UntypedId> for Id<T> {
-    fn from(src: UntypedId) -> Self {
-        Id {
-            inner: src,
-            phantom: PhantomData,
-        }
-    }
-}
-
-impl<T> From<Id<T>> for UntypedId {
-    fn from(src: Id<T>) -> Self {
-        src.inner
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -243,9 +239,9 @@ mod test {
     fn round_trips_via_untyped() {
         let id = Id::<Canary>::hashed(&"boo");
 
-        let untyped: UntypedId = id.into();
+        let untyped: UntypedId = id.untyped();
         println!("untyped: {}", untyped);
-        let id2: Id<Canary> = untyped.into();
+        let id2: Id<Canary> = Id::from_untyped(untyped);
         assert_eq!(id, id2);
     }
 

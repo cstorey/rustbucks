@@ -7,7 +7,7 @@ use data_encoding::BASE32_DNSSEC;
 use failure::{bail, Error};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::ids::{IdGen, IdParseError, ENCODED_BARE_ID_LEN};
+use crate::ids::{Id, IdGen, IdParseError, ENCODED_BARE_ID_LEN};
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
 pub struct UntypedId {
@@ -58,6 +58,10 @@ impl UntypedId {
         let random = h.finish();
 
         UntypedId { stamp, random }
+    }
+
+    pub(crate) fn typed<T>(&self) -> Id<T> {
+        Id::from_untyped(*self)
     }
 }
 
