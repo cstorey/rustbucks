@@ -8,6 +8,7 @@ use r2d2::Pool;
 use weft_derive::WeftRenderable;
 
 use crate::ids::Id;
+use crate::untyped_ids::UntypedId;
 use crate::persistence::*;
 use crate::templates::WeftResponse;
 use crate::WithTemplate;
@@ -75,7 +76,8 @@ impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Men
             .service({
                 let me = self.clone();
                 web::resource("/{id}").route(
-                    web::get().to_async(move |id: web::Path<Id<Drink>>| me.detail(id.into_inner())),
+                    web::get().to_async(
+                        move |id: web::Path<UntypedId>| me.detail(id.into_inner().typed())),
                 )
             });
 
