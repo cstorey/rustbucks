@@ -305,7 +305,7 @@ mod test {
     }
     #[test]
     fn should_verify_has_correct_entity_prefix() {
-        let s = "wrongy-yxdgMe3dIHOX4NvCH90t4w";
+        let s = "wrongy-0000000000001q5nnvfqq7krfo";
 
         let result = s.parse::<Id<Canary>>();
 
@@ -326,7 +326,7 @@ mod test {
             // We want it to be longer than the id string in total.
             const PREFIX: &'static str = "pseudopseudohypoparathyroidism";
         }
-        let s = "wrong-yxdgMe3dIHOX4NvCH90t4w";
+        let s = "wrong-0000000000001q5nnvfqq7krfo";
 
         let result = s.parse::<Id<Long>>();
 
@@ -352,7 +352,7 @@ mod test {
     }
     #[test]
     fn should_yield_useful_error_when_wrong_divider() {
-        let s = "canary#yxdgMe3dIHOX4NvCH90t4w";
+        let s = "canary#0000000000001q5nnvfqq7krfo";
         let result = s.parse::<Id<Canary>>();
 
         assert!(
