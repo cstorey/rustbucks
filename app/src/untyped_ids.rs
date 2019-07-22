@@ -7,9 +7,9 @@ use data_encoding::BASE32_DNSSEC;
 use failure::{bail, Error};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::ids::{Id, IdGen, IdParseError, ENCODED_BARE_ID_LEN};
+use crate::ids::{IdGen, IdParseError, ENCODED_BARE_ID_LEN};
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
 pub struct UntypedId {
     // Unix time in ms
     pub(crate) stamp: u64,
@@ -34,14 +34,14 @@ impl IdGen {
 }
 
 impl UntypedId {
-    fn from_bytes(bytes: &[u8]) -> Self {
+    pub(crate) fn from_bytes(bytes: &[u8]) -> Self {
         let stamp = u64::from_be_bytes(bytes[0..8].try_into().expect("stamp bytes"));
         let random = u64::from_be_bytes(bytes[8..8 + 8].try_into().expect("random bytes"));
 
         UntypedId { stamp, random }
     }
 
-    fn to_bytes(&self) -> Vec<u8> {
+    pub(crate) fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(16);
         bytes.extend(&self.stamp.to_be_bytes());
         bytes.extend(&self.random.to_be_bytes());
@@ -108,15 +108,6 @@ impl<'de> Deserialize<'de> for UntypedId {
         }
 
         deserializer.deserialize_str(IdStrVisitor)
-    }
-}
-
-impl<T> From<Id<T>> for UntypedId {
-    fn from(src: Id<T>) -> Self {
-        UntypedId {
-            stamp: src.stamp,
-            random: src.random,
-        }
     }
 }
 

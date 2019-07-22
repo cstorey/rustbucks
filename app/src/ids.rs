@@ -1,10 +1,8 @@
 use failure::{bail, Fail};
 use std::cmp::Ordering;
-use std::convert::TryInto;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
-use std::time::SystemTime;
 
 use data_encoding::BASE32_DNSSEC;
 use failure::Error;
@@ -17,8 +15,7 @@ pub(crate) const ENCODED_BARE_ID_LEN: usize = 26;
 #[derive(Debug)]
 pub struct Id<T> {
     // Unix time in ms
-    pub(crate) stamp: u64,
-    pub(crate) random: u64,
+    inner: UntypedId,
     phantom: PhantomData<T>,
 }
 
@@ -41,18 +38,9 @@ impl<T> Id<T> {
     /// Returns a id nominally at time zero, but with a random portion derived
     /// from the given entity.
     pub fn hashed<H: Hash>(entity: H) -> Self {
-        let stamp = 0;
-
-        let mut h = siphasher::sip::SipHasher24::new_with_keys(0, 0);
-        entity.hash(&mut h);
-        let random = h.finish();
-
+        let inner = UntypedId::hashed(entity);
         let phantom = PhantomData;
-        Id {
-            stamp,
-            random,
-            phantom,
-        }
+        Id { inner, phantom }
     }
 }
 
@@ -62,45 +50,24 @@ impl IdGen {
     }
 
     pub fn generate<T>(&self) -> Id<T> {
-        let stamp_epoch = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .expect("now");
-        let stamp_s: u64 = stamp_epoch
-            .as_secs()
-            .checked_mul(1000)
-            .expect("secs * 1000");
-        let stamp_ms: u64 = stamp_epoch.subsec_millis().into();
-        let stamp = stamp_s + stamp_ms;
-        let random = rand::random();
+        let inner = self.untyped();
         let phantom = PhantomData;
 
-        Id {
-            random,
-            stamp,
-            phantom,
-        }
+        Id { inner, phantom }
     }
 }
 
 impl<T> Id<T> {
     fn from_bytes(bytes: &[u8]) -> Self {
-        let stamp = u64::from_be_bytes(bytes[0..8].try_into().expect("stamp bytes"));
-        let random = u64::from_be_bytes(bytes[8..8 + 8].try_into().expect("random bytes"));
+        let inner = UntypedId::from_bytes(bytes);
 
         let phantom = PhantomData;
 
-        Id {
-            stamp,
-            random,
-            phantom,
-        }
+        Id { inner, phantom }
     }
 
     fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(16);
-        bytes.extend(&self.stamp.to_be_bytes());
-        bytes.extend(&self.random.to_be_bytes());
-        bytes
+        self.inner.to_bytes()
     }
 }
 
@@ -148,7 +115,7 @@ impl<T: Entity> std::str::FromStr for Id<T> {
 
 impl<T> PartialEq for Id<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.stamp == other.stamp && self.random == other.random
+        self.inner.eq(&other.inner)
     }
 }
 
@@ -162,17 +129,14 @@ impl<T> PartialOrd for Id<T> {
 
 impl<T> Ord for Id<T> {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.stamp
-            .cmp(&other.stamp)
-            .then_with(|| self.random.cmp(&other.random))
+        self.inner.cmp(&other.inner)
     }
 }
 
 impl<T> Clone for Id<T> {
     fn clone(&self) -> Self {
         Id {
-            stamp: self.stamp,
-            random: self.random,
+            inner: self.inner,
             phantom: self.phantom,
         }
     }
@@ -182,8 +146,7 @@ impl<T> Copy for Id<T> {}
 
 impl<T> Hash for Id<T> {
     fn hash<H: Hasher>(&self, hasher: &mut H) {
-        self.stamp.hash(hasher);
-        self.random.hash(hasher);
+        self.inner.hash(hasher);
     }
 }
 
@@ -224,10 +187,15 @@ impl fmt::Display for IdParseError {
 impl<T> From<UntypedId> for Id<T> {
     fn from(src: UntypedId) -> Self {
         Id {
-            stamp: src.stamp,
-            random: src.random,
+            inner: src,
             phantom: PhantomData,
         }
+    }
+}
+
+impl<T> From<Id<T>> for UntypedId {
+    fn from(src: Id<T>) -> Self {
+        src.inner
     }
 }
 
