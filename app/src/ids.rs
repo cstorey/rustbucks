@@ -210,6 +210,15 @@ impl<'de, T: Entity> Deserialize<'de> for Id<T> {
     }
 }
 
+impl fmt::Display for IdParseError {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &IdParseError::InvalidPrefix => write!(fmt, "Invalid prefix"),
+            &IdParseError::Unparseable => write!(fmt, "Unparseable Id"),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -352,14 +361,5 @@ mod test {
             s,
             result,
         )
-    }
-}
-
-impl fmt::Display for IdParseError {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            &IdParseError::InvalidPrefix => write!(fmt, "Invalid prefix"),
-            &IdParseError::Unparseable => write!(fmt, "Unparseable Id"),
-        }
     }
 }
