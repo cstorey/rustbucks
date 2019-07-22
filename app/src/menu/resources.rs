@@ -10,6 +10,7 @@ use weft_derive::WeftRenderable;
 use crate::ids::Id;
 use crate::persistence::*;
 use crate::templates::WeftResponse;
+use crate::untyped_ids::UntypedId;
 use crate::WithTemplate;
 
 use super::models::{Drink, DrinkList};
@@ -67,17 +68,18 @@ impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Men
     }
 
     pub fn configure(&self, cfg: &mut web::ServiceConfig) {
-        let scope = web::scope(PREFIX)
-            .service({
-                let me = self.clone();
-                web::resource("/").route(web::get().to_async(move || me.index()))
-            })
-            .service({
-                let me = self.clone();
-                web::resource("/{id}").route(
-                    web::get().to_async(move |id: web::Path<Id<Drink>>| me.detail(id.into_inner())),
-                )
-            });
+        let scope =
+            web::scope(PREFIX)
+                .service({
+                    let me = self.clone();
+                    web::resource("/").route(web::get().to_async(move || me.index()))
+                })
+                .service({
+                    let me = self.clone();
+                    web::resource("/{id}").route(web::get().to_async(
+                        move |id: web::Path<UntypedId>| me.detail(id.into_inner().typed()),
+                    ))
+                });
 
         cfg.service(scope);
     }

@@ -1,25 +1,26 @@
 use failure::{bail, Fail};
 use std::cmp::Ordering;
-use std::convert::TryInto;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
-use std::time::SystemTime;
 
 use data_encoding::BASE32_DNSSEC;
 use failure::Error;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::untyped_ids::UntypedId;
+
+pub(crate) const ENCODED_BARE_ID_LEN: usize = 26;
+
 #[derive(Debug)]
 pub struct Id<T> {
     // Unix time in ms
-    stamp: u64,
-    random: u64,
+    inner: UntypedId,
     phantom: PhantomData<T>,
 }
 
 #[derive(Debug, Clone, Fail)]
-enum IdParseError {
+pub enum IdParseError {
     InvalidPrefix,
     Unparseable,
 }
@@ -37,18 +38,9 @@ impl<T> Id<T> {
     /// Returns a id nominally at time zero, but with a random portion derived
     /// from the given entity.
     pub fn hashed<H: Hash>(entity: H) -> Self {
-        let stamp = 0;
-
-        let mut h = siphasher::sip::SipHasher24::new_with_keys(0, 0);
-        entity.hash(&mut h);
-        let random = h.finish();
-
+        let inner = UntypedId::hashed(entity);
         let phantom = PhantomData;
-        Id {
-            stamp,
-            random,
-            phantom,
-        }
+        Id { inner, phantom }
     }
 }
 
@@ -58,49 +50,37 @@ impl IdGen {
     }
 
     pub fn generate<T>(&self) -> Id<T> {
-        let stamp_epoch = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .expect("now");
-        let stamp_s: u64 = stamp_epoch
-            .as_secs()
-            .checked_mul(1000)
-            .expect("secs * 1000");
-        let stamp_ms: u64 = stamp_epoch.subsec_millis().into();
-        let stamp = stamp_s + stamp_ms;
-        let random = rand::random();
+        let inner = self.untyped();
         let phantom = PhantomData;
 
-        Id {
-            random,
-            stamp,
-            phantom,
-        }
+        Id { inner, phantom }
     }
 }
 
 impl<T> Id<T> {
     fn from_bytes(bytes: &[u8]) -> Self {
-        let stamp = u64::from_be_bytes(bytes[0..8].try_into().expect("stamp bytes"));
-        let random = u64::from_be_bytes(bytes[8..8 + 8].try_into().expect("random bytes"));
+        let inner = UntypedId::from_bytes(bytes);
 
         let phantom = PhantomData;
 
-        Id {
-            stamp,
-            random,
-            phantom,
-        }
+        Id { inner, phantom }
     }
 
     fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(16);
-        bytes.extend(&self.stamp.to_be_bytes());
-        bytes.extend(&self.random.to_be_bytes());
-        bytes
+        self.inner.to_bytes()
+    }
+
+    pub(crate) fn from_untyped(src: UntypedId) -> Self {
+        Id {
+            inner: src,
+            phantom: PhantomData,
+        }
+    }
+
+    pub(crate) fn untyped(&self) -> UntypedId {
+        self.inner
     }
 }
-
-const ENCODED_BARE_ID_LEN: usize = 26;
 
 impl<T: Entity> fmt::Display for Id<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
@@ -146,7 +126,7 @@ impl<T: Entity> std::str::FromStr for Id<T> {
 
 impl<T> PartialEq for Id<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.stamp == other.stamp && self.random == other.random
+        self.inner.eq(&other.inner)
     }
 }
 
@@ -160,17 +140,14 @@ impl<T> PartialOrd for Id<T> {
 
 impl<T> Ord for Id<T> {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.stamp
-            .cmp(&other.stamp)
-            .then_with(|| self.random.cmp(&other.random))
+        self.inner.cmp(&other.inner)
     }
 }
 
 impl<T> Clone for Id<T> {
     fn clone(&self) -> Self {
         Id {
-            stamp: self.stamp,
-            random: self.random,
+            inner: self.inner,
             phantom: self.phantom,
         }
     }
@@ -180,8 +157,7 @@ impl<T> Copy for Id<T> {}
 
 impl<T> Hash for Id<T> {
     fn hash<H: Hasher>(&self, hasher: &mut H) {
-        self.stamp.hash(hasher);
-        self.random.hash(hasher);
+        self.inner.hash(hasher);
     }
 }
 
@@ -207,6 +183,15 @@ impl<'de, T: Entity> Deserialize<'de> for Id<T> {
         }
 
         deserializer.deserialize_str(IdStrVisitor(PhantomData))
+    }
+}
+
+impl fmt::Display for IdParseError {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &IdParseError::InvalidPrefix => write!(fmt, "Invalid prefix"),
+            &IdParseError::Unparseable => write!(fmt, "Unparseable Id"),
+        }
     }
 }
 
@@ -247,6 +232,16 @@ mod test {
         let json = serde_json::to_string(&id).expect("serde_json::to_string");
         println!("Json: {}", json);
         let id2 = serde_json::from_str(&json).expect("serde_json::from_str");
+        assert_eq!(id, id2);
+    }
+
+    #[test]
+    fn round_trips_via_untyped() {
+        let id = Id::<Canary>::hashed(&"boo");
+
+        let untyped: UntypedId = id.untyped();
+        println!("untyped: {}", untyped);
+        let id2: Id<Canary> = Id::from_untyped(untyped);
         assert_eq!(id, id2);
     }
 
@@ -294,9 +289,24 @@ mod test {
             "canary"
         )
     }
+
+    #[test]
+    fn should_parse_correct_example() {
+        let s = "canary.0000000000001q5nnvfqq7krfo";
+
+        let result = s.parse::<Id<Canary>>();
+
+        assert!(
+            result.is_ok(),
+            "Parsing {:?} should return ok; got {:?}",
+            s,
+            result,
+        )
+    }
+
     #[test]
     fn should_verify_has_correct_entity_prefix() {
-        let s = "wrongy-yxdgMe3dIHOX4NvCH90t4w";
+        let s = "wrongy-0000000000001q5nnvfqq7krfo";
 
         let result = s.parse::<Id<Canary>>();
 
@@ -317,7 +327,7 @@ mod test {
             // We want it to be longer than the id string in total.
             const PREFIX: &'static str = "pseudopseudohypoparathyroidism";
         }
-        let s = "wrong-yxdgMe3dIHOX4NvCH90t4w";
+        let s = "wrong-0000000000001q5nnvfqq7krfo";
 
         let result = s.parse::<Id<Long>>();
 
@@ -343,7 +353,7 @@ mod test {
     }
     #[test]
     fn should_yield_useful_error_when_wrong_divider() {
-        let s = "canary#yxdgMe3dIHOX4NvCH90t4w";
+        let s = "canary#0000000000001q5nnvfqq7krfo";
         let result = s.parse::<Id<Canary>>();
 
         assert!(
@@ -352,14 +362,5 @@ mod test {
             s,
             result,
         )
-    }
-}
-
-impl fmt::Display for IdParseError {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            &IdParseError::InvalidPrefix => write!(fmt, "Invalid prefix"),
-            &IdParseError::Unparseable => write!(fmt, "Unparseable Id"),
-        }
     }
 }

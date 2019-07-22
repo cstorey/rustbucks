@@ -11,6 +11,7 @@ use crate::ids::{Id, IdGen};
 use crate::menu::Drink;
 use crate::persistence::*;
 use crate::templates::WeftResponse;
+use crate::untyped_ids::UntypedId;
 use crate::WithTemplate;
 
 use super::models::Order;
@@ -63,7 +64,8 @@ impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Ord
             )
             .service(web::resource("{id}").name("show").route({
                 let me = self.clone();
-                web::get().to_async(move |id: web::Path<Id<Order>>| me.show(id.into_inner()))
+                web::get()
+                    .to_async(move |id: web::Path<UntypedId>| me.show(id.into_inner().typed()))
             }));
         cfg.service(scope);
     }
@@ -78,7 +80,7 @@ impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Ord
             .and_then(move |order_id| {
                 debug!("Some order id: {}", order_id);
                 let uri = req
-                    .url_for("show", &[order_id.to_string()])
+                    .url_for("show", &[order_id.untyped().to_string()])
                     .map_err(|e| failure::err_msg(e.to_string()))?;
                 Ok(HttpResponse::SeeOther()
                     .header("location", uri.to_string())
