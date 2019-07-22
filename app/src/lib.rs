@@ -10,6 +10,7 @@ mod menu;
 mod orders;
 mod persistence;
 mod templates;
+mod untyped_ids;
 
 #[derive(Debug, WeftRenderable)]
 #[template(path = "src/base.html")]

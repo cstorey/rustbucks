@@ -10,6 +10,8 @@ use data_encoding::BASE32_DNSSEC;
 use failure::Error;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
+pub(crate) const ENCODED_BARE_ID_LEN: usize = 26;
+
 #[derive(Debug)]
 pub struct Id<T> {
     // Unix time in ms
@@ -19,7 +21,7 @@ pub struct Id<T> {
 }
 
 #[derive(Debug, Clone, Fail)]
-enum IdParseError {
+pub enum IdParseError {
     InvalidPrefix,
     Unparseable,
 }
@@ -99,8 +101,6 @@ impl<T> Id<T> {
         bytes
     }
 }
-
-const ENCODED_BARE_ID_LEN: usize = 26;
 
 impl<T: Entity> fmt::Display for Id<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
