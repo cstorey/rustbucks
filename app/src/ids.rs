@@ -10,13 +10,15 @@ use data_encoding::BASE32_DNSSEC;
 use failure::Error;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::untyped_ids::UntypedId;
+
 pub(crate) const ENCODED_BARE_ID_LEN: usize = 26;
 
 #[derive(Debug)]
 pub struct Id<T> {
     // Unix time in ms
-    stamp: u64,
-    random: u64,
+    pub(crate) stamp: u64,
+    pub(crate) random: u64,
     phantom: PhantomData<T>,
 }
 
@@ -219,6 +221,16 @@ impl fmt::Display for IdParseError {
     }
 }
 
+impl<T> From<UntypedId> for Id<T> {
+    fn from(src: UntypedId) -> Self {
+        Id {
+            stamp: src.stamp,
+            random: src.random,
+            phantom: PhantomData,
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -256,6 +268,16 @@ mod test {
         let json = serde_json::to_string(&id).expect("serde_json::to_string");
         println!("Json: {}", json);
         let id2 = serde_json::from_str(&json).expect("serde_json::from_str");
+        assert_eq!(id, id2);
+    }
+
+    #[test]
+    fn round_trips_via_untyped() {
+        let id = Id::<Canary>::hashed(&"boo");
+
+        let untyped: UntypedId = id.into();
+        println!("untyped: {}", untyped);
+        let id2: Id<Canary> = untyped.into();
         assert_eq!(id, id2);
     }
 

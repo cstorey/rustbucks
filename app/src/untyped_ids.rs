@@ -7,13 +7,13 @@ use data_encoding::BASE32_DNSSEC;
 use failure::{bail, Error};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::ids::{IdGen, IdParseError, ENCODED_BARE_ID_LEN};
+use crate::ids::{Id, IdGen, IdParseError, ENCODED_BARE_ID_LEN};
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct UntypedId {
     // Unix time in ms
-    stamp: u64,
-    random: u64,
+    pub(crate) stamp: u64,
+    pub(crate) random: u64,
 }
 
 impl IdGen {
@@ -108,6 +108,15 @@ impl<'de> Deserialize<'de> for UntypedId {
         }
 
         deserializer.deserialize_str(IdStrVisitor)
+    }
+}
+
+impl<T> From<Id<T>> for UntypedId {
+    fn from(src: Id<T>) -> Self {
+        UntypedId {
+            stamp: src.stamp,
+            random: src.random,
+        }
     }
 }
 
