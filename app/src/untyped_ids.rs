@@ -23,9 +23,9 @@ impl IdGen {
             .expect("now");
         let stamp_s: u64 = stamp_epoch
             .as_secs()
-            .checked_mul(1000)
-            .expect("secs * 1000");
-        let stamp_ms: u64 = stamp_epoch.subsec_millis().into();
+            .checked_mul(1000 * 1000 * 1000)
+            .expect("secs * 1000,000,000");
+        let stamp_ms: u64 = stamp_epoch.subsec_nanos().into();
         let stamp = stamp_s + stamp_ms;
         let random = rand::random();
 
