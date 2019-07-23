@@ -1044,6 +1044,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "html5ever"
+version = "0.24.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "log 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mac 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "markup5ever 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quote 0.6.12 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syn 0.15.34 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "http"
 version = "0.1.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1283,6 +1296,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "markup5ever"
 version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "log 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "phf 0.7.24 (registry+https://github.com/rust-lang/crates.io-index)",
+ "phf_codegen 0.7.24 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.97 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_derive 1.0.97 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_json 1.0.40 (registry+https://github.com/rust-lang/crates.io-index)",
+ "string_cache 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "string_cache_codegen 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tendril 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "markup5ever"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "log 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2854,21 +2883,21 @@ dependencies = [
 [[package]]
 name = "weft"
 version = "0.1.1"
-source = "git+https://github.com/cstorey/weft.git#3a01f99f20e9a2176711d4d6fa0a8295b8f4ddc2"
+source = "git+https://github.com/cstorey/weft.git#9cc0eb8647e980fbf0c8b42c68b643d78676221e"
 dependencies = [
- "html5ever 0.23.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "markup5ever 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "html5ever 0.24.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "markup5ever 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "weft_derive 0.1.1 (git+https://github.com/cstorey/weft.git)",
 ]
 
 [[package]]
 name = "weft_derive"
 version = "0.1.1"
-source = "git+https://github.com/cstorey/weft.git#3a01f99f20e9a2176711d4d6fa0a8295b8f4ddc2"
+source = "git+https://github.com/cstorey/weft.git#9cc0eb8647e980fbf0c8b42c68b643d78676221e"
 dependencies = [
  "env_logger 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "html5ever 0.23.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "html5ever 0.24.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "kuchiki 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3060,6 +3089,7 @@ dependencies = [
 "checksum hmac 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "44f3bdb08579d99d7dc761c0e266f13b5f2ab8c8c703b9fc9ef333cd8f48f55e"
 "checksum hostname 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)" = "21ceb46a83a85e824ef93669c8b390009623863b5c195d1ba747292c0c72f94e"
 "checksum html5ever 0.23.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5ce65ac8028cf5a287a7dbf6c4e0a6cf2dcf022ed5b167a81bae66ebf599a8b7"
+"checksum html5ever 0.24.0 (registry+https://github.com/rust-lang/crates.io-index)" = "2a62c2cb2d34faa27dea3f2380ee8b06b8ff9c18e1cd5358e1da20b51089f4f1"
 "checksum http 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)" = "eed324f0f0daf6ec10c474f150505af2c143f251722bf9dbd1261bd1f2ee2c1a"
 "checksum http-body 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "6741c859c1b2463a423a1dbce98d418e6c3c3fc720fb0d45528657320920292d"
 "checksum httparse 1.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "e8734b0cfd3bc3e101ec59100e101c2eecd19282202e87808b3037b442777a83"
@@ -3088,6 +3118,7 @@ dependencies = [
 "checksum mac 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "c41e0c4fef86961ac6d6f8a82609f55f31b05e4fce149ac5710e439df7619ba4"
 "checksum maplit 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "08cbb6b4fef96b6d77bfc40ec491b1690c779e77b05cd9f07f787ed376fd4c43"
 "checksum markup5ever 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)" = "f1af46a727284117e09780d05038b1ce6fc9c76cc6df183c3dae5a8955a25e21"
+"checksum markup5ever 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "65381d9d47506b8592b97c4efd936afcf673b09b059f2bef39c7211ee78b9d03"
 "checksum matches 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)" = "7ffc5c5338469d4d3ea17d269fa8ea3512ad247247c30bd2df69e68309ed0a08"
 "checksum md5 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)" = "79c56d6a0b07f9e19282511c83fc5b086364cbae4ba8c7d5f190c3d9b0425a48"
 "checksum memchr 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "148fab2e51b4f1cfc66da2a7c32981d1d3c083a803978268bb11fe4b86925e7a"
