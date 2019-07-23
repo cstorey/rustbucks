@@ -1,0 +1,17 @@
+#!/bin/bash
+
+set -euo pipefail
+
+not_accessed_within="${1-1d}"
+
+find target/debug -mindepth 2 -maxdepth 2 -type d \( ! -empty \) | \
+while read d; do
+  # Count how many files have been modifed in the last $not_accessed_within
+  count=$(find "$d" -type f -atime "-$not_accessed_within" | grep -c . || true)
+  # Then if it's empty, then this dir is stale. Cleanup.
+  if [[ $count -eq 0 ]] ; then
+    echo 1>&2 "Cleaning: $d"
+    # find "$d" -type f \( ! -atime "-$not_accessed_within" \) -exec ls -lt {} \+
+    rm -rf "$d";
+  fi
+done
