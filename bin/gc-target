@@ -2,16 +2,16 @@
 
 set -euo pipefail
 
-not_accessed_within_days="${1-1}"
+not_modified_within_days="${1-7}"
 
 find target/debug -mindepth 2 -maxdepth 2 -type d \( ! -empty \) | \
 while read d; do
-  # Count how many files have been modifed in the last $not_accessed_within
-  count=$(find "$d" -type f -atime "-$not_accessed_within_days" | { grep -c . || true; })
+  # Count how many files have been modifed in the last $not_modified_within
+  count=$(find "$d" -type f -mtime "-$not_modified_within_days" | { grep -c . || true; })
   # Then if it's empty, then this dir is stale. Cleanup.
   if [[ $count -eq 0 ]] ; then
     echo 1>&2 "Cleaning: $d"
-    # find "$d" -type f \( ! -atime "-$not_accessed_within_days" \) -exec ls -lt {} \+
+    # find "$d" -type f \( ! -mtime "-$not_modified_within_days" \) -exec ls -lt {} \+
     rm -rf "$d";
   fi
 done
