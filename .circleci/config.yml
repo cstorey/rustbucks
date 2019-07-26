@@ -33,7 +33,6 @@ jobs:
         name: "Restore target"
         keys:
         - target-{{ checksum "~/rust-version" }}-{{ checksum "Cargo.lock" }}
-        - target-{{ checksum "~/rust-version" }}-
     - run: cargo clean -p rustbucks
     - run: cargo build --all --tests --locked
     - run: ./bin/gc-target
