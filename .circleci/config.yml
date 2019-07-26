@@ -16,18 +16,22 @@ jobs:
     steps:
     - checkout
     - restore_cache:
+        name: "Restore registry index"
         key: registry
     - run: cargo generate-lockfile
     - save_cache:
+        name: "Save registry index"
         key: registry-{{ .BuildNum }}
         paths:
         - /usr/local/cargo/registry/index
     - run: rustc --version | tee ~/rust-version
     - restore_cache:
+        name: "Restore registry cache"
         keys:
         - registry-cache-{{ checksum "~/rust-version" }}-{{ checksum "Cargo.lock" }}
         - registry-cache-{{ checksum "~/rust-version" }}-
     - restore_cache:
+        name: "Restore target"
         keys:
         - target-{{ checksum "~/rust-version" }}-{{ checksum "Cargo.lock" }}
         - target-{{ checksum "~/rust-version" }}-
@@ -35,10 +39,12 @@ jobs:
     - run: cargo build --all --tests --locked
     - run: ./bin/gc-target
     - save_cache:
+        name: "Save registry cache"
         key: registry-cache-{{ checksum "~/rust-version" }}-{{ checksum "Cargo.lock" }}
         paths:
         - /usr/local/cargo/registry/cache
     - save_cache:
+        name: "Save target"
         key: target-{{ checksum "~/rust-version" }}-{{ checksum "Cargo.lock" }}
         paths:
         - target
