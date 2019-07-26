@@ -25,16 +25,23 @@ jobs:
     - run: rustc --version | tee ~/rust-version
     - restore_cache:
         keys:
-        - deps-{{ checksum "~/rust-version" }}-{{ checksum "Cargo.lock" }}
-        - deps-{{ checksum "~/rust-version" }}-
+        - registry-cache-{{ checksum "~/rust-version" }}-{{ checksum "Cargo.lock" }}
+        - registry-cache-{{ checksum "~/rust-version" }}-
+    - restore_cache:
+        keys:
+        - target-{{ checksum "~/rust-version" }}-{{ checksum "Cargo.lock" }}
+        - target-{{ checksum "~/rust-version" }}-
     - run: cargo clean -p rustbucks
     - run: cargo build --all --tests --locked
     - run: ./bin/gc-target
     - save_cache:
-        key: deps-{{ checksum "~/rust-version" }}-{{ checksum "Cargo.lock" }}
+        key: registry-cache-{{ checksum "~/rust-version" }}-{{ checksum "Cargo.lock" }}
+        paths:
+        - /usr/local/cargo/registry/cache
+    - save_cache:
+        key: target-{{ checksum "~/rust-version" }}-{{ checksum "Cargo.lock" }}
         paths:
         - target
-        - /usr/local/cargo/registry/cache
     - run:
         name: Waiting for Postgres to be ready
         command: |
