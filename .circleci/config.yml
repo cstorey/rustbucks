@@ -35,7 +35,6 @@ jobs:
         - target-{{ checksum "~/rust-version" }}-{{ checksum "Cargo.lock" }}
     - run: cargo clean -p rustbucks
     - run: cargo build --all --tests --locked
-    - run: ./bin/gc-target
     - save_cache:
         name: "Save registry cache"
         key: registry-cache-{{ checksum "Cargo.lock" }}-{{ .BuildNum }}
