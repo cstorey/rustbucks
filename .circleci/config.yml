@@ -28,8 +28,7 @@ jobs:
     - restore_cache:
         name: "Restore registry cache"
         keys:
-        - registry-cache-{{ checksum "~/rust-version" }}-{{ checksum "Cargo.lock" }}
-        - registry-cache-{{ checksum "~/rust-version" }}-
+        - registry-cache-{{ checksum "Cargo.lock" }}
     - restore_cache:
         name: "Restore target"
         keys:
@@ -40,7 +39,7 @@ jobs:
     - run: ./bin/gc-target
     - save_cache:
         name: "Save registry cache"
-        key: registry-cache-{{ checksum "~/rust-version" }}-{{ checksum "Cargo.lock" }}
+        key: registry-cache-{{ checksum "Cargo.lock" }}-{{ .BuildNum }}
         paths:
         - /usr/local/cargo/registry/cache
     - save_cache:
