@@ -11,7 +11,7 @@ use crate::ids::{Id, IdGen, IdParseError, ENCODED_BARE_ID_LEN};
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
 pub struct UntypedId {
-    // Unix time in ms
+    // Unix time in ns
     pub(crate) stamp: u64,
     pub(crate) random: u64,
 }
@@ -25,8 +25,8 @@ impl IdGen {
             .as_secs()
             .checked_mul(1000 * 1000 * 1000)
             .expect("secs * 1000,000,000");
-        let stamp_ms: u64 = stamp_epoch.subsec_nanos().into();
-        let stamp = stamp_s + stamp_ms;
+        let stamp_ns: u64 = stamp_epoch.subsec_nanos().into();
+        let stamp = stamp_s + stamp_ns;
         let random = rand::random();
 
         UntypedId { random, stamp }
