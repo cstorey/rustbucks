@@ -12,8 +12,8 @@ pub struct Order {
     pub(crate) meta: DocMeta<Order>,
     #[serde(default, flatten)]
     pub(crate) mbox: MailBox<OrderDst>,
-    pub(super) drink_id: Id<Drink>,
-    pub(super) drinker_id: Id<Drinker>,
+    pub(crate) drink_id: Id<Drink>,
+    pub(crate) drinker_id: Id<Drinker>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub(crate) enum OrderDst {
@@ -46,6 +46,11 @@ impl HasMeta for Order {
         &self.meta
     }
     fn meta_mut(&mut self) -> &mut DocMeta<Self> {
+        &mut self.meta
+    }
+}
+impl AsMut<DocMeta<Order>> for Order {
+    fn as_mut(&mut self) -> &mut DocMeta<Order> {
         &mut self.meta
     }
 }

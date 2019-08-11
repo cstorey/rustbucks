@@ -1,7 +1,7 @@
 //! Guarded with `#[cfg(test)]` from `lib.rs`
 
 use env_logger;
-use failure::Fallible;
+use failure::{Error, Fallible};
 use log::*;
 use r2d2::Pool;
 use serde::{de::DeserializeOwned, Serialize};
@@ -10,7 +10,7 @@ use crate::drinker::Drinker;
 use crate::ids::{Entity, Id, IdGen};
 use crate::menu::Drink;
 use crate::orders::{Order, OrderDst};
-use crate::persistence::DocumentConnectionManager;
+use crate::persistence::{DocumentConnectionManager, Storage};
 use infra::documents::HasMeta;
 
 mod junk_drawer;
@@ -25,17 +25,15 @@ impl OrderSystem {
     }
 
     fn store<E: Entity + Serialize + HasMeta>(&mut self, entity: &mut E) -> Fallible<()> {
-        let docs = self.pool.get()?;
-        docs.save(entity)?;
-        debug!("Stored entity with id: {}", entity.meta().id);
+        self.pool.get()?.save(entity)?;
+        let meta = entity.meta();
+        debug!("Stored entity: {}@{:?}", meta.id, meta.version);
         Ok(())
     }
 
     fn load<E: Entity + DeserializeOwned>(&mut self, id: &Id<E>) -> Fallible<Option<E>> {
-        let docs = self.pool.get()?;
         debug!("Loading entity with id: {}", id);
-        let res = docs.load(id)?;
-        Ok(res)
+        Ok(self.pool.get()?.load(id)?)
     }
 
     fn run_until_quiescent(&self) -> Fallible<()> {
@@ -67,25 +65,31 @@ impl OrderSystem {
 }
 
 #[test]
-#[cfg(never)]
-fn order_workflow() -> Fallible<()> {
+fn trivial_order_workflow_as_transaction_script() -> Fallible<()> {
     env_logger::try_init().unwrap_or_default();
     let pool = junk_drawer::pool("order_workflow")?;
     let idgen = IdGen::new();
     let mut sys = OrderSystem::new(pool);
 
-    let mut drinker = Drinker::incarnate(&idgen);
+    let mut tea = Drink::new(idgen.generate(), "bubble tea");
+    sys.store(&mut tea)?;
+
+    let order = {
+        let mut drinker = Drinker::incarnate(&idgen);
+        sys.store(&mut drinker)?;
+
+        let mut order = Order::for_drink(tea.meta.id, drinker.meta.id, &idgen);
+        sys.store(&mut order)?;
+        order
+    };
+
+    let mut drinker = sys
+        .load(&order.drinker_id)?
+        .ok_or_else(|| failure::err_msg("missing drink"))?;
+    drinker.deliver_drink(order.drink_id);
     sys.store(&mut drinker)?;
 
-    let tea = Drink::new(idgen.generate(), "bubble tea");
-    let req = OrderRequest::for_drink(tea.meta.id, drinker.meta.id, &idgen);
-    let orders = Orders::processor();
-    sys.send_to(req, orders);
-
-    sys.run_until_quiescent()?;
-
     let drinker = sys.load(&drinker.meta.id)?.expect("drinker");
-
     // I mean, this is great, but you don't so much receive a _recipie_ but
     // an actual _new drink_.
     assert!(
@@ -94,6 +98,8 @@ fn order_workflow() -> Fallible<()> {
         drinker,
         tea
     );
+    #[cfg(never)]
+    {}
     Ok(())
 }
 

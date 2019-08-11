@@ -47,3 +47,8 @@ impl HasMeta for Drinker {
         &mut self.meta
     }
 }
+impl AsMut<DocMeta<Drinker>> for Drinker {
+    fn as_mut(&mut self) -> &mut DocMeta<Drinker> {
+        &mut self.meta
+    }
+}
