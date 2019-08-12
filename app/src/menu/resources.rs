@@ -44,11 +44,11 @@ impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Men
     fn insert(docs: &D, name: &str) -> Result<(), Error> {
         let drink = {
             let id = Id::hashed(name);
-            let drink = docs
+            let mut drink = docs
                 .load(&id)
                 .context("load drink")?
                 .unwrap_or_else(|| Drink::new(id, name));
-            docs.save(&drink).context("Save drink")?;
+            docs.save(&mut drink).context("Save drink")?;
             drink
         };
 
@@ -59,7 +59,7 @@ impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Men
                 .context("load list")?
                 .unwrap_or_else(|| DrinkList::new(id));
             list.drinks.insert(drink.meta.id);
-            docs.save(&list).context("save list")?;
+            docs.save(&mut list).context("save list")?;
             debug!("Updated list: {:?}", list);
             list
         };

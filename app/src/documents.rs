@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::ids::{Entity, Id};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default, Hash)]
-pub struct Version(String);
+pub struct Version(u64);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Hash)]
 #[serde(bound = "T: Entity")]
@@ -43,8 +43,17 @@ impl<T> DocMeta<T> {
 impl std::str::FromStr for Version {
     type Err = Error;
     fn from_str(val: &str) -> Result<Self, Error> {
-        let version = val.to_string();
+        let version = std::str::FromStr::from_str(val)?;
         Ok(Version(version))
+    }
+}
+impl Version {
+    #[cfg(test)]
+    pub(crate) fn from_u64(val: u64) -> Self {
+        Version(val)
+    }
+    pub(crate) fn next(&mut self) {
+        self.0 += 1;
     }
 }
 

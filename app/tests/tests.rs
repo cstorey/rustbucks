@@ -1,5 +1,6 @@
 use std::env;
 use std::net::SocketAddr;
+use std::path::PathBuf;
 
 use actix_http;
 use actix_http::HttpService;
@@ -54,7 +55,7 @@ struct SomethingCustomer {
 impl SomethingScenario {
     fn new() -> Result<Self, Error> {
         let mut config = rustbucks::config::Config::default();
-        config.postgres.url = env::var("POSTGRES_URL").context("$POSTGRES_URL")?;
+        config.db.path = PathBuf::from(env::var("DB_DIR").context("$DB_DIR")?);
         let app = rustbucks::RustBucks::new(&config).expect("new rustbucks");
 
         let _srv = TestServer::new(move || {

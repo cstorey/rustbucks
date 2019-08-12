@@ -48,6 +48,12 @@ impl AsRef<DocMeta<Drink>> for Drink {
         &self.meta
     }
 }
+impl AsMut<DocMeta<Drink>> for Drink {
+    fn as_mut(&mut self) -> &mut DocMeta<Drink> {
+        &mut self.meta
+    }
+}
+
 impl Entity for DrinkList {
     const PREFIX: &'static str = "drink_list";
 }
@@ -55,5 +61,10 @@ impl Entity for DrinkList {
 impl AsRef<DocMeta<DrinkList>> for DrinkList {
     fn as_ref(&self) -> &DocMeta<DrinkList> {
         &self.meta
+    }
+}
+impl AsMut<DocMeta<DrinkList>> for DrinkList {
+    fn as_mut(&mut self) -> &mut DocMeta<DrinkList> {
+        &mut self.meta
     }
 }

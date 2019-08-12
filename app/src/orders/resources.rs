@@ -112,8 +112,8 @@ impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Ord
     fn new_order(&self, order: OrderForm) -> impl Future<Item = Id<Order>, Error = failure::Error> {
         let me = self.clone();
         self.in_pool(move |docs| {
-            let order = Order::for_drink(order.drink_id, &me.idgen);
-            docs.save(&order)?;
+            let mut order = Order::for_drink(order.drink_id, &me.idgen);
+            docs.save(&mut order)?;
             debug!("Saved {:?}", order);
             Ok(order.meta.id)
         })

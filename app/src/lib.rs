@@ -26,7 +26,7 @@ pub struct RustBucks {
 
 impl RustBucks {
     pub fn new(config: &config::Config) -> Result<Self, Error> {
-        let db = config.postgres.build()?;
+        let db = config.db.build()?;
 
         debug!("Init schema");
         db.get()?.setup().context("Setup persistence")?;
