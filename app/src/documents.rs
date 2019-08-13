@@ -48,10 +48,6 @@ impl std::str::FromStr for Version {
     }
 }
 impl Version {
-    #[cfg(test)]
-    pub(crate) fn from_u64(val: u64) -> Self {
-        Version(val)
-    }
     pub(crate) fn next(&mut self) {
         self.0 += 1;
     }

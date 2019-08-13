@@ -371,27 +371,33 @@ mod test {
         env_logger::try_init().unwrap_or_default();
         let pool = pool("should_fail_on_overwrite_with_bogus_version")?;
 
+        let docs = pool.get()?;
+
         let id = IDGEN.generate();
-        let some_doc = ADocument {
+        let mut some_doc = ADocument {
             meta: DocMeta::new_with_id(id),
             name: "Version 1".to_string(),
         };
 
-        let docs = pool.get()?;
-
         info!("Original document: {:?}", some_doc);
-        let actual = docs.save(&mut some_doc.clone()).expect("save original");
+        docs.save(&mut some_doc)?;
 
-        let modified_doc = ADocument {
-            meta: DocMeta::new_with_id(id),
-            name: "Version 2".to_string(),
+        let mut old_doc = ADocument {
+            meta: DocMeta::new_with_id(IDGEN.generate()),
+            name: "Old".to_string(),
         };
+        for _ in 0..4 {
+            docs.save(&mut old_doc)?;
+        }
+        debug!("Old document: {:?}", old_doc);
 
-        assert_ne!(actual, modified_doc.meta.version);
+        assert_ne!(some_doc.meta.version, old_doc.meta.version);
 
-        info!("Modified document: {:?}", modified_doc);
+        some_doc.meta.version = old_doc.meta.version;
+
+        info!("Modified document: {:?}", some_doc);
         let err = docs
-            .save(&mut modified_doc.clone())
+            .save(&mut some_doc.clone())
             .expect_err("save should fail");
 
         assert_eq!(
@@ -407,13 +413,21 @@ mod test {
     fn should_fail_on_new_document_with_nonzero_version() -> Result<(), Error> {
         env_logger::try_init().unwrap_or_default();
         let pool = pool("should_fail_on_new_document_with_nonzero_version")?;
+        let docs = pool.get()?;
+
+        let mut old_doc = ADocument {
+            meta: DocMeta::new_with_id(IDGEN.generate()),
+            name: "Old".to_string(),
+        };
+        for _ in 0..4 {
+            docs.save(&mut old_doc)?;
+        }
+        debug!("Old document: {:?}", old_doc);
 
         let mut meta = DocMeta::new_with_id(IDGEN.generate());
-        meta.version = Version::from_u64(42);
+        meta.version = old_doc.meta.version;
         let name = "Version 1".to_string();
         let some_doc = ADocument { meta, name };
-
-        let docs = pool.get()?;
 
         info!("new misAsRef<DocMeta> document: {:?}", some_doc);
         let err = docs
