@@ -42,6 +42,10 @@ impl<T> DocMeta<T> {
             _phantom,
         }
     }
+
+    pub fn increment_version(&mut self) {
+        self.version.0 += 1;
+    }
 }
 
 impl<A: Hash + Eq> MailBox<A> {
