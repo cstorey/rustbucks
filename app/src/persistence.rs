@@ -51,14 +51,13 @@ const INSERT_SQL: &'static str = "WITH a as (
                                 )
                                 RETURNING d.body ->> '_version'";
 const UPDATE_SQL: &'static str = "WITH a as (
-                                    SELECT $1::jsonb as body
+                                    SELECT $1::jsonb as body, $2::jsonb as expected_version
                                     )
                                     UPDATE documents AS d
                                         SET body = a.body
-                                            || jsonb_build_object('_version', to_hex(txid_current()))
                                         FROM a
                                         WHERE id = a.body ->> '_id'
-                                        AND d.body -> '_version' = a.body -> '_version'
+                                        AND d.body -> '_version' = expected_version
                                         RETURNING d.body ->> '_version'
                                     ";
 
@@ -72,10 +71,12 @@ impl Documents {
 
     pub fn save<D: Serialize + Entity + HasMeta<D>>(&self, document: &mut D) -> Result<(), Error> {
         let t = self.connection.transaction()?;
-        let res = if document.meta().version == Version::default() {
+        let current_version = document.meta().version.clone();
+        let res = if current_version == Version::default() {
             t.prepare_cached(INSERT_SQL)?.query(&[&Jsonb(&document)])?
         } else {
-            t.prepare_cached(UPDATE_SQL)?.query(&[&Jsonb(&document)])?
+            t.prepare_cached(UPDATE_SQL)?
+                .query(&[&Jsonb(&document), &Jsonb(&current_version)])?
         };
         debug!("Query modified {} rows", res.len());
         let version: String = res
