@@ -42,22 +42,19 @@ const LOAD_NEXT_SQL: &'static str = "SELECT body
 const GET_VERSION: &'static str = "SELECT to_hex(txid_current())";
 
 const INSERT_SQL: &'static str = "WITH a as (
-                                SELECT $1::jsonb as body, $2::text as new_version
+                                SELECT $1::jsonb as body
                                 )
                                 INSERT INTO documents AS d (id, body)
-                                SELECT a.body ->> '_id',
-                                    a.body || jsonb_build_object('_version', new_version)
+                                SELECT a.body ->> '_id', a.body
                                 FROM a
                                 WHERE NOT EXISTS (
                                     SELECT 1 FROM documents d where d.id = a.body ->> '_id'
                                 )";
 const UPDATE_SQL: &'static str = "WITH a as (
-                                    SELECT $1::jsonb as body,
-                                        $2::jsonb as expected_version,
-                                        $3::text as new_version
+                                    SELECT $1::jsonb as body, $2::jsonb as expected_version
                                     )
                                     UPDATE documents AS d
-                                        SET body = a.body || jsonb_build_object('_version', new_version)
+                                        SET body = a.body
                                         FROM a
                                         WHERE id = a.body ->> '_id'
                                         AND d.body -> '_version' = expected_version
@@ -81,17 +78,15 @@ impl Documents {
             .next()
             .ok_or_else(|| failure::err_msg("Missing row for version query?"))?
             .get(0);
-;
+
+        document.meta_mut().version = Version::from_str(&next_version)?;
 
         let rows = if current_version == Version::default() {
             t.prepare_cached(INSERT_SQL)?
-                .execute(&[&Jsonb(&document), &next_version])?
+                .execute(&[&Jsonb(&document)])?
         } else {
-            t.prepare_cached(UPDATE_SQL)?.execute(&[
-                &Jsonb(&document),
-                &Jsonb(&current_version),
-                &next_version,
-            ])?
+            t.prepare_cached(UPDATE_SQL)?
+                .execute(&[&Jsonb(&document), &Jsonb(&current_version)])?
         };
         debug!("Query modified {} rows", rows);
         if rows == 0 {
@@ -99,7 +94,6 @@ impl Documents {
         }
         t.commit()?;
 
-        document.meta_mut().version = Version::from_str(&next_version)?;
         Ok(())
     }
 
