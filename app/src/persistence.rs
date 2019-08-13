@@ -39,22 +39,26 @@ const LOAD_NEXT_SQL: &'static str = "SELECT body
                                      WHERE jsonb_array_length(body -> '_outgoing') > 0
                                      LIMIT 1
 ";
+const GET_VERSION: &'static str = "SELECT to_hex(txid_current())";
+
 const INSERT_SQL: &'static str = "WITH a as (
-                                SELECT $1::jsonb as body
+                                SELECT $1::jsonb as body, $2::text as new_version
                                 )
                                 INSERT INTO documents AS d (id, body)
                                 SELECT a.body ->> '_id',
-                                    a.body || jsonb_build_object('_version', to_hex(txid_current()))
+                                    a.body || jsonb_build_object('_version', new_version)
                                 FROM a
                                 WHERE NOT EXISTS (
                                     SELECT 1 FROM documents d where d.id = a.body ->> '_id'
                                 )
                                 RETURNING d.body ->> '_version'";
 const UPDATE_SQL: &'static str = "WITH a as (
-                                    SELECT $1::jsonb as body, $2::jsonb as expected_version
+                                    SELECT $1::jsonb as body,
+                                        $2::jsonb as expected_version,
+                                        $3::text as new_version
                                     )
                                     UPDATE documents AS d
-                                        SET body = a.body
+                                        SET body = a.body || jsonb_build_object('_version', new_version)
                                         FROM a
                                         WHERE id = a.body ->> '_id'
                                         AND d.body -> '_version' = expected_version
@@ -72,11 +76,24 @@ impl Documents {
     pub fn save<D: Serialize + Entity + HasMeta<D>>(&self, document: &mut D) -> Result<(), Error> {
         let t = self.connection.transaction()?;
         let current_version = document.meta().version.clone();
+        let next_version: String = t
+            .prepare_cached(GET_VERSION)?
+            .query(&[])?
+            .into_iter()
+            .next()
+            .ok_or_else(|| failure::err_msg("Missing row for version query?"))?
+            .get(0);
+;
+
         let res = if current_version == Version::default() {
-            t.prepare_cached(INSERT_SQL)?.query(&[&Jsonb(&document)])?
+            t.prepare_cached(INSERT_SQL)?
+                .query(&[&Jsonb(&document), &next_version])?
         } else {
-            t.prepare_cached(UPDATE_SQL)?
-                .query(&[&Jsonb(&document), &Jsonb(&current_version)])?
+            t.prepare_cached(UPDATE_SQL)?.query(&[
+                &Jsonb(&document),
+                &Jsonb(&current_version),
+                &next_version,
+            ])?
         };
         debug!("Query modified {} rows", res.len());
         let version: String = res
