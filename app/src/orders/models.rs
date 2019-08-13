@@ -40,6 +40,11 @@ impl AsRef<DocMeta<Order>> for Order {
         &self.meta
     }
 }
+impl AsMut<DocMeta<Order>> for Order {
+    fn as_mut(&mut self) -> &mut DocMeta<Order> {
+        &mut self.meta
+    }
+}
 
 #[cfg(test)]
 mod test {

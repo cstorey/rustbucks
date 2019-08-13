@@ -43,8 +43,7 @@ impl<T> DocMeta<T> {
 impl std::str::FromStr for Version {
     type Err = Error;
     fn from_str(val: &str) -> Result<Self, Error> {
-        let version = val.to_string();
-        Ok(Version(version))
+        Ok(Version(val.to_string()))
     }
 }
 
