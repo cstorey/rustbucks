@@ -50,8 +50,7 @@ const INSERT_SQL: &'static str = "WITH a as (
                                 FROM a
                                 WHERE NOT EXISTS (
                                     SELECT 1 FROM documents d where d.id = a.body ->> '_id'
-                                )
-                                RETURNING d.body ->> '_version'";
+                                )";
 const UPDATE_SQL: &'static str = "WITH a as (
                                     SELECT $1::jsonb as body,
                                         $2::jsonb as expected_version,
@@ -62,7 +61,6 @@ const UPDATE_SQL: &'static str = "WITH a as (
                                         FROM a
                                         WHERE id = a.body ->> '_id'
                                         AND d.body -> '_version' = expected_version
-                                        RETURNING d.body ->> '_version'
                                     ";
 
 impl Documents {
@@ -85,29 +83,23 @@ impl Documents {
             .get(0);
 ;
 
-        let res = if current_version == Version::default() {
+        let rows = if current_version == Version::default() {
             t.prepare_cached(INSERT_SQL)?
-                .query(&[&Jsonb(&document), &next_version])?
+                .execute(&[&Jsonb(&document), &next_version])?
         } else {
-            t.prepare_cached(UPDATE_SQL)?.query(&[
+            t.prepare_cached(UPDATE_SQL)?.execute(&[
                 &Jsonb(&document),
                 &Jsonb(&current_version),
                 &next_version,
             ])?
         };
-        debug!("Query modified {} rows", res.len());
-        let version: String = res
-            .iter()
-            .next()
-            .ok_or_else(|| {
-                warn!("Update impacted {} rows not 1", res.len());
-                Error::from(ConcurrencyError)
-            })?
-            .get_opt(0)
-            .ok_or_else(|| failure::err_msg("Missing version column?"))??;
+        debug!("Query modified {} rows", rows);
+        if rows == 0 {
+            return Err(ConcurrencyError.into());
+        }
         t.commit()?;
 
-        document.meta_mut().version = Version::from_str(&version)?;
+        document.meta_mut().version = Version::from_str(&next_version)?;
         Ok(())
     }
 
