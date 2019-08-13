@@ -1,8 +1,11 @@
+use std::fmt;
 use std::str::FromStr;
 
 use failure::Error;
 use failure::Fail;
 use log::*;
+use postgres::types::{IsNull, ToSql, Type};
+use postgres::{accepts, to_sql_checked};
 use r2d2_postgres::PostgresConnectionManager;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json;
@@ -25,6 +28,8 @@ pub struct Documents {
 
 #[derive(Debug)]
 pub struct DocumentConnectionManager(PostgresConnectionManager);
+
+struct Jsonb<T>(T);
 
 const SETUP_SQL: &'static str = include_str!("persistence.sql");
 const LOAD_SQL: &'static str = "SELECT body FROM documents WHERE id = $1";
@@ -66,12 +71,11 @@ impl Documents {
     }
 
     pub fn save<D: Serialize + Entity + HasMeta<D>>(&self, document: &mut D) -> Result<(), Error> {
-        let json = serde_json::to_value(&document)?;
         let t = self.connection.transaction()?;
         let res = if document.meta().version == Version::default() {
-            t.prepare_cached(INSERT_SQL)?.query(&[&json])?
+            t.prepare_cached(INSERT_SQL)?.query(&[&Jsonb(&document)])?
         } else {
-            t.prepare_cached(UPDATE_SQL)?.query(&[&json])?
+            t.prepare_cached(UPDATE_SQL)?.query(&[&Jsonb(&document)])?
         };
         debug!("Query modified {} rows", res.len());
         let version: String = res
@@ -153,6 +157,29 @@ impl r2d2::ManageConnection for DocumentConnectionManager {
 
     fn has_broken(&self, conn: &mut Self::Connection) -> bool {
         PostgresConnectionManager::has_broken(&self.0, &mut conn.connection)
+    }
+}
+
+impl<T: serde::Serialize> ToSql for Jsonb<T> {
+    fn to_sql(
+        &self,
+        ty: &Type,
+        out: &mut Vec<u8>,
+    ) -> Result<IsNull, Box<std::error::Error + Sync + Send>> {
+        let val = serde_json::to_value(&self.0)?;
+        val.to_sql(ty, out)
+    }
+
+    accepts!(postgres::types::JSON, postgres::types::JSONB);
+
+    to_sql_checked!();
+}
+
+impl<T: serde::Serialize> fmt::Debug for Jsonb<T> {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_tuple("Jsonb")
+            .field(&serde_json::to_string(&self.0).unwrap_or_else(|_| "???".into()))
+            .finish()
     }
 }
 
