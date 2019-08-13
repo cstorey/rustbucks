@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::documents::{DocMeta, MailBox};
+use crate::documents::{DocMeta, HasMeta, MailBox};
 use crate::ids::IdGen;
 use crate::ids::{Entity, Id};
 use crate::menu::Drink;
@@ -35,9 +35,12 @@ impl Entity for Order {
     const PREFIX: &'static str = "order";
 }
 
-impl AsRef<DocMeta<Order>> for Order {
-    fn as_ref(&self) -> &DocMeta<Order> {
+impl HasMeta<Order> for Order {
+    fn meta(&self) -> &DocMeta<Self> {
         &self.meta
+    }
+    fn meta_mut(&mut self) -> &mut DocMeta<Self> {
+        &mut self.meta
     }
 }
 

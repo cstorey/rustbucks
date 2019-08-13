@@ -1,21 +1,20 @@
-use std::str::FromStr;
+use std::fmt;
 
 use failure::Error;
 use failure::Fail;
 use log::*;
+use postgres::types::{FromSql, IsNull, ToSql, Type};
+use postgres::{accepts, to_sql_checked};
 use r2d2_postgres::PostgresConnectionManager;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json;
 
-use crate::documents::{DocMeta, Version};
+use crate::documents::{HasMeta, Version};
 use crate::ids::{Entity, Id};
 
 pub trait Storage {
     fn load<D: DeserializeOwned + Entity>(&self, id: &Id<D>) -> Result<Option<D>, Error>;
-    fn save<D: Serialize + Entity + AsRef<DocMeta<D>>>(
-        &self,
-        document: &D,
-    ) -> Result<Version, Error>;
+    fn save<D: Serialize + Entity + HasMeta<D>>(&self, document: &mut D) -> Result<(), Error>;
 }
 
 #[derive(Fail, Debug, PartialEq, Eq)]
@@ -29,6 +28,8 @@ pub struct Documents {
 #[derive(Debug)]
 pub struct DocumentConnectionManager(PostgresConnectionManager);
 
+struct Jsonb<T>(T);
+
 const SETUP_SQL: &'static str = include_str!("persistence.sql");
 const LOAD_SQL: &'static str = "SELECT body FROM documents WHERE id = $1";
 #[cfg(test)]
@@ -41,23 +42,19 @@ const INSERT_SQL: &'static str = "WITH a as (
                                 SELECT $1::jsonb as body
                                 )
                                 INSERT INTO documents AS d (id, body)
-                                SELECT a.body ->> '_id',
-                                    a.body || jsonb_build_object('_version', to_hex(txid_current()))
+                                SELECT a.body ->> '_id', a.body
                                 FROM a
                                 WHERE NOT EXISTS (
                                     SELECT 1 FROM documents d where d.id = a.body ->> '_id'
-                                )
-                                RETURNING d.body ->> '_version'";
+                                )";
 const UPDATE_SQL: &'static str = "WITH a as (
-                                    SELECT $1::jsonb as body
+                                    SELECT $1::jsonb as body, $2::jsonb as expected_version
                                     )
                                     UPDATE documents AS d
                                         SET body = a.body
-                                            || jsonb_build_object('_version', to_hex(txid_current()))
                                         FROM a
                                         WHERE id = a.body ->> '_id'
-                                        AND d.body -> '_version' = a.body -> '_version'
-                                        RETURNING d.body ->> '_version'
+                                        AND d.body -> '_version' = expected_version
                                     ";
 
 impl Documents {
@@ -68,29 +65,26 @@ impl Documents {
         Ok(())
     }
 
-    pub fn save<D: Serialize + Entity + AsRef<DocMeta<D>>>(
-        &self,
-        document: &D,
-    ) -> Result<Version, Error> {
-        let json = serde_json::to_value(document)?;
+    pub fn save<D: Serialize + Entity + HasMeta<D>>(&self, document: &mut D) -> Result<(), Error> {
         let t = self.connection.transaction()?;
-        let res = if document.as_ref().version == Version::default() {
-            t.prepare_cached(INSERT_SQL)?.query(&[&json])?
+        let current_version = document.meta().version.clone();
+
+        document.meta_mut().increment_version();
+
+        let rows = if current_version == Version::default() {
+            t.prepare_cached(INSERT_SQL)?
+                .execute(&[&Jsonb(&document)])?
         } else {
-            t.prepare_cached(UPDATE_SQL)?.query(&[&json])?
+            t.prepare_cached(UPDATE_SQL)?
+                .execute(&[&Jsonb(&document), &Jsonb(&current_version)])?
         };
-        debug!("Query modified {} rows", res.len());
-        let version: String = res
-            .iter()
-            .next()
-            .ok_or_else(|| {
-                warn!("Update impacted {} rows not 1", res.len());
-                Error::from(ConcurrencyError)
-            })?
-            .get_opt(0)
-            .ok_or_else(|| failure::err_msg("Missing version column?"))??;
+        debug!("Query modified {} rows", rows);
+        if rows == 0 {
+            return Err(ConcurrencyError.into());
+        }
         t.commit()?;
-        Ok(Version::from_str(&version)?)
+
+        Ok(())
     }
 
     pub fn load<D: DeserializeOwned + Entity>(&self, id: &Id<D>) -> Result<Option<D>, Error> {
@@ -98,8 +92,7 @@ impl Documents {
         let res = load.query(&[&id.to_string()])?;
 
         if let Some(row) = res.iter().next() {
-            let json: serde_json::Value = row.get_opt(0).expect("Missing column in row?")?;
-            let doc = serde_json::from_value(json)?;
+            let Jsonb(doc) = row.get(0);
 
             Ok(Some(doc))
         } else {
@@ -114,8 +107,7 @@ impl Documents {
         debug!("Cols: {:?}; Rows: {:?}", res.columns(), res.len());
 
         if let Some(row) = res.iter().next() {
-            let json: serde_json::Value = row.get_opt(0).expect("Missing column in row?")?;
-            let doc = serde_json::from_value(json)?;
+            let Jsonb(doc) = row.get(0);
 
             Ok(Some(doc))
         } else {
@@ -129,10 +121,7 @@ impl Storage for Documents {
         Documents::load(self, id)
     }
 
-    fn save<D: Serialize + Entity + AsRef<DocMeta<D>>>(
-        &self,
-        document: &D,
-    ) -> Result<Version, Error> {
+    fn save<D: Serialize + Entity + HasMeta<D>>(&self, document: &mut D) -> Result<(), Error> {
         Documents::save(self, document)
     }
 }
@@ -160,6 +149,42 @@ impl r2d2::ManageConnection for DocumentConnectionManager {
 
     fn has_broken(&self, conn: &mut Self::Connection) -> bool {
         PostgresConnectionManager::has_broken(&self.0, &mut conn.connection)
+    }
+}
+
+impl<T: serde::Serialize> ToSql for Jsonb<T> {
+    fn to_sql(
+        &self,
+        ty: &Type,
+        out: &mut Vec<u8>,
+    ) -> Result<IsNull, Box<std::error::Error + Sync + Send>> {
+        let val = serde_json::to_value(&self.0)?;
+        val.to_sql(ty, out)
+    }
+
+    accepts!(postgres::types::JSON, postgres::types::JSONB);
+
+    to_sql_checked!();
+}
+
+impl<T: serde::de::DeserializeOwned> FromSql for Jsonb<T> {
+    fn from_sql(
+        ty: &Type,
+        raw: &[u8],
+    ) -> Result<Self, Box<std::error::Error + 'static + Send + Sync>> {
+        let val = serde_json::Value::from_sql(ty, raw)?;
+        let actual = serde_json::from_value(val)?;
+        Ok(Jsonb(actual))
+    }
+
+    accepts!(postgres::types::JSON, postgres::types::JSONB);
+}
+
+impl<T: serde::Serialize> fmt::Debug for Jsonb<T> {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_tuple("Jsonb")
+            .field(&serde_json::to_string(&self.0).unwrap_or_else(|_| "???".into()))
+            .finish()
     }
 }
 
@@ -266,9 +291,12 @@ mod test {
     impl Entity for ADocument {
         const PREFIX: &'static str = "adocument";
     }
-    impl AsRef<DocMeta<ADocument>> for ADocument {
-        fn as_ref(&self) -> &DocMeta<Self> {
+    impl HasMeta<ADocument> for ADocument {
+        fn meta(&self) -> &DocMeta<Self> {
             &self.meta
+        }
+        fn meta_mut(&mut self) -> &mut DocMeta<Self> {
+            &mut self.meta
         }
     }
 
@@ -302,15 +330,15 @@ mod test {
         // Ensure we don't accidentally "find" the document by virtue of it
         // being the first in the data file.
         for _ in 0..4 {
-            docs.save(&ADocument {
+            docs.save(&mut ADocument {
                 meta: DocMeta::new_with_id(IDGEN.generate()),
                 name: format!("{:x}", random::<usize>()),
             })
             .expect("save");
         }
-        docs.save(&some_doc).expect("save");
+        docs.save(&mut some_doc.clone()).expect("save");
         for _ in 0..4 {
-            docs.save(&ADocument {
+            docs.save(&mut ADocument {
                 meta: DocMeta::new_with_id(IDGEN.generate()),
                 name: format!("{:x}", random::<usize>()),
             })
@@ -329,7 +357,7 @@ mod test {
         env_logger::try_init().unwrap_or_default();
         let pool = pool("should_update_on_overwrite")?;
 
-        let some_doc = ADocument {
+        let mut some_doc = ADocument {
             meta: DocMeta::new_with_id(IDGEN.generate()),
             name: "Version 1".to_string(),
         };
@@ -337,17 +365,14 @@ mod test {
         let docs = pool.get()?;
 
         info!("Original document: {:?}", some_doc);
-        let version = docs.save(&some_doc).expect("save original");
+        docs.save(&mut some_doc).expect("save original");
 
         let modified_doc = ADocument {
-            meta: DocMeta {
-                version: version,
-                ..some_doc.meta
-            },
+            meta: some_doc.meta.clone(),
             name: "Version 2".to_string(),
         };
         info!("Modified document: {:?}", modified_doc);
-        docs.save(&modified_doc).expect("save modified");
+        docs.save(&mut modified_doc.clone()).expect("save modified");
 
         let loaded = docs.load(&some_doc.meta.id).expect("load");
         info!("Loaded document: {:?}", loaded);
@@ -364,7 +389,7 @@ mod test {
         let some_id = IDGEN.generate();
 
         let docs = pool.get()?;
-        docs.save(&ADocument {
+        docs.save(&mut ADocument {
             meta: DocMeta::new_with_id(IDGEN.generate()),
             name: "Dummy".to_string(),
         })
@@ -386,7 +411,7 @@ mod test {
         let docs = pool.get()?;
 
         info!("Original document: {:?}", some_doc);
-        docs.save(&some_doc).expect("save original");
+        docs.save(&mut some_doc.clone()).expect("save original");
 
         let modified_doc = ADocument {
             meta: DocMeta {
@@ -397,8 +422,12 @@ mod test {
         };
 
         info!("Modified document: {:?}", modified_doc);
-        let err = docs.save(&modified_doc).expect_err("save should fail");
+        let err = docs
+            .save(&mut modified_doc.clone())
+            .expect_err("save should fail");
 
+        info!("Save failed with: {:?}", err);
+        info!("root cause: {:?}", err.find_root_cause());
         assert_eq!(
             err.find_root_cause().downcast_ref::<ConcurrencyError>(),
             Some(&ConcurrencyError),
@@ -413,26 +442,34 @@ mod test {
         env_logger::try_init().unwrap_or_default();
         let pool = pool("should_fail_on_overwrite_with_bogus_version")?;
 
+        let docs = pool.get()?;
+
         let id = IDGEN.generate();
-        let some_doc = ADocument {
+        let mut some_doc = ADocument {
             meta: DocMeta::new_with_id(id),
             name: "Version 1".to_string(),
         };
 
-        let docs = pool.get()?;
-
         info!("Original document: {:?}", some_doc);
-        let actual = docs.save(&some_doc).expect("save original");
+        docs.save(&mut some_doc)?;
 
-        let modified_doc = ADocument {
-            meta: DocMeta::new_with_id(id),
-            name: "Version 2".to_string(),
+        let mut old_doc = ADocument {
+            meta: DocMeta::new_with_id(IDGEN.generate()),
+            name: "Old".to_string(),
         };
+        for _ in 0..4 {
+            docs.save(&mut old_doc)?;
+        }
+        debug!("Old document: {:?}", old_doc);
 
-        assert_ne!(actual, modified_doc.meta.version);
+        assert_ne!(some_doc.meta.version, old_doc.meta.version);
 
-        info!("Modified document: {:?}", modified_doc);
-        let err = docs.save(&modified_doc).expect_err("save should fail");
+        some_doc.meta.version = old_doc.meta.version;
+
+        info!("Modified document: {:?}", some_doc);
+        let err = docs
+            .save(&mut some_doc.clone())
+            .expect_err("save should fail");
 
         assert_eq!(
             err.find_root_cause().downcast_ref::<ConcurrencyError>(),
@@ -447,16 +484,26 @@ mod test {
     fn should_fail_on_new_document_with_nonzero_version() -> Result<(), Error> {
         env_logger::try_init().unwrap_or_default();
         let pool = pool("should_fail_on_new_document_with_nonzero_version")?;
+        let docs = pool.get()?;
+
+        let mut old_doc = ADocument {
+            meta: DocMeta::new_with_id(IDGEN.generate()),
+            name: "Old".to_string(),
+        };
+        for _ in 0..4 {
+            docs.save(&mut old_doc)?;
+        }
+        debug!("Old document: {:?}", old_doc);
 
         let mut meta = DocMeta::new_with_id(IDGEN.generate());
-        meta.version = Version::from_str("garbage").expect("garbage version");
+        meta.version = old_doc.meta.version;
         let name = "Version 1".to_string();
         let some_doc = ADocument { meta, name };
 
-        let docs = pool.get()?;
-
         info!("new misAsRef<DocMeta> document: {:?}", some_doc);
-        let err = docs.save(&some_doc).expect_err("save should fail");
+        let err = docs
+            .save(&mut some_doc.clone())
+            .expect_err("save should fail");
 
         assert_eq!(
             err.find_root_cause().downcast_ref::<ConcurrencyError>(),
@@ -478,9 +525,12 @@ mod test {
     impl Entity for ChattyDoc {
         const PREFIX: &'static str = "chatty";
     }
-    impl AsRef<DocMeta<ChattyDoc>> for ChattyDoc {
-        fn as_ref(&self) -> &DocMeta<Self> {
+    impl HasMeta<ChattyDoc> for ChattyDoc {
+        fn meta(&self) -> &DocMeta<Self> {
             &self.meta
+        }
+        fn meta_mut(&mut self) -> &mut DocMeta<Self> {
+            &mut self.meta
         }
     }
 
@@ -490,14 +540,14 @@ mod test {
         let pool = pool("should_enqueue_nothing_by_default")?;
         let docs = pool.get()?;
 
-        let some_doc = ChattyDoc {
+        let mut some_doc = ChattyDoc {
             meta: DocMeta::new_with_id(IDGEN.generate()),
             mbox: MailBox::default(),
         };
 
         info!("Original document: {:?}", some_doc);
 
-        docs.save(&some_doc).expect("save");
+        docs.save(&mut some_doc).expect("save");
 
         let docp = docs.load_next_unsent::<ChattyDoc>()?;
         info!("Loaded something: {:?}", docp);
@@ -519,7 +569,7 @@ mod test {
 
         some_doc.mbox.send(AMessage);
         info!("Original document: {:?}", some_doc);
-        docs.save(&some_doc).expect("save");
+        docs.save(&mut some_doc).expect("save");
 
         let docp = docs.load_next_unsent::<ChattyDoc>()?;
         info!("Loaded something: {:?}", docp);
@@ -543,12 +593,11 @@ mod test {
             mbox: MailBox::default(),
         };
 
-        let vers = docs.save(&some_doc)?;
-        some_doc.meta.version = vers;
+        docs.save(&mut some_doc)?;
 
         some_doc.mbox.send(AMessage);
         info!("Original document: {:?}", some_doc);
-        docs.save(&some_doc).expect("save");
+        docs.save(&mut some_doc).expect("save");
 
         let loaded = docs.load_next_unsent::<ChattyDoc>()?;
         info!("Loaded something: {:?}", loaded);
@@ -572,8 +621,7 @@ mod test {
         let docs = pool.get()?;
         info!("Original document: {:?}", some_doc);
 
-        let vers = docs.save(&some_doc)?;
-        some_doc.meta.version = vers;
+        docs.save(&mut some_doc)?;
 
         let doc = docs
             .load_next_unsent::<ChattyDoc>()?

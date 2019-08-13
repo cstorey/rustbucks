@@ -3,13 +3,12 @@ use std::collections::HashSet;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
-use failure::Error;
 use serde::{Deserialize, Serialize};
 
 use crate::ids::{Entity, Id};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default, Hash)]
-pub struct Version(String);
+pub struct Version(u64);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Hash)]
 #[serde(bound = "T: Entity")]
@@ -20,6 +19,11 @@ pub struct DocMeta<T> {
     pub version: Version,
     #[serde(skip)]
     pub _phantom: PhantomData<T>,
+}
+
+pub trait HasMeta<T> {
+    fn meta(&self) -> &DocMeta<T>;
+    fn meta_mut(&mut self) -> &mut DocMeta<T>;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,13 +42,9 @@ impl<T> DocMeta<T> {
             _phantom,
         }
     }
-}
 
-impl std::str::FromStr for Version {
-    type Err = Error;
-    fn from_str(val: &str) -> Result<Self, Error> {
-        let version = val.to_string();
-        Ok(Version(version))
+    pub fn increment_version(&mut self) {
+        self.version.0 += 1;
     }
 }
 
