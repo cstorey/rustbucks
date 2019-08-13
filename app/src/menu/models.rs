@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use crate::documents::DocMeta;
+use crate::documents::{DocMeta, HasMeta};
 use serde::{Deserialize, Serialize};
 
 use crate::ids::Entity;
@@ -43,13 +43,11 @@ impl Entity for Drink {
     const PREFIX: &'static str = "drink";
 }
 
-impl AsRef<DocMeta<Drink>> for Drink {
-    fn as_ref(&self) -> &DocMeta<Drink> {
+impl HasMeta<Drink> for Drink {
+    fn meta(&self) -> &DocMeta<Self> {
         &self.meta
     }
-}
-impl AsMut<DocMeta<Drink>> for Drink {
-    fn as_mut(&mut self) -> &mut DocMeta<Drink> {
+    fn meta_mut(&mut self) -> &mut DocMeta<Self> {
         &mut self.meta
     }
 }
@@ -58,13 +56,11 @@ impl Entity for DrinkList {
     const PREFIX: &'static str = "drink_list";
 }
 
-impl AsRef<DocMeta<DrinkList>> for DrinkList {
-    fn as_ref(&self) -> &DocMeta<DrinkList> {
+impl HasMeta<DrinkList> for DrinkList {
+    fn meta(&self) -> &DocMeta<Self> {
         &self.meta
     }
-}
-impl AsMut<DocMeta<DrinkList>> for DrinkList {
-    fn as_mut(&mut self) -> &mut DocMeta<DrinkList> {
+    fn meta_mut(&mut self) -> &mut DocMeta<Self> {
         &mut self.meta
     }
 }

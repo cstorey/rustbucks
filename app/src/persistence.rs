@@ -7,15 +7,12 @@ use r2d2_postgres::PostgresConnectionManager;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json;
 
-use crate::documents::{DocMeta, Version};
+use crate::documents::{HasMeta, Version};
 use crate::ids::{Entity, Id};
 
 pub trait Storage {
     fn load<D: DeserializeOwned + Entity>(&self, id: &Id<D>) -> Result<Option<D>, Error>;
-    fn save<D: Serialize + Entity + AsRef<DocMeta<D>> + AsMut<DocMeta<D>>>(
-        &self,
-        document: &mut D,
-    ) -> Result<(), Error>;
+    fn save<D: Serialize + Entity + HasMeta<D>>(&self, document: &mut D) -> Result<(), Error>;
 }
 
 #[derive(Fail, Debug, PartialEq, Eq)]
@@ -68,13 +65,10 @@ impl Documents {
         Ok(())
     }
 
-    pub fn save<D: Serialize + Entity + AsRef<DocMeta<D>> + AsMut<DocMeta<D>>>(
-        &self,
-        document: &mut D,
-    ) -> Result<(), Error> {
+    pub fn save<D: Serialize + Entity + HasMeta<D>>(&self, document: &mut D) -> Result<(), Error> {
         let json = serde_json::to_value(&document)?;
         let t = self.connection.transaction()?;
-        let res = if document.as_ref().version == Version::default() {
+        let res = if document.meta().version == Version::default() {
             t.prepare_cached(INSERT_SQL)?.query(&[&json])?
         } else {
             t.prepare_cached(UPDATE_SQL)?.query(&[&json])?
@@ -91,7 +85,7 @@ impl Documents {
             .ok_or_else(|| failure::err_msg("Missing version column?"))??;
         t.commit()?;
 
-        document.as_mut().version = Version::from_str(&version)?;
+        document.meta_mut().version = Version::from_str(&version)?;
         Ok(())
     }
 
@@ -131,10 +125,7 @@ impl Storage for Documents {
         Documents::load(self, id)
     }
 
-    fn save<D: Serialize + Entity + AsRef<DocMeta<D>> + AsMut<DocMeta<D>>>(
-        &self,
-        document: &mut D,
-    ) -> Result<(), Error> {
+    fn save<D: Serialize + Entity + HasMeta<D>>(&self, document: &mut D) -> Result<(), Error> {
         Documents::save(self, document)
     }
 }
@@ -268,14 +259,11 @@ mod test {
     impl Entity for ADocument {
         const PREFIX: &'static str = "adocument";
     }
-    impl AsRef<DocMeta<ADocument>> for ADocument {
-        fn as_ref(&self) -> &DocMeta<Self> {
+    impl HasMeta<ADocument> for ADocument {
+        fn meta(&self) -> &DocMeta<Self> {
             &self.meta
         }
-    }
-
-    impl AsMut<DocMeta<ADocument>> for ADocument {
-        fn as_mut(&mut self) -> &mut DocMeta<Self> {
+        fn meta_mut(&mut self) -> &mut DocMeta<Self> {
             &mut self.meta
         }
     }
@@ -505,13 +493,11 @@ mod test {
     impl Entity for ChattyDoc {
         const PREFIX: &'static str = "chatty";
     }
-    impl AsRef<DocMeta<ChattyDoc>> for ChattyDoc {
-        fn as_ref(&self) -> &DocMeta<Self> {
+    impl HasMeta<ChattyDoc> for ChattyDoc {
+        fn meta(&self) -> &DocMeta<Self> {
             &self.meta
         }
-    }
-    impl AsMut<DocMeta<ChattyDoc>> for ChattyDoc {
-        fn as_mut(&mut self) -> &mut DocMeta<Self> {
+        fn meta_mut(&mut self) -> &mut DocMeta<Self> {
             &mut self.meta
         }
     }

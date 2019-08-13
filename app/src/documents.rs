@@ -22,6 +22,11 @@ pub struct DocMeta<T> {
     pub _phantom: PhantomData<T>,
 }
 
+pub trait HasMeta<T> {
+    fn meta(&self) -> &DocMeta<T>;
+    fn meta_mut(&mut self) -> &mut DocMeta<T>;
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(super) struct MailBox<A: Eq + Hash> {
     #[serde(rename = "_outgoing")]
