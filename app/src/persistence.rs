@@ -4,7 +4,7 @@ use std::str::FromStr;
 use failure::Error;
 use failure::Fail;
 use log::*;
-use postgres::types::{IsNull, ToSql, Type};
+use postgres::types::{FromSql, IsNull, ToSql, Type};
 use postgres::{accepts, to_sql_checked};
 use r2d2_postgres::PostgresConnectionManager;
 use serde::{de::DeserializeOwned, Serialize};
@@ -98,8 +98,7 @@ impl Documents {
         let res = load.query(&[&id.to_string()])?;
 
         if let Some(row) = res.iter().next() {
-            let json: serde_json::Value = row.get_opt(0).expect("Missing column in row?")?;
-            let doc = serde_json::from_value(json)?;
+            let Jsonb(doc) = row.get(0);
 
             Ok(Some(doc))
         } else {
@@ -114,8 +113,7 @@ impl Documents {
         debug!("Cols: {:?}; Rows: {:?}", res.columns(), res.len());
 
         if let Some(row) = res.iter().next() {
-            let json: serde_json::Value = row.get_opt(0).expect("Missing column in row?")?;
-            let doc = serde_json::from_value(json)?;
+            let Jsonb(doc) = row.get(0);
 
             Ok(Some(doc))
         } else {
@@ -173,6 +171,19 @@ impl<T: serde::Serialize> ToSql for Jsonb<T> {
     accepts!(postgres::types::JSON, postgres::types::JSONB);
 
     to_sql_checked!();
+}
+
+impl<T: serde::de::DeserializeOwned> FromSql for Jsonb<T> {
+    fn from_sql(
+        ty: &Type,
+        raw: &[u8],
+    ) -> Result<Self, Box<std::error::Error + 'static + Send + Sync>> {
+        let val = serde_json::Value::from_sql(ty, raw)?;
+        let actual = serde_json::from_value(val)?;
+        Ok(Jsonb(actual))
+    }
+
+    accepts!(postgres::types::JSON, postgres::types::JSONB);
 }
 
 impl<T: serde::Serialize> fmt::Debug for Jsonb<T> {
