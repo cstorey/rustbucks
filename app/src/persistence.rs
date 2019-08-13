@@ -1,5 +1,4 @@
 use std::fmt;
-use std::str::FromStr;
 
 use failure::Error;
 use failure::Fail;
@@ -39,7 +38,7 @@ const LOAD_NEXT_SQL: &'static str = "SELECT body
                                      WHERE jsonb_array_length(body -> '_outgoing') > 0
                                      LIMIT 1
 ";
-const GET_VERSION: &'static str = "SELECT to_hex(txid_current())";
+const GET_VERSION: &'static str = "SELECT to_jsonb(txid_current())";
 
 const INSERT_SQL: &'static str = "WITH a as (
                                 SELECT $1::jsonb as body
@@ -71,7 +70,7 @@ impl Documents {
     pub fn save<D: Serialize + Entity + HasMeta<D>>(&self, document: &mut D) -> Result<(), Error> {
         let t = self.connection.transaction()?;
         let current_version = document.meta().version.clone();
-        let next_version: String = t
+        let Jsonb(next_version) = t
             .prepare_cached(GET_VERSION)?
             .query(&[])?
             .into_iter()
@@ -79,7 +78,7 @@ impl Documents {
             .ok_or_else(|| failure::err_msg("Missing row for version query?"))?
             .get(0);
 
-        document.meta_mut().version = Version::from_str(&next_version)?;
+        document.meta_mut().version = next_version;
 
         let rows = if current_version == Version::default() {
             t.prepare_cached(INSERT_SQL)?
