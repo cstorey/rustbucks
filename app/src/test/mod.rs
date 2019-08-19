@@ -74,24 +74,15 @@ fn trivial_order_workflow_as_transaction_script() -> Fallible<()> {
     let mut tea = Drink::new(idgen.generate(), "bubble tea");
     sys.store(&mut tea)?;
 
-    let order = {
-        let mut drinker = Drinker::incarnate(&idgen);
-        sys.store(&mut drinker)?;
+    let mut drinker = Drinker::incarnate(&idgen);
+    sys.store(&mut drinker)?;
 
-        let mut order = Order::for_drink(tea.meta.id, drinker.meta.id, &idgen);
-        sys.store(&mut order)?;
-        order
-    };
+    let mut order = Order::for_drink(tea.meta.id, drinker.meta.id, &idgen);
+    sys.store(&mut order)?;
 
-    let mut drinker = sys
-        .load(&order.drinker_id)?
-        .ok_or_else(|| failure::err_msg("missing drink"))?;
     drinker.deliver_drink(order.drink_id);
     sys.store(&mut drinker)?;
 
-    let drinker = sys.load(&drinker.meta.id)?.expect("drinker");
-    // I mean, this is great, but you don't so much receive a _recipie_ but
-    // an actual _new drink_.
     assert!(
         drinker.has_drink(tea.meta.id),
         "Drinker {:?} should have received a {:?}",
