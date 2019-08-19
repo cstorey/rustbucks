@@ -81,7 +81,7 @@ impl std::str::FromStr for UntypedId {
 }
 
 impl fmt::Display for UntypedId {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut buf = [0u8; ENCODED_BARE_ID_LEN];
         BASE32_DNSSEC.encode_mut(&self.to_bytes(), &mut buf);
 
@@ -102,7 +102,7 @@ impl<'de> Deserialize<'de> for UntypedId {
         impl<'vi> de::Visitor<'vi> for IdStrVisitor {
             type Value = UntypedId;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                 write!(formatter, "an UntypedId string")
             }
 

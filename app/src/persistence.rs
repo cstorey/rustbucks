@@ -157,7 +157,7 @@ impl<T: serde::Serialize> ToSql for Jsonb<T> {
         &self,
         ty: &Type,
         out: &mut Vec<u8>,
-    ) -> Result<IsNull, Box<std::error::Error + Sync + Send>> {
+    ) -> Result<IsNull, Box<dyn std::error::Error + Sync + Send>> {
         let val = serde_json::to_value(&self.0)?;
         val.to_sql(ty, out)
     }
@@ -171,7 +171,7 @@ impl<T: serde::de::DeserializeOwned> FromSql for Jsonb<T> {
     fn from_sql(
         ty: &Type,
         raw: &[u8],
-    ) -> Result<Self, Box<std::error::Error + 'static + Send + Sync>> {
+    ) -> Result<Self, Box<dyn std::error::Error + 'static + Send + Sync>> {
         let val = serde_json::Value::from_sql(ty, raw)?;
         let actual = serde_json::from_value(val)?;
         Ok(Jsonb(actual))
@@ -181,7 +181,7 @@ impl<T: serde::de::DeserializeOwned> FromSql for Jsonb<T> {
 }
 
 impl<T: serde::Serialize> fmt::Debug for Jsonb<T> {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.debug_tuple("Jsonb")
             .field(&serde_json::to_string(&self.0).unwrap_or_else(|_| "???".into()))
             .finish()
