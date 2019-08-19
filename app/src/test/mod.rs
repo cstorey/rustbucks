@@ -7,7 +7,6 @@ use crate::drinker::Drinker;
 use crate::ids::IdGen;
 use crate::menu::Drink;
 use crate::orders::Order;
-use crate::persistence::Storage;
 
 mod junk_drawer;
 
