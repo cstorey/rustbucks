@@ -14,7 +14,7 @@ mod junk_drawer;
 #[test]
 fn trivial_order_workflow_as_transaction_script() -> Fallible<()> {
     env_logger::try_init().unwrap_or_default();
-    let pool = junk_drawer::pool("order_workflow")?;
+    let pool = junk_drawer::pool("trivial_order_workflow_as_transaction_script")?;
     let conn = pool.get()?;
     let idgen = IdGen::new();
     let mut tea = Drink::new(idgen.generate(), "bubble tea");
