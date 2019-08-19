@@ -39,3 +39,15 @@ fn trivial_order_workflow_as_transaction_script() -> Fallible<()> {
     {}
     Ok(())
 }
+
+#[test]
+#[ignore]
+fn trivial_order_workflow_for_two_teas() -> Fallible<()> {
+    unimplemented!("trivial_order_workflow_when_out_of_milk")
+}
+
+#[test]
+#[ignore]
+fn trivial_order_workflow_when_out_of_milk() -> Fallible<()> {
+    unimplemented!("trivial_order_workflow_when_out_of_milk")
+}
