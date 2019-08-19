@@ -10,6 +10,7 @@ pub mod config;
 mod drinker;
 mod menu;
 mod orders;
+mod product;
 #[cfg(test)]
 mod test;
 

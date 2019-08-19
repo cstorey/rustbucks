@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 
 use crate::menu;
+use crate::product::Product;
 use infra::documents::{DocMeta, HasMeta};
 use infra::ids::{Entity, Id, IdGen};
 
@@ -10,7 +11,7 @@ use infra::ids::{Entity, Id, IdGen};
 pub struct Drinker {
     #[serde(flatten)]
     pub(crate) meta: DocMeta<Drinker>,
-    pub(crate) received_drinks: HashSet<Id<menu::Drink>>,
+    pub(crate) received_drinks: HashSet<Id<Product>>,
 }
 
 impl Drinker {
