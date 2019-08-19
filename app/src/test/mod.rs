@@ -28,7 +28,7 @@ fn trivial_order_workflow_as_transaction_script() -> Fallible<()> {
     conn.save(&mut order)?;
 
     let made_drink = order.make(&idgen);
-    assert_eq!(made_drink.recipie, tea.meta.id);
+    assert_eq!(made_drink.recipe, tea.meta.id);
     drinker.deliver_drink(&made_drink);
     conn.save(&mut drinker)?;
 
@@ -56,8 +56,8 @@ impl Order {
     fn make(&self, idgen: &IdGen) -> Product {
         let id = idgen.generate();
         let meta = DocMeta::new_with_id(id);
-        let recipie = self.drink_id;
-        Product { meta, recipie }
+        let recipe = self.drink_id;
+        Product { meta, recipe }
     }
 }
 

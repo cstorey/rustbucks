@@ -8,7 +8,7 @@ use infra::documents::{DocMeta, HasMeta};
 pub struct Product {
     #[serde(flatten)]
     pub(crate) meta: DocMeta<Product>,
-    pub(crate) recipie: Id<Drink>,
+    pub(crate) recipe: Id<Drink>,
 }
 
 impl Entity for Product {
