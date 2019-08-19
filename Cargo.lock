@@ -2940,7 +2940,7 @@ dependencies = [
 [[package]]
 name = "weft"
 version = "0.1.1"
-source = "git+https://github.com/cstorey/weft.git#4c49f848729cbd95a9e893601bc9e903f106c0f8"
+source = "git+https://github.com/cstorey/weft.git#ac91e198a3e6c663e112842c633a788a4fff24b2"
 dependencies = [
  "html5ever 0.24.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "markup5ever 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2950,7 +2950,7 @@ dependencies = [
 [[package]]
 name = "weft_derive"
 version = "0.1.1"
-source = "git+https://github.com/cstorey/weft.git#4c49f848729cbd95a9e893601bc9e903f106c0f8"
+source = "git+https://github.com/cstorey/weft.git#ac91e198a3e6c663e112842c633a788a4fff24b2"
 dependencies = [
  "env_logger 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
