@@ -1,12 +1,12 @@
-extern crate actix;
-extern crate actix_web;
-extern crate failure;
-extern crate hyper;
+use actix;
+
+use failure;
+
 #[macro_use]
 extern crate log;
-extern crate rustbucks;
-extern crate structopt;
-extern crate toml;
+use rustbucks;
+use structopt;
+use toml;
 #[macro_use]
 extern crate serde_derive;
 

@@ -83,7 +83,7 @@ impl<T> Id<T> {
 }
 
 impl<T: Entity> fmt::Display for Id<T> {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut buf = [0u8; ENCODED_BARE_ID_LEN];
         BASE32_DNSSEC.encode_mut(&self.to_bytes(), &mut buf);
 
@@ -173,7 +173,7 @@ impl<'de, T: Entity> Deserialize<'de> for Id<T> {
         impl<'vi, T: Entity> de::Visitor<'vi> for IdStrVisitor<T> {
             type Value = Id<T>;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                 write!(formatter, "an Id string")
             }
 
@@ -187,7 +187,7 @@ impl<'de, T: Entity> Deserialize<'de> for Id<T> {
 }
 
 impl fmt::Display for IdParseError {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             &IdParseError::InvalidPrefix => write!(fmt, "Invalid prefix"),
             &IdParseError::Unparseable => write!(fmt, "Unparseable Id"),
