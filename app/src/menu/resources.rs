@@ -104,7 +104,7 @@ impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Men
         me.load_drink(id).from_err().map(move |drinkp| {
             drinkp.map(|drink| {
                 WeftResponse::of(WithTemplate {
-                    value: DrinkWidget { drink: drink },
+                    value: DrinkWidget { drink },
                 })
             })
         })
