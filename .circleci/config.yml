@@ -33,6 +33,7 @@ jobs:
         name: "Restore target"
         keys:
         - target-{{ checksum "~/rust-version" }}-{{ checksum "Cargo.lock" }}
+    - run: cargo clean -p infra
     - run: cargo clean -p rustbucks
     - run: cargo build --all --tests --locked
     - save_cache:
@@ -48,4 +49,4 @@ jobs:
     - run:
         name: Waiting for Postgres to be ready
         command: ./bin/await-postgres
-    - run: env RUST_BACKTRACE=1 cargo test -p rustbucks --locked
+    - run: env RUST_BACKTRACE=1 cargo test --locked

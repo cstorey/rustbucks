@@ -7,7 +7,7 @@ use r2d2::Pool;
 use r2d2_postgres::{PostgresConnectionManager, TlsMode};
 use serde::{Deserialize, Serialize};
 
-use crate::persistence;
+use infra::persistence;
 
 #[derive(Deserialize, Serialize, Debug, Default)]
 pub struct Config {

@@ -27,13 +27,13 @@ pub trait HasMeta<T> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(super) struct MailBox<A: Eq + Hash> {
+pub struct MailBox<A: Eq + Hash> {
     #[serde(rename = "_outgoing")]
     pub(super) outgoing: HashSet<A>,
 }
 
 impl<T> DocMeta<T> {
-    pub(crate) fn new_with_id(id: Id<T>) -> Self {
+    pub fn new_with_id(id: Id<T>) -> Self {
         let version = Version::default();
         let _phantom = PhantomData;
         DocMeta {
@@ -49,13 +49,13 @@ impl<T> DocMeta<T> {
 }
 
 impl<A: Hash + Eq> MailBox<A> {
-    pub(crate) fn empty() -> Self {
+    pub fn empty() -> Self {
         let outgoing = HashSet::new();
 
         MailBox { outgoing }
     }
 
-    pub(crate) fn send(&mut self, msg: A) {
+    pub fn send(&mut self, msg: A) {
         self.outgoing.insert(msg);
     }
 }

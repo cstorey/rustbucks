@@ -7,8 +7,7 @@ extern crate log;
 use rustbucks;
 use structopt;
 use toml;
-#[macro_use]
-extern crate serde_derive;
+use serde::Deserialize;
 
 use std::fs::File;
 use std::io::Read;

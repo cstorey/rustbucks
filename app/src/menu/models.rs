@@ -1,10 +1,10 @@
 use std::collections::BTreeSet;
 
-use crate::documents::{DocMeta, HasMeta};
+use infra::documents::{DocMeta, HasMeta};
 use serde::{Deserialize, Serialize};
 
-use crate::ids::Entity;
-use crate::ids::Id;
+use infra::ids::Entity;
+use infra::ids::Id;
 
 #[derive(Deserialize, Serialize, Debug, Clone, Hash)]
 pub struct Drink {

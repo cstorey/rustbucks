@@ -77,7 +77,7 @@ impl<T> Id<T> {
         }
     }
 
-    pub(crate) fn untyped(&self) -> UntypedId {
+    pub fn untyped(&self) -> UntypedId {
         self.inner
     }
 }

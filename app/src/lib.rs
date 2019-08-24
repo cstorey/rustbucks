@@ -3,14 +3,13 @@ use failure::{Error, ResultExt};
 use log::*;
 use weft_derive::WeftRenderable;
 
+use infra::ids;
+use infra::persistence;
+
 pub mod config;
-mod documents;
-mod ids;
 mod menu;
 mod orders;
-mod persistence;
 mod templates;
-mod untyped_ids;
 
 #[derive(Debug, WeftRenderable)]
 #[template(path = "src/base.html")]
