@@ -5,9 +5,9 @@ use failure;
 #[macro_use]
 extern crate log;
 use rustbucks;
+use serde::Deserialize;
 use structopt;
 use toml;
-use serde::Deserialize;
 
 use std::fs::File;
 use std::io::Read;

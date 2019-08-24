@@ -1,13 +1,12 @@
-use failure::{Error, ResultExt};
-use futures::Future;
-
 use actix_threadpool::BlockingError;
 use actix_web::{http, web, HttpRequest, HttpResponse, Responder};
+use failure::{Error, ResultExt};
+use futures::Future;
 use log::*;
 use r2d2::Pool;
+use weft_actix::WeftResponse;
 use weft_derive::WeftRenderable;
 
-use crate::templates::WeftResponse;
 use crate::WithTemplate;
 use infra::ids::Id;
 use infra::persistence::*;

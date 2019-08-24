@@ -2056,6 +2056,7 @@ dependencies = [
  "toml 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "url 2.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "weft 0.1.1 (git+https://github.com/cstorey/weft.git)",
+ "weft-actix 0.1.1 (git+https://github.com/cstorey/weft.git)",
  "weft_derive 0.1.1 (git+https://github.com/cstorey/weft.git)",
 ]
 
@@ -2881,7 +2882,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "weft"
 version = "0.1.1"
-source = "git+https://github.com/cstorey/weft.git#ac91e198a3e6c663e112842c633a788a4fff24b2"
+source = "git+https://github.com/cstorey/weft.git#f2f76ff9c843ac675d659be06a3270b95be8902b"
 dependencies = [
  "html5ever 0.24.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "markup5ever 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2889,9 +2890,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "weft-actix"
+version = "0.1.1"
+source = "git+https://github.com/cstorey/weft.git#f2f76ff9c843ac675d659be06a3270b95be8902b"
+dependencies = [
+ "actix-web 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "weft 0.1.1 (git+https://github.com/cstorey/weft.git)",
+ "weft_derive 0.1.1 (git+https://github.com/cstorey/weft.git)",
+]
+
+[[package]]
 name = "weft_derive"
 version = "0.1.1"
-source = "git+https://github.com/cstorey/weft.git#ac91e198a3e6c663e112842c633a788a4fff24b2"
+source = "git+https://github.com/cstorey/weft.git#f2f76ff9c843ac675d659be06a3270b95be8902b"
 dependencies = [
  "env_logger 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3279,6 +3290,7 @@ dependencies = [
 "checksum want 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b6395efa4784b027708f7451087e647ec73cc74f5d9bc2e418404248d679a230"
 "checksum wasi 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "fd5442abcac6525a045cc8c795aedb60da7a2e5e89c7bf18a0d5357849bb23c7"
 "checksum weft 0.1.1 (git+https://github.com/cstorey/weft.git)" = "<none>"
+"checksum weft-actix 0.1.1 (git+https://github.com/cstorey/weft.git)" = "<none>"
 "checksum weft_derive 0.1.1 (git+https://github.com/cstorey/weft.git)" = "<none>"
 "checksum widestring 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "effc0e4ff8085673ea7b9b2e3c73f6bd4d118810c9009ed8f1e16bd96c331db6"
 "checksum winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)" = "167dc9d6949a9b857f3451275e911c3f44255842c1f7a76f33c55103a909087a"

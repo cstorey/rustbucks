@@ -9,7 +9,6 @@ use infra::persistence;
 pub mod config;
 mod menu;
 mod orders;
-mod templates;
 
 #[derive(Debug, WeftRenderable)]
 #[template(path = "src/base.html")]
