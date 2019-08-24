@@ -7,10 +7,10 @@ use log::*;
 use r2d2::Pool;
 use weft_derive::WeftRenderable;
 
-use crate::persistence::*;
 use crate::templates::WeftResponse;
 use crate::WithTemplate;
 use infra::ids::Id;
+use infra::persistence::*;
 use infra::untyped_ids::UntypedId;
 
 use super::models::{Drink, DrinkList};

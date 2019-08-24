@@ -8,10 +8,10 @@ use serde::Deserialize;
 use weft_derive::WeftRenderable;
 
 use crate::menu::Drink;
-use crate::persistence::*;
 use crate::templates::WeftResponse;
 use crate::WithTemplate;
 use infra::ids::{Id, IdGen};
+use infra::persistence::*;
 use infra::untyped_ids::UntypedId;
 
 use super::models::Order;

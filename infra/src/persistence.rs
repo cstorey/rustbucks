@@ -9,8 +9,8 @@ use r2d2_postgres::PostgresConnectionManager;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json;
 
-use infra::documents::{HasMeta, Version};
-use infra::ids::{Entity, Id};
+use crate::documents::{HasMeta, Version};
+use crate::ids::{Entity, Id};
 
 pub trait Storage {
     fn load<D: DeserializeOwned + Entity>(&self, id: &Id<D>) -> Result<Option<D>, Error>;
@@ -191,9 +191,9 @@ impl<T: serde::Serialize> fmt::Debug for Jsonb<T> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::documents::*;
+    use crate::ids;
     use failure::ResultExt;
-    use infra::documents::*;
-    use infra::ids;
     use lazy_static::lazy_static;
     use r2d2::Pool;
     use r2d2_postgres::{PostgresConnectionManager, TlsMode};

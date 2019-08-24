@@ -4,11 +4,11 @@ use log::*;
 use weft_derive::WeftRenderable;
 
 use infra::ids;
+use infra::persistence;
 
 pub mod config;
 mod menu;
 mod orders;
-mod persistence;
 mod templates;
 
 #[derive(Debug, WeftRenderable)]
