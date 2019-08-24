@@ -18,6 +18,7 @@ fn trivial_order_workflow_as_transaction_script() -> Fallible<()> {
     let pool = junk_drawer::pool("trivial_order_workflow_as_transaction_script")?;
     let conn = pool.get()?;
     let idgen = IdGen::new();
+
     let mut tea = Drink::new(idgen.generate(), "bubble tea");
     conn.save(&mut tea)?;
 
@@ -39,6 +40,34 @@ fn trivial_order_workflow_as_transaction_script() -> Fallible<()> {
         tea
     );
     Ok(())
+}
+
+#[cfg(never)]
+#[test]
+fn behavioral_sketch() -> Fallible<()> {
+    // this, this is kinda what I started with in `tests/`.
+    // Think about how we can use something like
+    // https://docs.rs/tower-service/0.2.0/tower_service/trait.Service.html
+    env_logger::try_init().unwrap_or_default();
+    let pool = crate::persistence::test::pool("behavioral_sketch")?;
+    let idgen = IdGen::new();
+
+    let menus = MenuService::new(pool, idgen)?;
+    let orders = OrderService::new(pool, idgen)?;
+
+    let tea_recipe = menus
+        .list_recipes()?
+        .into_iter()
+        .find(|d| drink.name == "Bubble Tea")
+        .ok_or_else(|| failure::err_msg("No bubble tea?"))?;
+
+    let order = orders.place_order(tea_recipe.meta().id)?;
+
+    orders.pay_for_order(order)?;
+    while !orders.is_ready(order)? {
+        pause();
+    }
+    let drink = orders.take(order)?;
 }
 
 #[cfg(test)]
@@ -68,6 +97,7 @@ fn trivial_order_workflow_for_two_teas() -> Fallible<()> {
     let pool = junk_drawer::pool("trivial_order_workflow_for_two_teas")?;
     let conn = pool.get()?;
     let idgen = IdGen::new();
+
     let mut tea = Drink::new(idgen.generate(), "bubble tea");
     conn.save(&mut tea)?;
 

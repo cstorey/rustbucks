@@ -159,8 +159,13 @@ impl SomethingBarista {
     }
 }
 
+// We really want to specify the behavior here from the perspective of one
+// actor at a time. Otherwise, it's like having some invisible ghost standing
+// over everyone's shoulder micromanaging the fuck out of them. Put another
+// way, no wonder this was confusing–we had ~O(N^2) possible interactions, and
+// none of them were quite made obvious.
 #[test]
-fn should_serve_drink_partial() {
+fn customer_should_be_able_order_drink() {
     env_logger::try_init().unwrap_or(());
 
     let scenario = SomethingScenario::new().expect("new scenario");
