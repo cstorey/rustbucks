@@ -16,7 +16,7 @@ use infra::untyped_ids::UntypedId;
 
 use super::models::Order;
 
-const PREFIX: &'static str = "/orders";
+const PREFIX: &str = "/orders";
 
 #[derive(Debug)]
 pub struct Orders<M: r2d2::ManageConnection> {

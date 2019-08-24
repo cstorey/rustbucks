@@ -1,7 +1,7 @@
 use actix_web::{self, HttpRequest, HttpResponse, Responder};
 use weft::WeftRenderable;
 
-const TEXT_HTML: &'static str = "text/html; charset=utf-8";
+const TEXT_HTML: &str = "text/html; charset=utf-8";
 
 pub struct WeftResponse<T>(T);
 

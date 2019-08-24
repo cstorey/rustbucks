@@ -15,7 +15,7 @@ use infra::untyped_ids::UntypedId;
 
 use super::models::{Drink, DrinkList};
 
-const PREFIX: &'static str = "/menu";
+const PREFIX: &str = "/menu";
 
 #[derive(Debug)]
 pub struct Menu<M: r2d2::ManageConnection> {
