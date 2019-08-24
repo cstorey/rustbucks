@@ -6,7 +6,6 @@ use weft_derive::WeftRenderable;
 use infra::ids;
 
 pub mod config;
-mod documents;
 mod menu;
 mod orders;
 mod persistence;

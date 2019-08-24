@@ -9,7 +9,7 @@ use r2d2_postgres::PostgresConnectionManager;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json;
 
-use crate::documents::{HasMeta, Version};
+use infra::documents::{HasMeta, Version};
 use infra::ids::{Entity, Id};
 
 pub trait Storage {
@@ -191,8 +191,8 @@ impl<T: serde::Serialize> fmt::Debug for Jsonb<T> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::documents::*;
     use failure::ResultExt;
+    use infra::documents::*;
     use infra::ids;
     use lazy_static::lazy_static;
     use r2d2::Pool;

@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 
 use serde::{Deserialize, Serialize};
 
-use infra::ids::{Entity, Id};
+use crate::ids::{Entity, Id};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default, Hash)]
 pub struct Version(u64);
@@ -27,13 +27,13 @@ pub trait HasMeta<T> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(super) struct MailBox<A: Eq + Hash> {
+pub struct MailBox<A: Eq + Hash> {
     #[serde(rename = "_outgoing")]
     pub(super) outgoing: HashSet<A>,
 }
 
 impl<T> DocMeta<T> {
-    pub(crate) fn new_with_id(id: Id<T>) -> Self {
+    pub fn new_with_id(id: Id<T>) -> Self {
         let version = Version::default();
         let _phantom = PhantomData;
         DocMeta {
@@ -49,13 +49,13 @@ impl<T> DocMeta<T> {
 }
 
 impl<A: Hash + Eq> MailBox<A> {
-    pub(crate) fn empty() -> Self {
+    pub fn empty() -> Self {
         let outgoing = HashSet::new();
 
         MailBox { outgoing }
     }
 
-    pub(crate) fn send(&mut self, msg: A) {
+    pub fn send(&mut self, msg: A) {
         self.outgoing.insert(msg);
     }
 }

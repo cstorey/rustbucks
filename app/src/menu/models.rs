@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use crate::documents::{DocMeta, HasMeta};
+use infra::documents::{DocMeta, HasMeta};
 use serde::{Deserialize, Serialize};
 
 use infra::ids::Entity;
