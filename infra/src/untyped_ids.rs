@@ -60,7 +60,7 @@ impl UntypedId {
         UntypedId { stamp, random }
     }
 
-    pub(crate) fn typed<T>(&self) -> Id<T> {
+    pub fn typed<T>(&self) -> Id<T> {
         Id::from_untyped(*self)
     }
 }

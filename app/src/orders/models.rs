@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::documents::{DocMeta, HasMeta, MailBox};
-use crate::ids::IdGen;
-use crate::ids::{Entity, Id};
 use crate::menu::Drink;
+use infra::ids::IdGen;
+use infra::ids::{Entity, Id};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(super) struct Order {
@@ -47,7 +47,7 @@ impl HasMeta<Order> for Order {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::ids::Id;
+    use infra::ids::Id;
     use maplit::hashset;
 
     #[test]

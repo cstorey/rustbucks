@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 
 use serde::{Deserialize, Serialize};
 
-use crate::ids::{Entity, Id};
+use infra::ids::{Entity, Id};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default, Hash)]
 pub struct Version(u64);

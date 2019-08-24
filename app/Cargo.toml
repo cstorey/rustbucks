@@ -21,7 +21,6 @@ r2d2_postgres = "0.14.0"
 rand = "0.7.0"
 serde = {version="1.0.99", features=["derive"]}
 serde_json = "1.0.40"
-siphasher = "0.3.0"
 structopt = "0.2.18"
 tokio = "0.1.22"
 toml = "0.5.3"
@@ -33,7 +32,7 @@ actix-http = "0.2.8"
 actix-threadpool = "0.1.2"
 jemallocator-global = "0.3.2"
 actix-files = "0.1.4"
-data-encoding = "2.1.2"
+infra = { path = "../infra" }
 
 [dependencies.postgres]
 features = ["with-serde_json"]

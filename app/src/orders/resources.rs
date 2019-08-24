@@ -7,12 +7,12 @@ use r2d2::Pool;
 use serde::Deserialize;
 use weft_derive::WeftRenderable;
 
-use crate::ids::{Id, IdGen};
 use crate::menu::Drink;
 use crate::persistence::*;
 use crate::templates::WeftResponse;
-use crate::untyped_ids::UntypedId;
 use crate::WithTemplate;
+use infra::ids::{Id, IdGen};
+use infra::untyped_ids::UntypedId;
 
 use super::models::Order;
 
