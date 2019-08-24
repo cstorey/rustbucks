@@ -165,7 +165,7 @@ impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Men
             f(&*docs)
         })
         .map_err(|e| match e {
-            BlockingError::Error(e) => e.into(),
+            BlockingError::Error(e) => e,
             c @ BlockingError::Canceled => failure::format_err!("{}", c),
         })
     }

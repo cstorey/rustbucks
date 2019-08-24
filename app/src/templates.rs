@@ -18,7 +18,7 @@ impl<T: WeftRenderable> Responder for WeftResponse<T> {
     fn respond_to(self, _: &HttpRequest) -> Result<HttpResponse, Self::Error> {
         let WeftResponse(data) = self;
         weft::render_to_string(&data)
-            .map_err(|e| actix_web::Error::from(e))
+            .map_err(actix_web::Error::from)
             .map(|html| HttpResponse::Ok().content_type(TEXT_HTML).body(html))
     }
 }
