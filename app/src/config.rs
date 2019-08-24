@@ -102,6 +102,6 @@ impl EnvLogger {
 
         b.default_format_timestamp_nanos(self.timestamp_nanos);
 
-        return b;
+        b
     }
 }
