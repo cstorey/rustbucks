@@ -15,6 +15,7 @@ jobs:
       image: postgres:11.2-alpine
     steps:
     - checkout
+    - run: rustup component add clippy
     - restore_cache:
         name: "Restore registry index"
         key: registry
@@ -36,6 +37,7 @@ jobs:
     - run: cargo clean -p infra
     - run: cargo clean -p rustbucks
     - run: cargo build --all --tests --locked
+    - run: cargo clippy
     - save_cache:
         name: "Save registry cache"
         key: registry-cache-{{ checksum "Cargo.lock" }}-{{ .BuildNum }}
