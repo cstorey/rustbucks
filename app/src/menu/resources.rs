@@ -15,7 +15,7 @@ use infra::untyped_ids::UntypedId;
 
 use super::models::{Drink, DrinkList};
 
-const PREFIX: &'static str = "/menu";
+const PREFIX: &str = "/menu";
 
 #[derive(Debug)]
 pub struct Menu<M: r2d2::ManageConnection> {
@@ -104,7 +104,7 @@ impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Men
         me.load_drink(id).from_err().map(move |drinkp| {
             drinkp.map(|drink| {
                 WeftResponse::of(WithTemplate {
-                    value: DrinkWidget { drink: drink },
+                    value: DrinkWidget { drink },
                 })
             })
         })
@@ -165,7 +165,7 @@ impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Men
             f(&*docs)
         })
         .map_err(|e| match e {
-            BlockingError::Error(e) => e.into(),
+            BlockingError::Error(e) => e,
             c @ BlockingError::Canceled => failure::format_err!("{}", c),
         })
     }

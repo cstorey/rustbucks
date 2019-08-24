@@ -78,13 +78,13 @@ pub struct EnvLogger {
 
 impl LogLevel {
     fn to_filter(&self) -> log::LevelFilter {
-        match self {
-            &LogLevel::Off => log::LevelFilter::Off,
-            &LogLevel::Error => log::LevelFilter::Error,
-            &LogLevel::Warn => log::LevelFilter::Warn,
-            &LogLevel::Info => log::LevelFilter::Info,
-            &LogLevel::Debug => log::LevelFilter::Debug,
-            &LogLevel::Trace => log::LevelFilter::Trace,
+        match *self {
+            LogLevel::Off => log::LevelFilter::Off,
+            LogLevel::Error => log::LevelFilter::Error,
+            LogLevel::Warn => log::LevelFilter::Warn,
+            LogLevel::Info => log::LevelFilter::Info,
+            LogLevel::Debug => log::LevelFilter::Debug,
+            LogLevel::Trace => log::LevelFilter::Trace,
         }
     }
 }
@@ -102,6 +102,6 @@ impl EnvLogger {
 
         b.default_format_timestamp_nanos(self.timestamp_nanos);
 
-        return b;
+        b
     }
 }

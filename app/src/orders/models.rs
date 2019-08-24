@@ -23,11 +23,12 @@ impl Order {
         let id = idgen.generate();
         let mut mbox = MailBox::empty();
         mbox.send(OrderDst::Barista);
+        let meta = DocMeta::new_with_id(id);
 
         Order {
-            meta: DocMeta::new_with_id(id),
-            mbox: mbox,
-            drink_id: drink_id,
+            meta,
+            mbox,
+            drink_id,
         }
     }
 }

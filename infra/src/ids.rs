@@ -29,7 +29,7 @@ pub trait Entity {
     const PREFIX: &'static str;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct IdGen {}
 
 const DIVIDER: &str = ".";
@@ -46,7 +46,7 @@ impl<T> Id<T> {
 
 impl IdGen {
     pub fn new() -> Self {
-        IdGen {}
+        Default::default()
     }
 
     pub fn generate<T>(&self) -> Id<T> {
@@ -120,7 +120,7 @@ impl<T: Entity> std::str::FromStr for Id<T> {
             .decode_mut(b64.as_bytes(), &mut bytes)
             .map_err(|e| failure::format_err!("{:?}", e))?;
 
-        return Ok(Self::from_bytes(&bytes[..]));
+        Ok(Self::from_bytes(&bytes[..]))
     }
 }
 
@@ -189,8 +189,8 @@ impl<'de, T: Entity> Deserialize<'de> for Id<T> {
 impl fmt::Display for IdParseError {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            &IdParseError::InvalidPrefix => write!(fmt, "Invalid prefix"),
-            &IdParseError::Unparseable => write!(fmt, "Unparseable Id"),
+            IdParseError::InvalidPrefix => write!(fmt, "Invalid prefix"),
+            IdParseError::Unparseable => write!(fmt, "Unparseable Id"),
         }
     }
 }
