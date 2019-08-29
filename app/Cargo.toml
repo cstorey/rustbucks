@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 actix = "0.8.3"
-actix-web = "1.0.5"
+actix-web = "1.0.7"
 env_logger = "0.6.2"
 envy = "0.4.0"
 failure = "0.1.3"
