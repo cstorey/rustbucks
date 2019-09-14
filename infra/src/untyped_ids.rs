@@ -51,11 +51,11 @@ impl UntypedId {
     /// Returns a id nominally at time zero, but with a random portion derived
     /// from the given entity.
     pub fn hashed<H: Hash>(entity: H) -> Self {
-        let stamp = 0;
-
-        let mut h = siphasher::sip::SipHasher24::new_with_keys(0, 0);
-        entity.hash(&mut h);
-        let random = h.finish();
+        let stamp_limit_ns = (1<<30) * 1_000_000_000;
+        let raw_stamp = sip_hash(0, 1, &entity);
+        // Rescale the value from 0..u64::max_value() to 0..stamp_limit_ns;
+        let stamp = (((raw_stamp as u128) * stamp_limit_ns) >> 64).try_into().unwrap();
+        let random = sip_hash(0, 0, &entity);
 
         UntypedId { stamp, random }
     }
@@ -71,6 +71,12 @@ impl UntypedId {
     pub fn random(&self) -> u64 {
         self.random
     }
+}
+
+fn sip_hash<H: Hash>(k0: u64, k1: u64, entity: &H) -> u64 {
+    let mut h = siphasher::sip::SipHasher24::new_with_keys(k0, k1);
+    entity.hash(&mut h);
+    h.finish()
 }
 
 impl std::str::FromStr for UntypedId {
@@ -240,4 +246,33 @@ mod test {
             result,
         )
     }
+
+    #[test]
+    fn hashed_generates_bounded_timestamps() {
+        // Show that we can generate timestamps that are before an "impossible"
+        // time.
+        // We can safely assume that we won't be generating timestamps before
+        // the unix timestamp for 2^30, or about 2004-01-10T13:37:04Z.
+        for x in 0u64..4096 {
+            let id = UntypedId::hashed(&x);
+            println!("in:{}; id:{}", x, id);
+            let unix_s = id
+                .timestamp()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .expect("since epoch")
+                .as_secs();
+            let log2_s = (unix_s as f64).log2();
+            let limit = 30.0;
+            assert!(
+                log2_s < limit,
+                "log2(Seconds since unix epoch) for {:?} should be < {};\
+                 for input:{}; got:{}",
+                id.timestamp(),
+                limit,
+                x,
+                log2_s,
+            );
+        }
+    }
+
 }
