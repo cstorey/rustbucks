@@ -54,7 +54,7 @@ impl UntypedId {
         let stamp_limit_ns = (1<<30) * 1_000_000_000;
         let raw_stamp = sip_hash(0, 1, &entity);
         // Rescale the value from 0..u64::max_value() to 0..stamp_limit_ns;
-        let stamp = (((raw_stamp as u128) * stamp_limit_ns) >> 64).try_into().unwrap();
+        let stamp = ((u128::from(raw_stamp) * stamp_limit_ns) >> 64).try_into().unwrap();
         let random = sip_hash(0, 0, &entity);
 
         UntypedId { stamp, random }
