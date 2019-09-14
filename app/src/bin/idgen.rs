@@ -10,6 +10,8 @@ use structopt::StructOpt;
 enum Commands {
     #[structopt(name = "gen", about = "Generate Identifiers")]
     Generate(Generate),
+    #[structopt(name = "hash", about = "Generate via Hashing")]
+    Hash(Hash),
     #[structopt(name = "decompose", about = "Decompose Identifiers")]
     Decompose(Decompose),
 }
@@ -18,6 +20,11 @@ enum Commands {
 struct Generate {
     #[structopt(short = "n", long = "count", default_value = "1")]
     count: usize,
+}
+
+#[derive(Debug, StructOpt)]
+struct Hash {
+    inputs: Vec<String>,
 }
 
 #[derive(Debug, StructOpt)]
@@ -35,6 +42,13 @@ fn main() -> Fallible<()> {
                 println!("{}", idgen.untyped());
             }
         }
+        Commands::Hash(opt) => {
+            for inp in opt.inputs.iter() {
+                let id = UntypedId::hashed(inp.as_bytes());
+                println!("{}", id);
+            }
+        }
+
         Commands::Decompose(opt) => {
             for id in opt.ids {
                 let stamp: DateTime<Utc> = id.timestamp().into();
