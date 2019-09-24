@@ -100,7 +100,9 @@ impl EnvLogger {
             b.filter_module(&module, level.to_filter());
         }
 
-        b.default_format_timestamp_nanos(self.timestamp_nanos);
+        if self.timestamp_nanos {
+            b.format_timestamp_nanos();
+        }
 
         b
     }
