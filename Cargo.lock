@@ -2333,10 +2333,9 @@ dependencies = [
 [[package]]
 name = "sulfur"
 version = "0.1.0"
-source = "git+https://github.com/cstorey/sulfur.git#5d470d3feb091d2e4a88e7070d2c4330685de28d"
+source = "git+https://github.com/cstorey/sulfur.git#dd59de6026c96fc97884e358961c2f8bbe6ea418"
 dependencies = [
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "failure_derive 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "percent-encoding 2.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
