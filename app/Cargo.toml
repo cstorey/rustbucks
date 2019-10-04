@@ -19,7 +19,7 @@ r2d2 = "0.8.5"
 r2d2_postgres = "0.14.0"
 rand = "0.7.2"
 serde = {version="1.0.101", features=["derive"]}
-serde_json = "1.0.40"
+serde_json = "1.0.41"
 structopt = "0.3.2"
 tokio = "0.1.22"
 toml = "0.5.3"
@@ -44,7 +44,7 @@ optional = false
 git = "https://github.com/cstorey/weft.git"
 
 [dev-dependencies]
-serde_json = "1.0.40"
+serde_json = "1.0.41"
 lazy_static = "1.4.0"
 
 [dev-dependencies.sulfur]
