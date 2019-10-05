@@ -43,7 +43,7 @@ impl Entity for Drink {
     const PREFIX: &'static str = "drink";
 }
 
-impl HasMeta<Drink> for Drink {
+impl HasMeta for Drink {
     fn meta(&self) -> &DocMeta<Self> {
         &self.meta
     }
@@ -56,7 +56,7 @@ impl Entity for DrinkList {
     const PREFIX: &'static str = "drink_list";
 }
 
-impl HasMeta<DrinkList> for DrinkList {
+impl HasMeta for DrinkList {
     fn meta(&self) -> &DocMeta<Self> {
         &self.meta
     }

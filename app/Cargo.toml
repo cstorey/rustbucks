@@ -32,6 +32,7 @@ actix-threadpool = "0.1.2"
 jemallocator-global = "0.3.2"
 actix-files = "0.1.4"
 infra = { path = "../infra" }
+chrono = "0.4.9"
 
 [dependencies.weft]
 git = "https://github.com/cstorey/weft.git"

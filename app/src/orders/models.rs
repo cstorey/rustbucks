@@ -36,7 +36,7 @@ impl Entity for Order {
     const PREFIX: &'static str = "order";
 }
 
-impl HasMeta<Order> for Order {
+impl HasMeta for Order {
     fn meta(&self) -> &DocMeta<Self> {
         &self.meta
     }
