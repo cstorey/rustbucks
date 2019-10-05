@@ -2,7 +2,6 @@ use std::collections::HashSet;
 
 use serde::{Deserialize, Serialize};
 
-use crate::menu;
 use crate::product::Product;
 use infra::documents::{DocMeta, HasMeta};
 use infra::ids::{Entity, Id, IdGen};
