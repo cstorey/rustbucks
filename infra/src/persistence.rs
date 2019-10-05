@@ -30,10 +30,9 @@ pub struct DocumentConnectionManager(PostgresConnectionManager);
 
 struct Jsonb<T>(T);
 
-const SETUP_SQL: &str = include_str!("persistence.sql");
-const LOAD_SQL: &str = "SELECT body FROM documents WHERE id = $1";
-#[cfg(test)]
-const LOAD_NEXT_SQL: &str = "SELECT body
+const SETUP_SQL: &'static str = include_str!("persistence.sql");
+const LOAD_SQL: &'static str = "SELECT body FROM documents WHERE id = $1";
+const LOAD_NEXT_SQL: &'static str = "SELECT body
                                      FROM documents
                                      WHERE jsonb_array_length(body -> '_outgoing') > 0
                                      LIMIT 1
@@ -100,7 +99,10 @@ impl Documents {
         }
     }
 
-    #[cfg(test)]
+    pub fn get_ref(&self) -> &postgres::Connection {
+        &self.connection
+    }
+
     pub fn load_next_unsent<D: DeserializeOwned + Entity>(&self) -> Result<Option<D>, Error> {
         let load = self.connection.prepare_cached(LOAD_NEXT_SQL)?;
         let res = load.query(&[])?;
@@ -113,10 +115,6 @@ impl Documents {
         } else {
             Ok(None)
         }
-    }
-
-    pub fn get_ref(&self) -> &postgres::Connection {
-        &self.connection
     }
 }
 
@@ -243,7 +241,7 @@ impl r2d2::CustomizeConnection<Documents, postgres::Error> for UseSchema {
 }
 
 #[cfg(test)]
-mod test {
+pub(crate) mod test {
     use super::*;
     use crate::documents::*;
     use crate::ids;

@@ -62,6 +62,10 @@ impl<A: Hash + Eq> MailBox<A> {
     pub fn send(&mut self, msg: A) {
         self.outgoing.insert(msg);
     }
+
+    pub fn drain(&mut self) -> impl Iterator<Item = A> + '_ {
+        self.outgoing.drain()
+    }
 }
 
 impl<A: Eq + Hash> Default for MailBox<A> {

@@ -9,7 +9,7 @@ use infra::ids::Id;
 #[derive(Deserialize, Serialize, Debug, Clone, Hash)]
 pub struct Drink {
     #[serde(flatten)]
-    pub(super) meta: DocMeta<Drink>,
+    pub meta: DocMeta<Drink>,
     pub(super) name: String,
 }
 
@@ -21,10 +21,13 @@ pub struct DrinkList {
 }
 
 impl Drink {
-    pub(super) fn new(id: Id<Drink>, name: &str) -> Self {
+    pub(crate) fn new(id: Id<Drink>, name: &str) -> Self {
         let meta = DocMeta::new_with_id(id);
-        let name = name.to_string();
-        Drink { meta, name }
+        let drink = Drink {
+            meta: meta,
+            name: name.into(),
+        };
+        drink
     }
 }
 

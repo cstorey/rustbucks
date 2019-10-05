@@ -3,16 +3,16 @@
   <head>
     <title>Rustbucks Drink</title>
     <link href="/tailwind.min.css" rel="stylesheet" />
-    <!-- <link
+    <link
       href="https://unpkg.com/tailwindcss@^1.0/dist/tailwind.min.css"
       rel="stylesheet"
-    />-->
+    />
   </head>
   <body>
     <main id="content">
       <div class="w-full max-w-xs">
         <form
-          class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4"
+          class="bg-white shadow-md rounded px-8 pt-6 pb-8 -----mb-4"
           method="POST"
           action="/orders"
         >
@@ -21,8 +21,40 @@
             weft-content="self.drink.name.display()"
           >
             Some Drink
-          </h3>
-          <input type="hidden" name="drink_id" value="{{self.drink.meta.id}}" />
+      </h3>
+          <dl>
+            <dt class="block text-gray-700 text-sm font-bold mb-2">
+              <label for="drink_id">
+                Drink:
+              </label>
+            </dt>
+            <dd class="ml-4 mb-2">
+              <input
+                type="text"
+                readonly
+                size="30"
+                name="drink_id"
+                id="drink_id"
+                value="{{self.drink.meta.id}}"
+              />
+            </dd>
+            <dt class="block text-gray-700 text-sm font-bold mb-2">
+              <label for="drinker_id">
+                Drinker:
+              </label>
+            </dt>
+            <dd class="ml-4 mb-2">
+              <input
+                type="text"
+                readonly
+                size="30"
+                name="drinker_id"
+                id="drinker_id"
+                value="{{self.drinker.meta.id}}"
+              />
+            </dd>
+          </dl>
+
           <div class="flex items-center justify-between">
             <button
               class="order bg-indigo-500 hover:bg-indigo-700 text-white font-bold py-1 px-4 rounded focus:outline-none focus:shadow-outline"
