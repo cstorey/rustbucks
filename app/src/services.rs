@@ -10,3 +10,10 @@ where
 {
     fn query(self, req: Req) -> Fallible<Req::Resp>;
 }
+
+pub trait Commandable<Req>
+where
+    Req: Request,
+{
+    fn execute(self, req: Req) -> Fallible<Req::Resp>;
+}

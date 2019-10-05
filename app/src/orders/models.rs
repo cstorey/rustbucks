@@ -2,11 +2,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::menu::Drink;
 use infra::documents::{DocMeta, HasMeta, MailBox};
-use infra::ids::IdGen;
 use infra::ids::{Entity, Id};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(super) struct Order {
+pub struct Order {
     #[serde(flatten)]
     pub(super) meta: DocMeta<Order>,
     #[serde(default)]
@@ -19,10 +18,8 @@ pub(super) enum OrderDst {
 }
 
 impl Order {
-    pub(super) fn for_drink(drink_id: Id<Drink>, idgen: &IdGen) -> Self {
-        let id = idgen.generate();
-        let mut mbox = MailBox::empty();
-        mbox.send(OrderDst::Barista);
+    pub(super) fn for_drink(drink_id: Id<Drink>, id: Id<Self>) -> Self {
+        let mbox = MailBox::empty();
         let meta = DocMeta::new_with_id(id);
 
         Order {

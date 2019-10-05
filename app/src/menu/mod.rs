@@ -9,6 +9,7 @@ pub use models::{Drink, DrinkList};
 
 use crate::services::{Queryable, Request};
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ShowMenu;
 
 #[derive(Debug)]

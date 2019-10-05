@@ -6,7 +6,7 @@ use infra::persistence::DocumentConnectionManager;
 
 pub mod config;
 pub mod menu;
-mod orders;
+pub mod orders;
 pub mod services;
 
 #[derive(Clone)]
@@ -32,5 +32,8 @@ impl RustBucks {
 
     pub fn menu(&self) -> Fallible<menu::Menu<DocumentConnectionManager>> {
         menu::Menu::new(self.db.clone())
+    }
+    pub fn orders(&self) -> Fallible<orders::Orders<DocumentConnectionManager>> {
+        orders::Orders::new(self.db.clone(), self.idgen.clone())
     }
 }
