@@ -8,8 +8,7 @@ mod menu;
 mod orders;
 
 #[derive(Clone)]
-pub struct RustBucks {
-}
+pub struct RustBucks {}
 
 impl RustBucks {
     pub fn new(config: &config::Config) -> Result<Self, Error> {
@@ -20,6 +19,6 @@ impl RustBucks {
 
         let idgen = ids::IdGen::new();
 
-        Ok(RustBucks { })
+        Ok(RustBucks {})
     }
 }
