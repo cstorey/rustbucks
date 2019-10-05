@@ -6,7 +6,8 @@ use failure::Fallible;
 use serde::Deserialize;
 use structopt::StructOpt;
 
-use rustbucks;
+use infra::documents::HasMeta;
+use rustbucks::{menu::ShowMenu, services::Queryable};
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "serve", about = "Serve Rustbucks.")]
@@ -23,6 +24,8 @@ struct Opt {
 enum Commands {
     #[structopt(name = "setup", about = "Initialize")]
     Setup,
+    #[structopt(name = "show-menu", about = "Show menu")]
+    ShowMenu,
 }
 
 #[derive(Deserialize, Debug)]
@@ -39,7 +42,6 @@ fn main() -> Fallible<()> {
     File::open(&opt.config)?.read_to_string(&mut config_buf)?;
     let config: Config = toml::from_str(&config_buf)?;
 
-    eprintln!("{:#?}", config);
     config.env_logger.builder().init();
 
     let rb = rustbucks::RustBucks::new(&config.rustbucks)?;
@@ -47,6 +49,13 @@ fn main() -> Fallible<()> {
     match opt.command {
         Commands::Setup => {
             rb.setup()?;
+            rb.menu()?.setup()?;
+        }
+        Commands::ShowMenu => {
+            let list = rb.menu()?.query(ShowMenu)?;
+            for drink in list {
+                println!("{}: {}", drink.meta().id, drink.name);
+            }
         }
     }
 

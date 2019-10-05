@@ -9,8 +9,8 @@ use infra::ids::Id;
 #[derive(Deserialize, Serialize, Debug, Clone, Hash)]
 pub struct Drink {
     #[serde(flatten)]
-    pub(super) meta: DocMeta<Drink>,
-    pub(super) name: String,
+    meta: DocMeta<Drink>,
+    pub name: String,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
