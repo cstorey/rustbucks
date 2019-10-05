@@ -3,6 +3,7 @@ authors = ["Ceri Storey <cez@necrofish.org.uk>"]
 name = "rustbucks"
 version = "0.1.0"
 edition = "2018"
+default-run = "rb"
 
 [dependencies]
 env_logger = "0.7.0"

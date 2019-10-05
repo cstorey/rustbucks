@@ -1,4 +1,4 @@
-use failure::{Error, ResultExt};
+use failure::{Error, Fallible, ResultExt};
 use log::*;
 
 use infra::ids;
@@ -8,17 +8,23 @@ mod menu;
 mod orders;
 
 #[derive(Clone)]
-pub struct RustBucks {}
+pub struct RustBucks {
+    db: r2d2::Pool<infra::persistence::DocumentConnectionManager>,
+    idgen: ids::IdGen,
+}
 
 impl RustBucks {
     pub fn new(config: &config::Config) -> Result<Self, Error> {
         let db = config.postgres.build()?;
 
-        debug!("Init schema");
-        db.get()?.setup().context("Setup persistence")?;
-
         let idgen = ids::IdGen::new();
 
-        Ok(RustBucks {})
+        Ok(RustBucks { db, idgen })
+    }
+
+    pub fn setup(&self) -> Fallible<()> {
+        debug!("Init schema");
+        self.db.get()?.setup().context("Setup persistence")?;
+        Ok(())
     }
 }
