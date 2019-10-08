@@ -8,19 +8,21 @@ use infra::ids::{Entity, Id};
 pub struct Order {
     #[serde(flatten)]
     pub(super) meta: DocMeta<Order>,
-    #[serde(default)]
-    pub(super) mbox: MailBox<OrderDst>,
+    #[serde(default, rename = "_mbox")]
+    pub(super) mbox: MailBox<OrderMsg>,
     pub(super) drink_id: Id<Drink>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub(super) enum OrderDst {
-    Barista,
+pub(super) enum OrderMsg {
+    DrinkRequest(Id<Drink>, Id<Order>),
 }
 
 impl Order {
     pub(super) fn for_drink(drink_id: Id<Drink>, id: Id<Self>) -> Self {
-        let mbox = MailBox::empty();
+        let mut mbox = MailBox::empty();
         let meta = DocMeta::new_with_id(id);
+
+        mbox.send(OrderMsg::DrinkRequest(drink_id, id));
 
         Order {
             meta,
@@ -58,7 +60,7 @@ mod test {
         assert_eq!(
             order.mbox.outgoing,
             hashset! {
-                OrderDst::Barista,
+                OrderMsg::Barista,
             }
         )
     }
