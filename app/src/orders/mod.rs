@@ -61,9 +61,9 @@ impl Request for PlaceOrder {
 }
 
 impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Commandable<PlaceOrder>
-    for &Orders<M>
+    for Orders<M>
 {
-    fn execute(self, order: PlaceOrder) -> Result<Id<Order>> {
+    fn execute(&self, order: PlaceOrder) -> Result<Id<Order>> {
         let docs = self.db.get()?;
         let mut order = Order::for_drink(order.drink_id, self.idgen.generate());
         docs.save(&mut order)?;

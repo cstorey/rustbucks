@@ -61,9 +61,9 @@ impl Request for ShowMenu {
 }
 
 impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Queryable<ShowMenu>
-    for &Menu<M>
+    for Menu<M>
 {
-    fn query(self, _query: ShowMenu) -> Result<Vec<Drink>> {
+    fn query(&self, _query: ShowMenu) -> Result<Vec<Drink>> {
         let conn = self.db.get()?;
         let list = conn.load(&DrinkList::id())?.expect("Missing drink list");
 
