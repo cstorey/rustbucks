@@ -35,6 +35,7 @@ const LOAD_SQL: &str = "SELECT body FROM documents WHERE id = $1";
 const LOAD_NEXT_SQL: &str = "SELECT body
                                      FROM documents
                                      WHERE jsonb_array_length(body -> '_outgoing') > 0
+                                     AND id like $1::text || '.%'
                                      LIMIT 1
 ";
 const INSERT_SQL: &str = "WITH a as (
@@ -102,7 +103,7 @@ impl Documents {
     #[cfg(test)]
     pub fn load_next_unsent<D: DeserializeOwned + Entity>(&self) -> Result<Option<D>, Error> {
         let load = self.connection.prepare_cached(LOAD_NEXT_SQL)?;
-        let res = load.query(&[])?;
+        let res = load.query(&[&D::PREFIX])?;
         debug!("Cols: {:?}; Rows: {:?}", res.columns(), res.len());
 
         if let Some(row) = res.iter().next() {
@@ -553,6 +554,26 @@ mod test {
         }
     }
 
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    struct ChattyDoc2 {
+        #[serde(flatten)]
+        meta: DocMeta<ChattyDoc2>,
+        #[serde(flatten)]
+        mbox: MailBox<AMessage>,
+    }
+
+    impl Entity for ChattyDoc2 {
+        const PREFIX: &'static str = "chatty2";
+    }
+    impl HasMeta for ChattyDoc2 {
+        fn meta(&self) -> &DocMeta<Self> {
+            &self.meta
+        }
+        fn meta_mut(&mut self) -> &mut DocMeta<Self> {
+            &mut self.meta
+        }
+    }
+
     #[test]
     fn should_enqueue_nothing_by_default() -> Result<(), Error> {
         env_logger::try_init().unwrap_or_default();
@@ -617,6 +638,35 @@ mod test {
         some_doc.mbox.send(AMessage);
         info!("Original document: {:?}", some_doc);
         docs.save(&mut some_doc).expect("save");
+
+        let loaded = docs.load_next_unsent::<ChattyDoc>()?;
+        info!("Loaded something: {:?}", loaded);
+
+        assert_eq!(Some(some_doc.meta.id), loaded.map(|d| d.meta.id));
+        Ok(())
+    }
+
+    #[test]
+    fn should_load_by_type() -> Result<(), Error> {
+        env_logger::try_init().unwrap_or_default();
+        let pool = pool("should_load_by_type")?;
+        let docs = pool.get()?;
+
+        for _ in 0..4 {
+            let mut doc = ChattyDoc2 {
+                meta: DocMeta::new_with_id(IDGEN.generate()),
+                mbox: MailBox::default(),
+            };
+            doc.mbox.send(AMessage);
+            docs.save(&mut doc)?;
+        }
+
+        let mut some_doc = ChattyDoc {
+            meta: DocMeta::new_with_id(IDGEN.generate()),
+            mbox: MailBox::default(),
+        };
+        some_doc.mbox.send(AMessage);
+        docs.save(&mut some_doc)?;
 
         let loaded = docs.load_next_unsent::<ChattyDoc>()?;
         info!("Loaded something: {:?}", loaded);
