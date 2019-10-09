@@ -1,4 +1,4 @@
-use failure::{Error, Fallible, ResultExt};
+use anyhow::{Context, Error, Result};
 use log::*;
 
 use infra::ids;
@@ -24,16 +24,19 @@ impl RustBucks {
         Ok(RustBucks { db, idgen })
     }
 
-    pub fn setup(&self) -> Fallible<()> {
+    pub fn setup(&self) -> Result<()> {
         debug!("Init schema");
-        self.db.get()?.setup().context("Setup persistence")?;
+        self.db
+            .get()?
+            .setup()
+            .with_context(|| "Setup persistence")?;
         Ok(())
     }
 
-    pub fn menu(&self) -> Fallible<menu::Menu<DocumentConnectionManager>> {
+    pub fn menu(&self) -> Result<menu::Menu<DocumentConnectionManager>> {
         menu::Menu::new(self.db.clone())
     }
-    pub fn orders(&self) -> Fallible<orders::Orders<DocumentConnectionManager>> {
+    pub fn orders(&self) -> Result<orders::Orders<DocumentConnectionManager>> {
         orders::Orders::new(self.db.clone(), self.idgen.clone())
     }
 }

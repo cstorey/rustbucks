@@ -3,8 +3,8 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::time::{Duration, SystemTime};
 
+use anyhow::Error;
 use data_encoding::BASE32_DNSSEC;
-use failure::{bail, Error};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::ids::{Id, IdGen, IdParseError, ENCODED_BARE_ID_LEN};
@@ -86,11 +86,11 @@ impl std::str::FromStr for UntypedId {
     fn from_str(src: &str) -> Result<Self, Self::Err> {
         let mut bytes = [0u8; 16];
         if src.len() != ENCODED_BARE_ID_LEN {
-            bail!(IdParseError::Unparseable);
+            return Err(IdParseError::Unparseable.into());
         }
         BASE32_DNSSEC
             .decode_mut(src.as_bytes(), &mut bytes)
-            .map_err(|e| failure::format_err!("{:?}", e))?;
+            .map_err(IdParseError::from)?;
 
         Ok(Self::from_bytes(&bytes[..]))
     }

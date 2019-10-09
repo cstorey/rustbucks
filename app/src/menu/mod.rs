@@ -1,4 +1,4 @@
-use failure::{Fallible, ResultExt};
+use anyhow::{Context, Result};
 use log::*;
 use r2d2::Pool;
 
@@ -18,25 +18,25 @@ pub struct Menu<M: r2d2::ManageConnection> {
 }
 
 impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Menu<M> {
-    pub fn new(db: Pool<M>) -> Fallible<Self> {
+    pub fn new(db: Pool<M>) -> Result<Self> {
         Ok(Menu { db })
     }
 
-    pub fn setup(&self) -> Fallible<()> {
+    pub fn setup(&self) -> Result<()> {
         let conn = self.db.get()?;
-        Self::insert(&conn, "Umbrella").context("insert umbrella")?;
-        Self::insert(&conn, "Fnordy").context("insert fnordy")?;
+        Self::insert(&conn, "Umbrella").with_context(|| "insert umbrella")?;
+        Self::insert(&conn, "Fnordy").with_context(|| "insert fnordy")?;
         Ok(())
     }
 
-    fn insert(docs: &D, name: &str) -> Fallible<()> {
+    fn insert(docs: &D, name: &str) -> Result<()> {
         let drink = {
             let id = Id::hashed(name);
             let mut drink = docs
                 .load(&id)
-                .context("load drink")?
+                .with_context(|| "load drink")?
                 .unwrap_or_else(|| Drink::new(id, name));
-            docs.save(&mut drink).context("Save drink")?;
+            docs.save(&mut drink).with_context(|| "Save drink")?;
             drink
         };
 
@@ -44,10 +44,10 @@ impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Men
             let id = DrinkList::id();
             let mut list: DrinkList = docs
                 .load(&id)
-                .context("load list")?
+                .with_context(|| "load list")?
                 .unwrap_or_else(|| DrinkList::new(id));
             list.drinks.insert(drink.meta().id);
-            docs.save(&mut list).context("save list")?;
+            docs.save(&mut list).with_context(|| "save list")?;
             debug!("Updated list: {:?}", list);
             list
         };
@@ -63,11 +63,9 @@ impl Request for ShowMenu {
 impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Queryable<ShowMenu>
     for &Menu<M>
 {
-    fn query(self, _query: ShowMenu) -> Fallible<Vec<Drink>> {
+    fn query(self, _query: ShowMenu) -> Result<Vec<Drink>> {
         let conn = self.db.get()?;
-        let list = conn
-            .load(&DrinkList::id())?
-            .ok_or_else(|| failure::err_msg("Missing drink list"))?;
+        let list = conn.load(&DrinkList::id())?.expect("Missing drink list");
 
         let mut res = Vec::new();
         for d in list.drinks.iter() {

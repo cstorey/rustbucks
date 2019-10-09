@@ -1,11 +1,10 @@
-use failure::{bail, Fail};
 use std::cmp::Ordering;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 
+use anyhow::Error;
 use data_encoding::BASE32_DNSSEC;
-use failure::Error;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::untyped_ids::UntypedId;
@@ -18,10 +17,14 @@ pub struct Id<T> {
     phantom: PhantomData<T>,
 }
 
-#[derive(Debug, Clone, Fail)]
+#[derive(Debug, Clone, err_derive::Error)]
 pub enum IdParseError {
+    #[error(display = "Invalid identifier prefix")]
     InvalidPrefix,
+    #[error(display = "Unparseable identifier")]
     Unparseable,
+    #[error(display = "Invalid encoding: {:?}", _0)]
+    Encoding(#[error(no_from)] data_encoding::DecodePartial),
 }
 
 pub trait Entity {
@@ -108,22 +111,22 @@ impl<T: Entity> std::str::FromStr for Id<T> {
     fn from_str(src: &str) -> Result<Self, Self::Err> {
         let expected_length = T::PREFIX.len() + DIVIDER.len();
         if src.len() < expected_length {
-            bail!(IdParseError::InvalidPrefix);
+            return Err(IdParseError::InvalidPrefix.into());
         };
         let (start, remainder) = src.split_at(T::PREFIX.len());
         if start != T::PREFIX {
-            bail!(IdParseError::InvalidPrefix);
+            return Err(IdParseError::InvalidPrefix.into());
         }
         let (divider, b64) = remainder.split_at(DIVIDER.len());
 
         if divider != DIVIDER {
-            bail!(IdParseError::Unparseable);
+            return Err(IdParseError::Unparseable.into());
         }
 
         let mut bytes = [0u8; 16];
         BASE32_DNSSEC
             .decode_mut(b64.as_bytes(), &mut bytes)
-            .map_err(|e| failure::format_err!("{:?}", e))?;
+            .map_err(IdParseError::from)?;
 
         Ok(Self::from_bytes(&bytes[..]))
     }
@@ -191,12 +194,9 @@ impl<'de, T: Entity> Deserialize<'de> for Id<T> {
     }
 }
 
-impl fmt::Display for IdParseError {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            IdParseError::InvalidPrefix => write!(fmt, "Invalid prefix"),
-            IdParseError::Unparseable => write!(fmt, "Unparseable Id"),
-        }
+impl From<data_encoding::DecodePartial> for IdParseError {
+    fn from(src: data_encoding::DecodePartial) -> Self {
+        IdParseError::Encoding(src)
     }
 }
 

@@ -1,4 +1,4 @@
-use failure::Fallible;
+use anyhow::Result;
 use log::*;
 use r2d2::Pool;
 
@@ -27,7 +27,7 @@ pub struct Orders<M: r2d2::ManageConnection> {
 }
 
 impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Orders<M> {
-    pub fn new(db: Pool<M>, idgen: IdGen) -> Fallible<Self> {
+    pub fn new(db: Pool<M>, idgen: IdGen) -> Result<Self> {
         Ok(Orders { db, idgen })
     }
 }
@@ -39,7 +39,7 @@ impl Request for PlaceOrder {
 impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Commandable<PlaceOrder>
     for &Orders<M>
 {
-    fn execute(self, order: PlaceOrder) -> Fallible<Id<Order>> {
+    fn execute(self, order: PlaceOrder) -> Result<Id<Order>> {
         let docs = self.db.get()?;
         let mut order = Order::for_drink(order.drink_id, self.idgen.generate());
         docs.save(&mut order)?;

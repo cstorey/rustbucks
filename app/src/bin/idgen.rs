@@ -1,5 +1,4 @@
-use failure::Fallible;
-
+use anyhow::Result;
 use chrono::{DateTime, SecondsFormat, Utc};
 use infra::ids::IdGen;
 use infra::untyped_ids::UntypedId;
@@ -32,7 +31,7 @@ struct Decompose {
     ids: Vec<UntypedId>,
 }
 
-fn main() -> Fallible<()> {
+fn main() -> Result<()> {
     let cmd = Commands::from_args();
 
     match cmd {

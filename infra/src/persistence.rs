@@ -1,7 +1,6 @@
 use std::fmt;
 
-use failure::Error;
-use failure::Fail;
+use anyhow::Error;
 use log::*;
 use postgres::types::{FromSql, IsNull, ToSql, Type};
 use postgres::{accepts, to_sql_checked};
@@ -17,8 +16,8 @@ pub trait Storage {
     fn save<D: Serialize + Entity + HasMeta>(&self, document: &mut D) -> Result<(), Error>;
 }
 
-#[derive(Fail, Debug, PartialEq, Eq)]
-#[fail(display = "stale version")]
+#[derive(err_derive::Error, Debug, PartialEq, Eq)]
+#[error(display = "stale version")]
 pub struct ConcurrencyError;
 
 pub struct Documents {
@@ -247,7 +246,7 @@ mod test {
     use super::*;
     use crate::documents::*;
     use crate::ids;
-    use failure::ResultExt;
+    use anyhow::Context;
     use lazy_static::lazy_static;
     use r2d2::Pool;
     use r2d2_postgres::{PostgresConnectionManager, TlsMode};
@@ -261,7 +260,7 @@ mod test {
 
     fn pool(schema: &str) -> Result<Pool<DocumentConnectionManager>, Error> {
         debug!("Build pool for {}", schema);
-        let url = env::var("POSTGRES_URL").context("$POSTGRES_URL")?;
+        let url = env::var("POSTGRES_URL").with_context(|| "$POSTGRES_URL")?;
         debug!("Use schema name: {}", schema);
         let manager = PostgresConnectionManager::new(&*url, TlsMode::None).expect("postgres");
         let pool = r2d2::Pool::builder()
@@ -447,9 +446,9 @@ mod test {
             .expect_err("save should fail");
 
         info!("Save failed with: {:?}", err);
-        info!("root cause: {:?}", err.find_root_cause());
+        info!("root cause: {:?}", err.root_cause());
         assert_eq!(
-            err.find_root_cause().downcast_ref::<ConcurrencyError>(),
+            err.root_cause().downcast_ref::<ConcurrencyError>(),
             Some(&ConcurrencyError),
             "Error: {:?}",
             err
@@ -492,7 +491,7 @@ mod test {
             .expect_err("save should fail");
 
         assert_eq!(
-            err.find_root_cause().downcast_ref::<ConcurrencyError>(),
+            err.root_cause().downcast_ref::<ConcurrencyError>(),
             Some(&ConcurrencyError),
             "Error: {:?}",
             err
@@ -526,7 +525,7 @@ mod test {
             .expect_err("save should fail");
 
         assert_eq!(
-            err.find_root_cause().downcast_ref::<ConcurrencyError>(),
+            err.root_cause().downcast_ref::<ConcurrencyError>(),
             Some(&ConcurrencyError),
             "Error: {:?}",
             err
@@ -645,7 +644,7 @@ mod test {
 
         let doc = docs
             .load_next_unsent::<ChattyDoc>()?
-            .ok_or_else(|| failure::err_msg("missing document?"))?;;
+            .expect("missing document?");
         info!("Loaded something: {:?}", doc);
 
         assert_eq!(doc.meta.id, some_doc.meta.id);

@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 
-use failure::Fallible;
+use anyhow::Result;
 use serde::Deserialize;
 use structopt::StructOpt;
 
@@ -46,7 +46,7 @@ struct Config {
     env_logger: rustbucks::config::EnvLogger,
 }
 
-fn main() -> Fallible<()> {
+fn main() -> Result<()> {
     let opt = Opt::from_args();
 
     let mut config_buf = String::new();
