@@ -8,7 +8,7 @@ use crate::{
 };
 use infra::{
     ids::{Id, IdGen},
-    persistence::Storage,
+    persistence::{Storage, StoragePending},
 };
 
 mod models;
@@ -26,9 +26,33 @@ pub struct Orders<M: r2d2::ManageConnection> {
     idgen: IdGen,
 }
 
-impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Orders<M> {
+impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + StoragePending + Send + 'static>
+    Orders<M>
+{
     pub fn new(db: Pool<M>, idgen: IdGen) -> Result<Self> {
         Ok(Orders { db, idgen })
+    }
+
+    pub fn process_action(&self) -> Result<()> {
+        let conn = self.db.get()?;
+        if let Some(mut doc) = conn.load_next_unsent::<Order>()? {
+            info!("Found pending document: {:?}", doc);
+            while let Some(act) = doc.mbox.take_one() {
+                self.handle_order_action(act)?;
+                conn.save(&mut doc)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn handle_order_action(&self, action: OrderMsg) -> Result<()> {
+        info!("Action: {:?}", action);
+        match action {
+            OrderMsg::DrinkRequest(item_id, order_id) => {
+                info!("Drink req: item:{}; order:{}", item_id, order_id)
+            }
+        };
+        Ok(())
     }
 }
 

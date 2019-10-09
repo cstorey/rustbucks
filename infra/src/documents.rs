@@ -62,6 +62,10 @@ impl<A: Hash + Eq> MailBox<A> {
     pub fn send(&mut self, msg: A) {
         self.outgoing.insert(msg);
     }
+
+    pub fn take_one(&mut self) -> Option<A> {
+        self.outgoing.drain().next()
+    }
 }
 
 impl<A: Eq + Hash> Default for MailBox<A> {

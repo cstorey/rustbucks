@@ -15,6 +15,9 @@ pub trait Storage {
     fn load<D: DeserializeOwned + Entity>(&self, id: &Id<D>) -> Result<Option<D>, Error>;
     fn save<D: Serialize + Entity + HasMeta>(&self, document: &mut D) -> Result<(), Error>;
 }
+pub trait StoragePending {
+    fn load_next_unsent<D: DeserializeOwned + Entity>(&self) -> Result<Option<D>, Error>;
+}
 
 #[derive(err_derive::Error, Debug, PartialEq, Eq)]
 #[error(display = "stale version")]
@@ -31,7 +34,6 @@ struct Jsonb<T>(T);
 
 const SETUP_SQL: &str = include_str!("persistence.sql");
 const LOAD_SQL: &str = "SELECT body FROM documents WHERE id = $1";
-#[cfg(test)]
 const LOAD_NEXT_SQL: &str = "SELECT body
                                      FROM documents
                                      WHERE jsonb_array_length(body -> '_outgoing') > 0
@@ -100,7 +102,6 @@ impl Documents {
         }
     }
 
-    #[cfg(test)]
     pub fn load_next_unsent<D: DeserializeOwned + Entity>(&self) -> Result<Option<D>, Error> {
         let load = self.connection.prepare_cached(LOAD_NEXT_SQL)?;
         let res = load.query(&[&D::PREFIX])?;
@@ -127,6 +128,12 @@ impl Storage for Documents {
 
     fn save<D: Serialize + Entity + HasMeta>(&self, document: &mut D) -> Result<(), Error> {
         Documents::save(self, document)
+    }
+}
+
+impl StoragePending for Documents {
+    fn load_next_unsent<D: DeserializeOwned + Entity>(&self) -> Result<Option<D>, Error> {
+        Documents::load_next_unsent(self)
     }
 }
 

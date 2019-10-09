@@ -8,7 +8,7 @@ use infra::ids::{Entity, Id};
 pub struct Order {
     #[serde(flatten)]
     pub(super) meta: DocMeta<Order>,
-    #[serde(default, rename = "_mbox")]
+    #[serde(flatten)]
     pub(super) mbox: MailBox<OrderMsg>,
     pub(super) drink_id: Id<Drink>,
 }
