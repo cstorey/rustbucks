@@ -32,8 +32,11 @@ enum Commands {
     ShowMenu,
     #[structopt(name = "order", about = "Place order")]
     Order(Order),
-    #[structopt(name = "process-action", about = "Process a single outstanding action")]
-    Action,
+    #[structopt(
+        name = "process-order",
+        about = "Process a single outstanding order action"
+    )]
+    ActionOrder,
 }
 
 #[derive(Debug, StructOpt)]
@@ -74,7 +77,7 @@ fn main() -> Result<()> {
             let order_id = rb.orders()?.execute(PlaceOrder { drink_id })?;
             println!("Order placed: {}", order_id);
         }
-        Commands::Action => {
+        Commands::ActionOrder => {
             rb.orders()?.process_action()?;
         }
     }
