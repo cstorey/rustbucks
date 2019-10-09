@@ -3,6 +3,7 @@ use log::*;
 use r2d2::Pool;
 
 use crate::{
+    barista::PrepareDrink,
     menu::Drink,
     services::{Commandable, Request},
 };
@@ -21,16 +22,20 @@ pub struct PlaceOrder {
 }
 
 #[derive(Debug)]
-pub struct Orders<M: r2d2::ManageConnection> {
+pub struct Orders<M: r2d2::ManageConnection, B> {
     db: Pool<M>,
     idgen: IdGen,
+    barista: B,
 }
 
-impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + StoragePending + Send + 'static>
-    Orders<M>
+impl<
+        M: r2d2::ManageConnection<Connection = D>,
+        D: Storage + StoragePending + Send + 'static,
+        B: Commandable<PrepareDrink>,
+    > Orders<M, B>
 {
-    pub fn new(db: Pool<M>, idgen: IdGen) -> Result<Self> {
-        Ok(Orders { db, idgen })
+    pub fn new(db: Pool<M>, idgen: IdGen, barista: B) -> Result<Self> {
+        Ok(Orders { db, idgen, barista })
     }
 
     pub fn process_action(&self) -> Result<()> {
@@ -49,7 +54,8 @@ impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + StoragePending + Se
         info!("Action: {:?}", action);
         match action {
             OrderMsg::DrinkRequest(item_id, order_id) => {
-                info!("Drink req: item:{}; order:{}", item_id, order_id)
+                info!("Drink req: item:{}; order:{}", item_id, order_id);
+                self.barista.execute(PrepareDrink { drink_id: item_id })?
             }
         };
         Ok(())
@@ -60,8 +66,8 @@ impl Request for PlaceOrder {
     type Resp = Id<Order>;
 }
 
-impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Commandable<PlaceOrder>
-    for Orders<M>
+impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static, B>
+    Commandable<PlaceOrder> for Orders<M, B>
 {
     fn execute(&self, order: PlaceOrder) -> Result<Id<Order>> {
         let docs = self.db.get()?;

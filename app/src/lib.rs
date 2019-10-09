@@ -4,6 +4,7 @@ use log::*;
 use infra::ids;
 use infra::persistence::DocumentConnectionManager;
 
+pub mod barista;
 pub mod config;
 pub mod menu;
 pub mod orders;
@@ -36,7 +37,15 @@ impl RustBucks {
     pub fn menu(&self) -> Result<menu::Menu<DocumentConnectionManager>> {
         menu::Menu::new(self.db.clone())
     }
-    pub fn orders(&self) -> Result<orders::Orders<DocumentConnectionManager>> {
-        orders::Orders::new(self.db.clone(), self.idgen.clone())
+    pub fn orders(
+        &self,
+    ) -> Result<
+        orders::Orders<DocumentConnectionManager, barista::Barista<DocumentConnectionManager>>,
+    > {
+        orders::Orders::new(self.db.clone(), self.idgen.clone(), self.barista()?)
+    }
+
+    pub fn barista(&self) -> Result<barista::Barista<DocumentConnectionManager>> {
+        barista::Barista::new(self.db.clone())
     }
 }
