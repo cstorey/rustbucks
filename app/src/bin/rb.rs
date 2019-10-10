@@ -37,6 +37,11 @@ enum Commands {
         about = "Process a single outstanding order action"
     )]
     ActionOrder,
+    #[structopt(
+        name = "process-barista",
+        about = "Process a single outstanding barista action"
+    )]
+    ActionBarista,
 }
 
 #[derive(Debug, StructOpt)]
@@ -79,6 +84,9 @@ fn main() -> Result<()> {
         }
         Commands::ActionOrder => {
             rb.orders()?.process_action()?;
+        }
+        Commands::ActionBarista => {
+            rb.barista()?.process_action()?;
         }
     }
 

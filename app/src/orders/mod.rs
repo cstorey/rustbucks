@@ -14,11 +14,17 @@ use infra::{
 
 mod models;
 
+pub use models::Order;
 use models::*;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct PlaceOrder {
     pub drink_id: Id<Drink>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct FulfillDrink {
+    pub order_id: Id<Order>,
 }
 
 #[derive(Debug)]
@@ -53,9 +59,9 @@ impl<
     fn handle_order_action(&self, action: OrderMsg) -> Result<()> {
         info!("Action: {:?}", action);
         match action {
-            OrderMsg::DrinkRequest(item_id, order_id) => {
-                info!("Drink req: item:{}; order:{}", item_id, order_id);
-                self.barista.execute(PrepareDrink { drink_id: item_id })?
+            OrderMsg::DrinkRequest(drink_id, order_id) => {
+                info!("Drink req: item:{}; order:{}", drink_id, order_id);
+                self.barista.execute(PrepareDrink { drink_id, order_id })?
             }
         };
         Ok(())
