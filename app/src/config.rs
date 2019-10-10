@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use failure::{Error, ResultExt};
+use anyhow::{Context, Result};
 use log::*;
 use r2d2::Pool;
 use r2d2_postgres::{PostgresConnectionManager, TlsMode};
@@ -36,12 +36,12 @@ enum LogLevel {
 }
 
 impl PgConfig {
-    pub(crate) fn build(&self) -> Result<Pool<persistence::DocumentConnectionManager>, Error> {
+    pub(crate) fn build(&self) -> Result<Pool<persistence::DocumentConnectionManager>> {
         debug!("Build pool from {:?}", self);
 
         let manager = persistence::DocumentConnectionManager::new(
             PostgresConnectionManager::new(&*self.url, TlsMode::None)
-                .context("connection manager")?,
+                .with_context(|| "connection manager")?,
         );
 
         let mut builder = r2d2::Pool::builder();
@@ -63,7 +63,7 @@ impl PgConfig {
         }
 
         debug!("Pool builder: {:?}", builder);
-        let pool = builder.build(manager).context("build pool")?;
+        let pool = builder.build(manager).with_context(|| "build pool")?;
 
         Ok(pool)
     }

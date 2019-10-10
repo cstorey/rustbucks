@@ -3,11 +3,11 @@ authors = ["Ceri Storey <cez@necrofish.org.uk>"]
 name = "rustbucks"
 version = "0.1.0"
 edition = "2018"
+default-run = "rb"
 
 [dependencies]
 env_logger = "0.7.0"
 envy = "0.4.0"
-failure = "0.1.3"
 hex-slice = "0.1.4"
 log = "0.4.8"
 maplit = "1.0.2"
@@ -23,6 +23,8 @@ time = "0.1.42"
 jemallocator-global = "0.3.2"
 infra = { path = "../infra" }
 chrono = "0.4.9"
+anyhow = "1.0.9"
+err-derive = "0.2.0"
 
 [dev-dependencies]
 serde_json = "1.0.41"

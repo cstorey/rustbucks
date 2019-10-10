@@ -2,36 +2,44 @@ use serde::{Deserialize, Serialize};
 
 use crate::menu::Drink;
 use infra::documents::{DocMeta, HasMeta, MailBox};
-use infra::ids::IdGen;
 use infra::ids::{Entity, Id};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(super) struct Order {
+pub struct Order {
     #[serde(flatten)]
     pub(super) meta: DocMeta<Order>,
-    #[serde(default)]
-    pub(super) mbox: MailBox<OrderDst>,
+    #[serde(flatten)]
+    pub(super) mbox: MailBox<OrderMsg>,
     pub(super) drink_id: Id<Drink>,
+    #[serde(default)]
+    pub(crate) is_made: bool,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub(super) enum OrderDst {
-    Barista,
+pub(super) enum OrderMsg {
+    DrinkRequest(Id<Drink>, Id<Order>),
 }
 
 impl Order {
-    pub(super) fn for_drink(drink_id: Id<Drink>, idgen: &IdGen) -> Self {
-        let id = idgen.generate();
+    pub(super) fn for_drink(drink_id: Id<Drink>, id: Id<Self>) -> Self {
         let mut mbox = MailBox::empty();
-        mbox.send(OrderDst::Barista);
         let meta = DocMeta::new_with_id(id);
+        let is_made = false;
+
+        mbox.send(OrderMsg::DrinkRequest(drink_id, id));
 
         Order {
             meta,
             mbox,
             drink_id,
+            is_made,
         }
     }
+
+    pub(crate) fn mark_fulfilled(&mut self) {
+        self.is_made = true
+    }
 }
+
 impl Entity for Order {
     const PREFIX: &'static str = "order";
 }
@@ -61,7 +69,7 @@ mod test {
         assert_eq!(
             order.mbox.outgoing,
             hashset! {
-                OrderDst::Barista,
+                OrderMsg::Barista,
             }
         )
     }

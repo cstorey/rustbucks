@@ -20,10 +20,5 @@ timestamp_nanos = true
 
 [env_logger.modules]
 tests= "trace"
-actix= "info"
-actix_web= "info"
 rustbucks= "trace"
 postgres= "debug"
-cargo= "error"
-rustc_metadata= "error"
-html5ever= "error"

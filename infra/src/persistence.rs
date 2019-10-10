@@ -1,7 +1,6 @@
 use std::fmt;
 
-use failure::Error;
-use failure::Fail;
+use anyhow::Error;
 use log::*;
 use postgres::types::{FromSql, IsNull, ToSql, Type};
 use postgres::{accepts, to_sql_checked};
@@ -16,9 +15,12 @@ pub trait Storage {
     fn load<D: DeserializeOwned + Entity>(&self, id: &Id<D>) -> Result<Option<D>, Error>;
     fn save<D: Serialize + Entity + HasMeta>(&self, document: &mut D) -> Result<(), Error>;
 }
+pub trait StoragePending {
+    fn load_next_unsent<D: DeserializeOwned + Entity>(&self) -> Result<Option<D>, Error>;
+}
 
-#[derive(Fail, Debug, PartialEq, Eq)]
-#[fail(display = "stale version")]
+#[derive(err_derive::Error, Debug, PartialEq, Eq)]
+#[error(display = "stale version")]
 pub struct ConcurrencyError;
 
 pub struct Documents {
@@ -32,10 +34,10 @@ struct Jsonb<T>(T);
 
 const SETUP_SQL: &str = include_str!("persistence.sql");
 const LOAD_SQL: &str = "SELECT body FROM documents WHERE id = $1";
-#[cfg(test)]
 const LOAD_NEXT_SQL: &str = "SELECT body
                                      FROM documents
                                      WHERE jsonb_array_length(body -> '_outgoing') > 0
+                                     AND id like $1::text || '.%'
                                      LIMIT 1
 ";
 const INSERT_SQL: &str = "WITH a as (
@@ -100,10 +102,9 @@ impl Documents {
         }
     }
 
-    #[cfg(test)]
     pub fn load_next_unsent<D: DeserializeOwned + Entity>(&self) -> Result<Option<D>, Error> {
         let load = self.connection.prepare_cached(LOAD_NEXT_SQL)?;
-        let res = load.query(&[])?;
+        let res = load.query(&[&D::PREFIX])?;
         debug!("Cols: {:?}; Rows: {:?}", res.columns(), res.len());
 
         if let Some(row) = res.iter().next() {
@@ -127,6 +128,12 @@ impl Storage for Documents {
 
     fn save<D: Serialize + Entity + HasMeta>(&self, document: &mut D) -> Result<(), Error> {
         Documents::save(self, document)
+    }
+}
+
+impl StoragePending for Documents {
+    fn load_next_unsent<D: DeserializeOwned + Entity>(&self) -> Result<Option<D>, Error> {
+        Documents::load_next_unsent(self)
     }
 }
 
@@ -247,7 +254,7 @@ mod test {
     use super::*;
     use crate::documents::*;
     use crate::ids;
-    use failure::ResultExt;
+    use anyhow::Context;
     use lazy_static::lazy_static;
     use r2d2::Pool;
     use r2d2_postgres::{PostgresConnectionManager, TlsMode};
@@ -261,7 +268,7 @@ mod test {
 
     fn pool(schema: &str) -> Result<Pool<DocumentConnectionManager>, Error> {
         debug!("Build pool for {}", schema);
-        let url = env::var("POSTGRES_URL").context("$POSTGRES_URL")?;
+        let url = env::var("POSTGRES_URL").with_context(|| "$POSTGRES_URL")?;
         debug!("Use schema name: {}", schema);
         let manager = PostgresConnectionManager::new(&*url, TlsMode::None).expect("postgres");
         let pool = r2d2::Pool::builder()
@@ -447,9 +454,9 @@ mod test {
             .expect_err("save should fail");
 
         info!("Save failed with: {:?}", err);
-        info!("root cause: {:?}", err.find_root_cause());
+        info!("root cause: {:?}", err.root_cause());
         assert_eq!(
-            err.find_root_cause().downcast_ref::<ConcurrencyError>(),
+            err.root_cause().downcast_ref::<ConcurrencyError>(),
             Some(&ConcurrencyError),
             "Error: {:?}",
             err
@@ -492,7 +499,7 @@ mod test {
             .expect_err("save should fail");
 
         assert_eq!(
-            err.find_root_cause().downcast_ref::<ConcurrencyError>(),
+            err.root_cause().downcast_ref::<ConcurrencyError>(),
             Some(&ConcurrencyError),
             "Error: {:?}",
             err
@@ -526,7 +533,7 @@ mod test {
             .expect_err("save should fail");
 
         assert_eq!(
-            err.find_root_cause().downcast_ref::<ConcurrencyError>(),
+            err.root_cause().downcast_ref::<ConcurrencyError>(),
             Some(&ConcurrencyError),
             "Error: {:?}",
             err
@@ -546,6 +553,26 @@ mod test {
         const PREFIX: &'static str = "chatty";
     }
     impl HasMeta for ChattyDoc {
+        fn meta(&self) -> &DocMeta<Self> {
+            &self.meta
+        }
+        fn meta_mut(&mut self) -> &mut DocMeta<Self> {
+            &mut self.meta
+        }
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    struct ChattyDoc2 {
+        #[serde(flatten)]
+        meta: DocMeta<ChattyDoc2>,
+        #[serde(flatten)]
+        mbox: MailBox<AMessage>,
+    }
+
+    impl Entity for ChattyDoc2 {
+        const PREFIX: &'static str = "chatty2";
+    }
+    impl HasMeta for ChattyDoc2 {
         fn meta(&self) -> &DocMeta<Self> {
             &self.meta
         }
@@ -627,6 +654,35 @@ mod test {
     }
 
     #[test]
+    fn should_load_by_type() -> Result<(), Error> {
+        env_logger::try_init().unwrap_or_default();
+        let pool = pool("should_load_by_type")?;
+        let docs = pool.get()?;
+
+        for _ in 0..4 {
+            let mut doc = ChattyDoc2 {
+                meta: DocMeta::new_with_id(IDGEN.generate()),
+                mbox: MailBox::default(),
+            };
+            doc.mbox.send(AMessage);
+            docs.save(&mut doc)?;
+        }
+
+        let mut some_doc = ChattyDoc {
+            meta: DocMeta::new_with_id(IDGEN.generate()),
+            mbox: MailBox::default(),
+        };
+        some_doc.mbox.send(AMessage);
+        docs.save(&mut some_doc)?;
+
+        let loaded = docs.load_next_unsent::<ChattyDoc>()?;
+        info!("Loaded something: {:?}", loaded);
+
+        assert_eq!(Some(some_doc.meta.id), loaded.map(|d| d.meta.id));
+        Ok(())
+    }
+
+    #[test]
     #[ignore]
     fn should_enqueue_something_something() -> Result<(), Error> {
         env_logger::try_init().unwrap_or_default();
@@ -645,7 +701,7 @@ mod test {
 
         let doc = docs
             .load_next_unsent::<ChattyDoc>()?
-            .ok_or_else(|| failure::err_msg("missing document?"))?;;
+            .expect("missing document?");
         info!("Loaded something: {:?}", doc);
 
         assert_eq!(doc.meta.id, some_doc.meta.id);

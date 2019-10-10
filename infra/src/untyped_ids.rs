@@ -3,8 +3,8 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::time::{Duration, SystemTime};
 
+use anyhow::Error;
 use data_encoding::BASE32_DNSSEC;
-use failure::{bail, Error};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::ids::{Id, IdGen, IdParseError, ENCODED_BARE_ID_LEN};
@@ -51,10 +51,12 @@ impl UntypedId {
     /// Returns a id nominally at time zero, but with a random portion derived
     /// from the given entity.
     pub fn hashed<H: Hash>(entity: H) -> Self {
-        let stamp_limit_ns = (1<<30) * 1_000_000_000;
+        let stamp_limit_ns = (1 << 30) * 1_000_000_000;
         let raw_stamp = sip_hash(0, 1, &entity);
         // Rescale the value from 0..u64::max_value() to 0..stamp_limit_ns;
-        let stamp = ((u128::from(raw_stamp) * stamp_limit_ns) >> 64).try_into().unwrap();
+        let stamp = ((u128::from(raw_stamp) * stamp_limit_ns) >> 64)
+            .try_into()
+            .unwrap();
         let random = sip_hash(0, 0, &entity);
 
         UntypedId { stamp, random }
@@ -84,11 +86,11 @@ impl std::str::FromStr for UntypedId {
     fn from_str(src: &str) -> Result<Self, Self::Err> {
         let mut bytes = [0u8; 16];
         if src.len() != ENCODED_BARE_ID_LEN {
-            bail!(IdParseError::Unparseable);
+            return Err(IdParseError::Unparseable.into());
         }
         BASE32_DNSSEC
             .decode_mut(src.as_bytes(), &mut bytes)
-            .map_err(|e| failure::format_err!("{:?}", e))?;
+            .map_err(IdParseError::from)?;
 
         Ok(Self::from_bytes(&bytes[..]))
     }
@@ -274,5 +276,4 @@ mod test {
             );
         }
     }
-
 }
