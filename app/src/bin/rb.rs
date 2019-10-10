@@ -36,12 +36,12 @@ enum Commands {
 
     #[structopt(
         name = "process-order",
-        about = "Process a single outstanding order action"
+        about = "Process outstanding order actions"
     )]
     ActionOrder,
     #[structopt(
         name = "process-barista",
-        about = "Process a single outstanding barista action"
+        about = "Process outstanding barista actions"
     )]
     ActionBarista,
 }

@@ -68,7 +68,7 @@ impl<
 
     pub fn process_action(&self) -> Result<()> {
         let conn = self.db.get()?;
-        if let Some(mut doc) = conn.load_next_unsent::<Order>()? {
+        while let Some(mut doc) = conn.load_next_unsent::<Order>()? {
             info!("Found pending document: {:?}", doc);
             while let Some(act) = doc.mbox.take_one() {
                 self.handle_order_action(act)?;
