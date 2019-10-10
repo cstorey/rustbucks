@@ -113,7 +113,6 @@ impl Documents {
     pub fn load_next_unsent<D: DeserializeOwned + Entity>(&self) -> Result<Option<D>, Error> {
         let load = self.connection.prepare_cached(LOAD_NEXT_SQL)?;
         let res = load.query(&[&D::PREFIX])?;
-        debug!("Cols: {:?}; Rows: {:?}", res.columns(), res.len());
 
         if let Some(row) = res.iter().next() {
             let Jsonb(doc) = row.get(0);
