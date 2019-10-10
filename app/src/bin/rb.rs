@@ -86,7 +86,7 @@ fn main() -> Result<()> {
             rb.order_worker()?.process_action()?;
         }
         Commands::ActionBarista => {
-            rb.barista()?.process_action()?;
+            rb.barista_worker()?.process_action()?;
         }
     }
 

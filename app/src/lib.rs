@@ -56,4 +56,8 @@ impl RustBucks {
     pub fn barista(&self) -> Result<barista::Barista<DocumentConnectionManager>> {
         barista::Barista::new(self.db.clone())
     }
+
+    pub fn barista_worker(&self) -> Result<barista::BaristaWorker<DocumentConnectionManager>> {
+        barista::BaristaWorker::new(self.db.clone())
+    }
 }

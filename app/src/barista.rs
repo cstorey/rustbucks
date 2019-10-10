@@ -24,6 +24,10 @@ pub struct PrepareDrink {
 pub struct Barista<M: r2d2::ManageConnection> {
     db: Pool<M>,
 }
+#[derive(Debug)]
+pub struct BaristaWorker<M: r2d2::ManageConnection> {
+    db: Pool<M>,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DrinkPreparation {
@@ -44,6 +48,14 @@ impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + StoragePending + Se
 {
     pub fn new(db: Pool<M>) -> Result<Self> {
         Ok(Barista { db })
+    }
+}
+
+impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + StoragePending + Send + 'static>
+    BaristaWorker<M>
+{
+    pub fn new(db: Pool<M>) -> Result<Self> {
+        Ok(BaristaWorker { db })
     }
 
     pub fn process_action(&self) -> Result<()> {
