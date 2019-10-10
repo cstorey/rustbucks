@@ -32,16 +32,14 @@ enum Commands {
     ShowMenu,
     #[structopt(name = "order", about = "Place order")]
     Order(PlaceOrderCmd),
+    #[structopt(name = "order-status", about = "Show order status")]
     OrderStatus(OrderStatus),
 
-    #[structopt(
-        name = "process-order",
-        about = "Process a single outstanding order action"
-    )]
+    #[structopt(name = "process-order", about = "Process outstanding order actions")]
     ActionOrder,
     #[structopt(
         name = "process-barista",
-        about = "Process a single outstanding barista action"
+        about = "Process outstanding barista actions"
     )]
     ActionBarista,
 }
@@ -87,7 +85,7 @@ fn main() -> Result<()> {
         }
         Commands::Order(PlaceOrderCmd { drink_id }) => {
             let order_id = rb.orders()?.execute(PlaceOrder { drink_id })?;
-            println!("Order placed: {}", order_id);
+            println!("{}", order_id);
         }
         Commands::OrderStatus(OrderStatus { order_id }) => {
             let status = rb.orders()?.query(QueryOrder { order_id })?;
