@@ -32,6 +32,7 @@ enum Commands {
     ShowMenu,
     #[structopt(name = "order", about = "Place order")]
     Order(PlaceOrderCmd),
+    #[structopt(name = "order-status", about = "Show order status")]
     OrderStatus(OrderStatus),
 
     #[structopt(
