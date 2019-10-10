@@ -110,6 +110,7 @@ impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Com
         let mut order = Order::for_drink(order.drink_id, self.idgen.generate());
         docs.save(&mut order)?;
         debug!("Saved {:?}", order);
+        info!("Order placed: {}", order.meta.id);
         Ok(order.meta.id)
     }
 }

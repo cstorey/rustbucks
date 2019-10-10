@@ -87,7 +87,7 @@ fn main() -> Result<()> {
         }
         Commands::Order(PlaceOrderCmd { drink_id }) => {
             let order_id = rb.orders()?.execute(PlaceOrder { drink_id })?;
-            println!("Order placed: {}", order_id);
+            println!("{}", order_id);
         }
         Commands::OrderStatus(OrderStatus { order_id }) => {
             let status = rb.orders()?.query(QueryOrder { order_id })?;
