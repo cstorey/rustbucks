@@ -83,7 +83,7 @@ fn main() -> Result<()> {
             println!("Order placed: {}", order_id);
         }
         Commands::ActionOrder => {
-            rb.orders()?.process_action()?;
+            rb.order_worker()?.process_action()?;
         }
         Commands::ActionBarista => {
             rb.barista()?.process_action()?;

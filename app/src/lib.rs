@@ -40,9 +40,17 @@ impl RustBucks {
     pub fn orders(
         &self,
     ) -> Result<
-        orders::Orders<DocumentConnectionManager, barista::Barista<DocumentConnectionManager>>,
+        orders::Orders<DocumentConnectionManager>,
     > {
-        orders::Orders::new(self.db.clone(), self.idgen.clone(), self.barista()?)
+        orders::Orders::new(self.db.clone(), self.idgen.clone())
+    }
+
+    pub fn order_worker(
+        &self,
+    ) -> Result<
+        orders::OrderWorker<DocumentConnectionManager, barista::Barista<DocumentConnectionManager>>,
+    > {
+        orders::OrderWorker::new(self.db.clone(), self.barista()?)
     }
 
     pub fn barista(&self) -> Result<barista::Barista<DocumentConnectionManager>> {

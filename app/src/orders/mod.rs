@@ -28,21 +28,36 @@ pub struct FulfillDrink {
 }
 
 #[derive(Debug)]
-pub struct Orders<M: r2d2::ManageConnection, B> {
+pub struct Orders<M: r2d2::ManageConnection> {
     db: Pool<M>,
     idgen: IdGen,
+}
+
+pub struct OrderWorker<M: r2d2::ManageConnection, B> {
+    db: Pool<M>,
     barista: B,
 }
 
 impl<
         M: r2d2::ManageConnection<Connection = D>,
         D: Storage + StoragePending + Send + 'static,
-        B: Commandable<PrepareDrink>,
-    > Orders<M, B>
+    > Orders<M>
 {
-    pub fn new(db: Pool<M>, idgen: IdGen, barista: B) -> Result<Self> {
-        Ok(Orders { db, idgen, barista })
+    pub fn new(db: Pool<M>, idgen: IdGen) -> Result<Self> {
+        Ok(Orders { db, idgen })
     }
+}
+
+impl<
+        M: r2d2::ManageConnection<Connection = D>,
+        D: Storage + StoragePending + Send + 'static,
+        B: Commandable<PrepareDrink>,
+    > OrderWorker<M, B>
+{
+    pub fn new(db: Pool<M>, barista: B) -> Result<Self> {
+        Ok(OrderWorker { db, barista })
+    }
+
 
     pub fn process_action(&self) -> Result<()> {
         let conn = self.db.get()?;
@@ -72,8 +87,8 @@ impl Request for PlaceOrder {
     type Resp = Id<Order>;
 }
 
-impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static, B>
-    Commandable<PlaceOrder> for Orders<M, B>
+impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static>
+    Commandable<PlaceOrder> for Orders<M>
 {
     fn execute(&self, order: PlaceOrder) -> Result<Id<Order>> {
         let docs = self.db.get()?;
