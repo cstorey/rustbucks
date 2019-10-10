@@ -20,5 +20,6 @@ timestamp_nanos = true
 
 [env_logger.modules]
 tests= "trace"
-rustbucks= "trace"
+infra= "debug"
 postgres= "debug"
+rustbucks= "info"

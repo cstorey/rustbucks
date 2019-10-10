@@ -55,3 +55,9 @@ SELECT apply_migration(text '0004 Add index for outbox', text $$
     CREATE INDEX ON documents (jsonb_array_length(body -> '_outgoing'))
         WHERE jsonb_array_length(body -> '_outgoing') > 0
 $$);
+
+SELECT apply_migration(text '0005 Add listen helper', text $migration$
+    create function do_listen(channel text) returns void AS $fn$
+        BEGIN EXECUTE 'LISTEN ' || quote_ident(channel); END
+    $fn$ LANGUAGE 'plpgsql';
+$migration$);

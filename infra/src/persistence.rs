@@ -1,6 +1,8 @@
 use std::fmt;
+use std::time::Duration;
 
 use anyhow::Error;
+use fallible_iterator::FallibleIterator;
 use log::*;
 use postgres::types::{FromSql, IsNull, ToSql, Type};
 use postgres::{accepts, to_sql_checked};
@@ -17,6 +19,7 @@ pub trait Storage {
 }
 pub trait StoragePending {
     fn load_next_unsent<D: DeserializeOwned + Entity>(&self) -> Result<Option<D>, Error>;
+    fn wait_next_unsent<D: Entity>(&self, timeout: Duration) -> Result<(), Error>;
 }
 
 #[derive(err_derive::Error, Debug, PartialEq, Eq)]
@@ -58,6 +61,8 @@ const UPDATE_SQL: &str = "WITH a as (
                                         WHERE id = a.body ->> '_id'
                                         AND d.body -> '_version' = expected_version
                                     ";
+static SEND_NOTIFY_SQL: &str = "SELECT pg_notify($1 :: text, $2 :: text)";
+static LISTEN_SQL: &str = "SELECT do_listen($1 :: text)";
 
 impl Documents {
     pub fn setup(&self) -> Result<(), Error> {
@@ -84,6 +89,9 @@ impl Documents {
         if rows == 0 {
             return Err(ConcurrencyError.into());
         }
+
+        t.prepare_cached(SEND_NOTIFY_SQL)?
+            .execute(&[&D::PREFIX, &document.meta().id.to_string()])?;
         t.commit()?;
 
         Ok(())
@@ -115,6 +123,21 @@ impl Documents {
             Ok(None)
         }
     }
+    pub fn wait_next_unsent<D: Entity>(&self, timeout: Duration) -> Result<(), Error> {
+        self.connection
+            .prepare_cached(LISTEN_SQL)?
+            .execute(&[&D::PREFIX])?;
+        if let Some(notif) = self
+            .connection
+            .notifications()
+            .timeout_iter(timeout)
+            .next()?
+        {
+            debug!("Found notification: {:?}", notif);
+        };
+
+        Ok(())
+    }
 
     pub fn get_ref(&self) -> &postgres::Connection {
         &self.connection
@@ -134,6 +157,9 @@ impl Storage for Documents {
 impl StoragePending for Documents {
     fn load_next_unsent<D: DeserializeOwned + Entity>(&self) -> Result<Option<D>, Error> {
         Documents::load_next_unsent(self)
+    }
+    fn wait_next_unsent<D: Entity>(&self, timeout: Duration) -> Result<(), Error> {
+        Documents::wait_next_unsent::<D>(self, timeout)
     }
 }
 

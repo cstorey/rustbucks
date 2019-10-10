@@ -35,10 +35,7 @@ enum Commands {
     #[structopt(name = "order-status", about = "Show order status")]
     OrderStatus(OrderStatus),
 
-    #[structopt(
-        name = "process-order",
-        about = "Process outstanding order actions"
-    )]
+    #[structopt(name = "process-order", about = "Process outstanding order actions")]
     ActionOrder,
     #[structopt(
         name = "process-barista",

@@ -25,6 +25,7 @@ infra = { path = "../infra" }
 chrono = "0.4.9"
 anyhow = "1.0.9"
 err-derive = "0.2.0"
+fallible-iterator = "0.1.6"
 
 [dev-dependencies]
 serde_json = "1.0.41"
