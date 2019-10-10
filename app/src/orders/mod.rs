@@ -38,10 +38,8 @@ pub struct OrderWorker<M: r2d2::ManageConnection, B> {
     barista: B,
 }
 
-impl<
-        M: r2d2::ManageConnection<Connection = D>,
-        D: Storage + StoragePending + Send + 'static,
-    > Orders<M>
+impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + StoragePending + Send + 'static>
+    Orders<M>
 {
     pub fn new(db: Pool<M>, idgen: IdGen) -> Result<Self> {
         Ok(Orders { db, idgen })
@@ -57,7 +55,6 @@ impl<
     pub fn new(db: Pool<M>, barista: B) -> Result<Self> {
         Ok(OrderWorker { db, barista })
     }
-
 
     pub fn process_action(&self) -> Result<()> {
         let conn = self.db.get()?;
@@ -87,8 +84,12 @@ impl Request for PlaceOrder {
     type Resp = Id<Order>;
 }
 
-impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static>
-    Commandable<PlaceOrder> for Orders<M>
+impl Request for FulfillDrink {
+    type Resp = ();
+}
+
+impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Commandable<PlaceOrder>
+    for Orders<M>
 {
     fn execute(&self, order: PlaceOrder) -> Result<Id<Order>> {
         let docs = self.db.get()?;
@@ -96,5 +97,19 @@ impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static>
         docs.save(&mut order)?;
         debug!("Saved {:?}", order);
         Ok(order.meta.id)
+    }
+}
+impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static>
+    Commandable<FulfillDrink> for Orders<M>
+{
+    fn execute(&self, FulfillDrink { order_id }: FulfillDrink) -> Result<()> {
+        let docs = self.db.get()?;
+        let mut order = docs
+            .load(&order_id)?
+            .ok_or_else(|| anyhow::anyhow!("Order not found? id:{}", order_id))?;
+
+        order.mark_fulfilled();
+        docs.save(&mut order)?;
+        Ok(())
     }
 }

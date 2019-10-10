@@ -37,11 +37,7 @@ impl RustBucks {
     pub fn menu(&self) -> Result<menu::Menu<DocumentConnectionManager>> {
         menu::Menu::new(self.db.clone())
     }
-    pub fn orders(
-        &self,
-    ) -> Result<
-        orders::Orders<DocumentConnectionManager>,
-    > {
+    pub fn orders(&self) -> Result<orders::Orders<DocumentConnectionManager>> {
         orders::Orders::new(self.db.clone(), self.idgen.clone())
     }
 
@@ -57,7 +53,14 @@ impl RustBucks {
         barista::Barista::new(self.db.clone())
     }
 
-    pub fn barista_worker(&self) -> Result<barista::BaristaWorker<DocumentConnectionManager>> {
-        barista::BaristaWorker::new(self.db.clone())
+    pub fn barista_worker(
+        &self,
+    ) -> Result<
+        barista::BaristaWorker<
+            DocumentConnectionManager,
+            orders::Orders<DocumentConnectionManager>,
+        >,
+    > {
+        barista::BaristaWorker::new(self.db.clone(), self.orders()?)
     }
 }

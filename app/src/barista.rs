@@ -25,8 +25,9 @@ pub struct Barista<M: r2d2::ManageConnection> {
     db: Pool<M>,
 }
 #[derive(Debug)]
-pub struct BaristaWorker<M: r2d2::ManageConnection> {
+pub struct BaristaWorker<M: r2d2::ManageConnection, O> {
     db: Pool<M>,
+    orders: O,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,11 +52,14 @@ impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + StoragePending + Se
     }
 }
 
-impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + StoragePending + Send + 'static>
-    BaristaWorker<M>
+impl<
+        M: r2d2::ManageConnection<Connection = D>,
+        D: Storage + StoragePending + Send + 'static,
+        O: Commandable<FulfillDrink>,
+    > BaristaWorker<M, O>
 {
-    pub fn new(db: Pool<M>) -> Result<Self> {
-        Ok(BaristaWorker { db })
+    pub fn new(db: Pool<M>, orders: O) -> Result<Self> {
+        Ok(BaristaWorker { db, orders })
     }
 
     pub fn process_action(&self) -> Result<()> {
@@ -75,8 +79,7 @@ impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + StoragePending + Se
         match action {
             PreparationMsg::FulfillDrink(order_id) => {
                 info!("Fulfil drink: order:{}", order_id);
-                let _req = FulfillDrink { order_id };
-                //self.orders.execute(_req)?
+                self.orders.execute(FulfillDrink { order_id })?
             }
         };
         Ok(())

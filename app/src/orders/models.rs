@@ -11,6 +11,8 @@ pub struct Order {
     #[serde(flatten)]
     pub(super) mbox: MailBox<OrderMsg>,
     pub(super) drink_id: Id<Drink>,
+    #[serde(default)]
+    pub(crate) is_made: bool,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub(super) enum OrderMsg {
@@ -21,6 +23,7 @@ impl Order {
     pub(super) fn for_drink(drink_id: Id<Drink>, id: Id<Self>) -> Self {
         let mut mbox = MailBox::empty();
         let meta = DocMeta::new_with_id(id);
+        let is_made = false;
 
         mbox.send(OrderMsg::DrinkRequest(drink_id, id));
 
@@ -28,9 +31,15 @@ impl Order {
             meta,
             mbox,
             drink_id,
+            is_made,
         }
     }
+
+    pub(crate) fn mark_fulfilled(&mut self) {
+        self.is_made = true
+    }
 }
+
 impl Entity for Order {
     const PREFIX: &'static str = "order";
 }
