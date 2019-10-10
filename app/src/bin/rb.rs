@@ -9,7 +9,7 @@ use structopt::StructOpt;
 use infra::{documents::HasMeta, ids::Id};
 use rustbucks::{
     menu::{Drink, ShowMenu},
-    orders::PlaceOrder,
+    orders::{Order, PlaceOrder, QueryOrder},
     services::{Commandable, Queryable},
 };
 
@@ -31,7 +31,9 @@ enum Commands {
     #[structopt(name = "show-menu", about = "Show menu")]
     ShowMenu,
     #[structopt(name = "order", about = "Place order")]
-    Order(Order),
+    Order(PlaceOrderCmd),
+    OrderStatus(OrderStatus),
+
     #[structopt(
         name = "process-order",
         about = "Process a single outstanding order action"
@@ -45,8 +47,13 @@ enum Commands {
 }
 
 #[derive(Debug, StructOpt)]
-struct Order {
+struct PlaceOrderCmd {
     drink_id: Id<Drink>,
+}
+
+#[derive(Debug, StructOpt)]
+struct OrderStatus {
+    order_id: Id<Order>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -78,9 +85,16 @@ fn main() -> Result<()> {
                 println!("{}: {}", drink.meta().id, drink.name);
             }
         }
-        Commands::Order(Order { drink_id }) => {
+        Commands::Order(PlaceOrderCmd { drink_id }) => {
             let order_id = rb.orders()?.execute(PlaceOrder { drink_id })?;
             println!("Order placed: {}", order_id);
+        }
+        Commands::OrderStatus(OrderStatus { order_id }) => {
+            let status = rb.orders()?.query(QueryOrder { order_id })?;
+            println!(
+                "Order status: id:{}; made:{:?}",
+                status.order_id, status.is_made
+            );
         }
         Commands::ActionOrder => {
             rb.order_worker()?.process_action()?;

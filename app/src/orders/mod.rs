@@ -5,7 +5,7 @@ use r2d2::Pool;
 use crate::{
     barista::PrepareDrink,
     menu::Drink,
-    services::{Commandable, Request},
+    services::{Commandable, Queryable, Request},
 };
 use infra::{
     ids::{Id, IdGen},
@@ -25,6 +25,16 @@ pub struct PlaceOrder {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct FulfillDrink {
     pub order_id: Id<Order>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct QueryOrder {
+    pub order_id: Id<Order>,
+}
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct OrderStatus {
+    pub order_id: Id<Order>,
+    pub is_made: bool,
 }
 
 #[derive(Debug)]
@@ -88,6 +98,10 @@ impl Request for FulfillDrink {
     type Resp = ();
 }
 
+impl Request for QueryOrder {
+    type Resp = OrderStatus;
+}
+
 impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Commandable<PlaceOrder>
     for Orders<M>
 {
@@ -111,5 +125,20 @@ impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static>
         order.mark_fulfilled();
         docs.save(&mut order)?;
         Ok(())
+    }
+}
+impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static> Queryable<QueryOrder>
+    for Orders<M>
+{
+    fn query(&self, QueryOrder { order_id }: QueryOrder) -> Result<OrderStatus> {
+        let docs = self.db.get()?;
+        let order = docs
+            .load(&order_id)?
+            .ok_or_else(|| anyhow::anyhow!("Order not found? id:{}", order_id))?;
+        let Order { is_made, .. } = order;
+
+        let resp = OrderStatus { order_id, is_made };
+
+        Ok(resp)
     }
 }
