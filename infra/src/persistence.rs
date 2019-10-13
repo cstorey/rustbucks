@@ -18,9 +18,8 @@ pub trait Storage {
     fn save<D: Serialize + Entity + HasMeta>(&self, document: &mut D) -> Result<(), Error>;
 }
 pub trait StoragePending {
-    // Can probably replace both of these with:
     fn subscribe<D: DeserializeOwned + Entity, F: Fn(D) -> Result<(), Error>>(
-        &self,
+        &mut self,
         handler: F,
     ) -> Result<(), Error>;
 }
@@ -114,7 +113,7 @@ impl Documents {
     }
 
     fn subscribe<D: DeserializeOwned + Entity, F: Fn(D) -> Result<(), Error>>(
-        &self,
+        &mut self,
         f: F,
     ) -> Result<(), Error> {
         self.connection
@@ -157,7 +156,7 @@ impl Storage for Documents {
 
 impl StoragePending for Documents {
     fn subscribe<D: DeserializeOwned + Entity, F: Fn(D) -> Result<(), Error>>(
-        &self,
+        &mut self,
         f: F,
     ) -> Result<(), Error> {
         Documents::subscribe(self, f)

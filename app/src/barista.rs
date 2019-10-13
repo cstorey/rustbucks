@@ -63,12 +63,11 @@ impl<
     }
 
     pub fn process_action(&self) -> Result<()> {
-        let conn = self.db.get()?;
-        conn.subscribe(|mut doc: DrinkPreparation| {
+        self.db.get()?.subscribe(|mut doc: DrinkPreparation| {
             info!("Found pending document: {:?}", doc);
             while let Some(act) = doc.mbox.take_one() {
                 self.handle_barista_action(act)?;
-                conn.save(&mut doc)?;
+                self.db.get()?.save(&mut doc)?;
             }
             Ok(())
         })?;
