@@ -39,10 +39,11 @@ struct Jsonb<T>(T);
 
 const SETUP_SQL: &str = include_str!("persistence.sql");
 const LOAD_SQL: &str = "SELECT body FROM documents WHERE id = $1";
-const LOAD_NEXT_SQL: &str = "SELECT body
+const LOAD_NEXT_SQL: &str = "SELECT id, body
                                      FROM documents
                                      WHERE jsonb_array_length(body -> '_outgoing') > 0
                                      AND id like $1::text || '.%'
+                                     AND pg_try_advisory_xact_lock(('x'||substr(md5($1 :: text),1,16))::bit(64)::bigint)
                                      LIMIT 1
 ";
 const INSERT_SQL: &str = "WITH a as (
@@ -119,14 +120,32 @@ impl Documents {
         self.connection
             .prepare_cached(LISTEN_SQL)?
             .execute(&[&D::PREFIX])?;
-        let load = self.connection.prepare_cached(LOAD_NEXT_SQL)?;
 
         loop {
-            let res = load.query(&[&D::PREFIX])?;
+            {
+                let t = self.connection.transaction()?;
+                let load = t.prepare_cached(LOAD_NEXT_SQL)?;
 
-            for row in res.iter() {
-                let Jsonb(doc) = row.get(0);
-                f(doc)?;
+                let res = load.query(&[&D::PREFIX])?;
+
+                for row in res.iter() {
+                    let id: String = row.get(0);
+                    debug!("Considering document: {}", id);
+                    let Jsonb(doc) = row.get(1);
+                    match f(doc) {
+                        Ok(()) => Ok(()),
+                        Err(e) => {
+                            if e.root_cause().downcast_ref::<ConcurrencyError>().is_some() {
+                                warn!("Ignoring concurrency error: {:?}", e);
+                                Ok(())
+                            } else {
+                                Err(e)
+                            }
+                        }
+                    }?
+                }
+                t.commit()?;
+                debug!("Commited transaction");
             }
 
             let notif = self
@@ -135,7 +154,7 @@ impl Documents {
                 .timeout_iter(Duration::from_secs(60))
                 .next()?;
 
-            trace!("Found notification: {:?}", notif);
+            debug!("Found notification: {:?}", notif);
         }
     }
 
