@@ -96,18 +96,23 @@ impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static>
         let PrepareDrink { drink_id, order_id } = order;
         info!("Preparing drink {}!", drink_id);
 
-        let mut mbox = MailBox::empty();
-        let meta = DocMeta::new_with_id(order_id.untyped().typed());
+        let conn = self.db.get()?;
+        let prep_id = order_id.untyped().typed::<DrinkPreparation>();
 
-        mbox.send(PreparationMsg::FulfillDrink(order_id));
+        let mut prep = self.db.load(&prep_id)?.unwrap_or_else(|| {
+            let mbox = MailBox::empty();
+            let meta = DocMeta::new_with_id(prep_id);
 
-        let mut prep = DrinkPreparation {
-            meta,
-            mbox,
-            drink_id,
-        };
+            DrinkPreparation {
+                meta,
+                mbox,
+                drink_id,
+            }
+        });
 
-        self.db.get()?.save(&mut prep)?;
+        prep.mbox.send(PreparationMsg::FulfillDrink(order_id));
+
+        conn.save(&mut prep)?;
         debug!("Saved {:?}", prep);
 
         Ok(())
