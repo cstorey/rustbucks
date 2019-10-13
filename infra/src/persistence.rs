@@ -313,19 +313,30 @@ mod test {
     fn cleanup(conn: &postgres::Connection, schema: &str) -> Result<(), Error> {
         let t = conn.transaction()?;
         debug!("Clean old tables in {}", schema);
-        for row in t
+        let rels = t
             .query(
                 "SELECT n.nspname, c.relname \
                  FROM pg_catalog.pg_class c \
                  LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace \
                  WHERE n.nspname = $1 and c.relkind = 'r'",
                 &[&schema],
-            )?
-            .iter()
-        {
+            )?;
+        for row in rels.iter() {
             let schema = row.get::<_, String>(0);
             let table = row.get::<_, String>(1);
             t.execute(&format!("DROP TABLE {}.{}", schema, table), &[])?;
+        }
+
+        let funcs = t.query(
+            "SELECT n.nspname, p.proname
+            FROM pg_catalog.pg_proc p
+            LEFT JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+            WHERE n.nspname = $1
+            ", &[&schema])?;
+        for row in funcs.iter() {
+            let schema = row.get::<_, String>(0);
+            let table = row.get::<_, String>(1);
+            t.execute(&format!("DROP FUNCTION {}.{}", schema, table), &[])?;
         }
         t.commit()?;
         Ok(())
