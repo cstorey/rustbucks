@@ -46,7 +46,7 @@ const LOAD_NEXT_SQL: &str = "SELECT id, body
                                      FROM documents
                                      WHERE jsonb_array_length(body -> '_outgoing') > 0
                                      AND id like $1::text || '.%'
-                                     AND pg_try_advisory_xact_lock(('x'||substr(md5($1 :: text),1,16))::bit(64)::bigint)
+                                     FOR UPDATE SKIP LOCKED
                                      LIMIT 1
 ";
 const INSERT_SQL: &str = "WITH a as (
