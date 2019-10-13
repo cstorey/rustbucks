@@ -18,8 +18,13 @@ pub trait Storage {
     fn save<D: Serialize + Entity + HasMeta>(&self, document: &mut D) -> Result<(), Error>;
 }
 pub trait StoragePending {
-    fn load_next_unsent<D: DeserializeOwned + Entity>(&self) -> Result<Option<D>, Error>;
-    fn wait_next_unsent<D: Entity>(&self, timeout: Duration) -> Result<(), Error>;
+    fn subscribe<
+        D: DeserializeOwned + Serialize + Entity + HasMeta,
+        F: Fn(&mut D) -> Result<(), Error>,
+    >(
+        &mut self,
+        handler: F,
+    ) -> Result<(), Error>;
 }
 
 #[derive(err_derive::Error, Debug, PartialEq, Eq)]
@@ -37,10 +42,11 @@ struct Jsonb<T>(T);
 
 const SETUP_SQL: &str = include_str!("persistence.sql");
 const LOAD_SQL: &str = "SELECT body FROM documents WHERE id = $1";
-const LOAD_NEXT_SQL: &str = "SELECT body
+const LOAD_NEXT_SQL: &str = "SELECT id, body
                                      FROM documents
                                      WHERE jsonb_array_length(body -> '_outgoing') > 0
                                      AND id like $1::text || '.%'
+                                     FOR UPDATE SKIP LOCKED
                                      LIMIT 1
 ";
 const INSERT_SQL: &str = "WITH a as (
@@ -74,6 +80,18 @@ impl Documents {
 
     pub fn save<D: Serialize + Entity + HasMeta>(&self, document: &mut D) -> Result<(), Error> {
         let t = self.connection.transaction()?;
+
+        self.save_in_xact(&t, document)?;
+        t.commit()?;
+
+        Ok(())
+    }
+
+    fn save_in_xact<D: Serialize + Entity + HasMeta>(
+        &self,
+        t: &postgres::transaction::Transaction,
+        document: &mut D,
+    ) -> Result<(), Error> {
         let current_version = document.meta().version.clone();
 
         document.meta_mut().increment_version();
@@ -92,8 +110,6 @@ impl Documents {
 
         t.prepare_cached(SEND_NOTIFY_SQL)?
             .execute(&[&D::PREFIX, &document.meta().id.to_string()])?;
-        t.commit()?;
-
         Ok(())
     }
 
@@ -110,33 +126,52 @@ impl Documents {
         }
     }
 
-    pub fn load_next_unsent<D: DeserializeOwned + Entity>(&self) -> Result<Option<D>, Error> {
-        let load = self.connection.prepare_cached(LOAD_NEXT_SQL)?;
-        let res = load.query(&[&D::PREFIX])?;
-        debug!("Cols: {:?}; Rows: {:?}", res.columns(), res.len());
-
-        if let Some(row) = res.iter().next() {
-            let Jsonb(doc) = row.get(0);
-
-            Ok(Some(doc))
-        } else {
-            Ok(None)
-        }
-    }
-    pub fn wait_next_unsent<D: Entity>(&self, timeout: Duration) -> Result<(), Error> {
+    fn subscribe<
+        D: DeserializeOwned + Serialize + Entity + HasMeta,
+        F: Fn(&mut D) -> Result<(), Error>,
+    >(
+        &mut self,
+        f: F,
+    ) -> Result<(), Error> {
         self.connection
             .prepare_cached(LISTEN_SQL)?
             .execute(&[&D::PREFIX])?;
-        if let Some(notif) = self
-            .connection
-            .notifications()
-            .timeout_iter(timeout)
-            .next()?
-        {
-            debug!("Found notification: {:?}", notif);
-        };
 
-        Ok(())
+        loop {
+            {
+                let t = self.connection.transaction()?;
+                let load = t.prepare_cached(LOAD_NEXT_SQL)?;
+
+                let res = load.query(&[&D::PREFIX])?;
+
+                for row in res.iter() {
+                    let id: String = row.get(0);
+                    debug!("Considering document: {}", id);
+                    let Jsonb(mut doc) = row.get(1);
+                    match f(&mut doc) {
+                        Ok(()) => self.save_in_xact(&t, &mut doc),
+                        Err(e) => {
+                            if e.root_cause().downcast_ref::<ConcurrencyError>().is_some() {
+                                warn!("Ignoring concurrency error: {:?}", e);
+                                Ok(())
+                            } else {
+                                Err(e)
+                            }
+                        }
+                    }?
+                }
+                t.commit()?;
+                debug!("Commited transaction");
+            }
+
+            let notif = self
+                .connection
+                .notifications()
+                .timeout_iter(Duration::from_secs(60))
+                .next()?;
+
+            debug!("Found notification: {:?}", notif);
+        }
     }
 
     pub fn get_ref(&self) -> &postgres::Connection {
@@ -155,11 +190,14 @@ impl Storage for Documents {
 }
 
 impl StoragePending for Documents {
-    fn load_next_unsent<D: DeserializeOwned + Entity>(&self) -> Result<Option<D>, Error> {
-        Documents::load_next_unsent(self)
-    }
-    fn wait_next_unsent<D: Entity>(&self, timeout: Duration) -> Result<(), Error> {
-        Documents::wait_next_unsent::<D>(self, timeout)
+    fn subscribe<
+        D: DeserializeOwned + Serialize + Entity + HasMeta,
+        F: Fn(&mut D) -> Result<(), Error>,
+    >(
+        &mut self,
+        f: F,
+    ) -> Result<(), Error> {
+        Documents::subscribe(self, f)
     }
 }
 
@@ -314,19 +352,31 @@ mod test {
     fn cleanup(conn: &postgres::Connection, schema: &str) -> Result<(), Error> {
         let t = conn.transaction()?;
         debug!("Clean old tables in {}", schema);
-        for row in t
-            .query(
-                "SELECT n.nspname, c.relname \
-                 FROM pg_catalog.pg_class c \
-                 LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace \
-                 WHERE n.nspname = $1 and c.relkind = 'r'",
-                &[&schema],
-            )?
-            .iter()
-        {
+        let rels = t.query(
+            "SELECT n.nspname, c.relname \
+             FROM pg_catalog.pg_class c \
+             LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace \
+             WHERE n.nspname = $1 and c.relkind = 'r'",
+            &[&schema],
+        )?;
+        for row in rels.iter() {
             let schema = row.get::<_, String>(0);
             let table = row.get::<_, String>(1);
             t.execute(&format!("DROP TABLE {}.{}", schema, table), &[])?;
+        }
+
+        let funcs = t.query(
+            "SELECT n.nspname, p.proname
+            FROM pg_catalog.pg_proc p
+            LEFT JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+            WHERE n.nspname = $1
+            ",
+            &[&schema],
+        )?;
+        for row in funcs.iter() {
+            let schema = row.get::<_, String>(0);
+            let table = row.get::<_, String>(1);
+            t.execute(&format!("DROP FUNCTION {}.{}", schema, table), &[])?;
         }
         t.commit()?;
         Ok(())
@@ -608,134 +658,6 @@ mod test {
     }
 
     #[test]
-    fn should_enqueue_nothing_by_default() -> Result<(), Error> {
-        env_logger::try_init().unwrap_or_default();
-        let pool = pool("should_enqueue_nothing_by_default")?;
-        let docs = pool.get()?;
-
-        let mut some_doc = ChattyDoc {
-            meta: DocMeta::new_with_id(IDGEN.generate()),
-            mbox: MailBox::default(),
-        };
-
-        info!("Original document: {:?}", some_doc);
-
-        docs.save(&mut some_doc).expect("save");
-
-        let docp = docs.load_next_unsent::<ChattyDoc>()?;
-        info!("Loaded something: {:?}", docp);
-
-        assert!(docp.is_none(), "Should find no document. Got: {:?}", docp);
-        Ok(())
-    }
-
-    #[test]
-    fn should_enqueue_on_create() -> Result<(), Error> {
-        env_logger::try_init().unwrap_or_default();
-        let pool = pool("should_enqueue_on_create")?;
-        let docs = pool.get()?;
-
-        let mut some_doc = ChattyDoc {
-            meta: DocMeta::new_with_id(IDGEN.generate()),
-            mbox: MailBox::default(),
-        };
-
-        some_doc.mbox.send(AMessage);
-        info!("Original document: {:?}", some_doc);
-        docs.save(&mut some_doc).expect("save");
-
-        let docp = docs.load_next_unsent::<ChattyDoc>()?;
-        info!("Loaded something: {:?}", docp);
-
-        let loaded = docs.load_next_unsent::<ChattyDoc>()?;
-        info!("Loaded something: {:?}", loaded);
-
-        assert_eq!(Some(some_doc.meta.id), loaded.map(|d| d.meta.id));
-
-        Ok(())
-    }
-
-    #[test]
-    fn should_enqueue_on_update() -> Result<(), Error> {
-        env_logger::try_init().unwrap_or_default();
-        let pool = pool("should_enqueue_on_update")?;
-        let docs = pool.get()?;
-
-        let mut some_doc = ChattyDoc {
-            meta: DocMeta::new_with_id(IDGEN.generate()),
-            mbox: MailBox::default(),
-        };
-
-        docs.save(&mut some_doc)?;
-
-        some_doc.mbox.send(AMessage);
-        info!("Original document: {:?}", some_doc);
-        docs.save(&mut some_doc).expect("save");
-
-        let loaded = docs.load_next_unsent::<ChattyDoc>()?;
-        info!("Loaded something: {:?}", loaded);
-
-        assert_eq!(Some(some_doc.meta.id), loaded.map(|d| d.meta.id));
-        Ok(())
-    }
-
-    #[test]
-    fn should_load_by_type() -> Result<(), Error> {
-        env_logger::try_init().unwrap_or_default();
-        let pool = pool("should_load_by_type")?;
-        let docs = pool.get()?;
-
-        for _ in 0..4 {
-            let mut doc = ChattyDoc2 {
-                meta: DocMeta::new_with_id(IDGEN.generate()),
-                mbox: MailBox::default(),
-            };
-            doc.mbox.send(AMessage);
-            docs.save(&mut doc)?;
-        }
-
-        let mut some_doc = ChattyDoc {
-            meta: DocMeta::new_with_id(IDGEN.generate()),
-            mbox: MailBox::default(),
-        };
-        some_doc.mbox.send(AMessage);
-        docs.save(&mut some_doc)?;
-
-        let loaded = docs.load_next_unsent::<ChattyDoc>()?;
-        info!("Loaded something: {:?}", loaded);
-
-        assert_eq!(Some(some_doc.meta.id), loaded.map(|d| d.meta.id));
-        Ok(())
-    }
-
-    #[test]
-    #[ignore]
-    fn should_enqueue_something_something() -> Result<(), Error> {
-        env_logger::try_init().unwrap_or_default();
-        let pool = pool("should_enqueue_something_something")?;
-
-        let mut some_doc = ChattyDoc {
-            meta: DocMeta::new_with_id(IDGEN.generate()),
-            mbox: MailBox::default(),
-        };
-        some_doc.mbox.send(AMessage);
-
-        let docs = pool.get()?;
-        info!("Original document: {:?}", some_doc);
-
-        docs.save(&mut some_doc)?;
-
-        let doc = docs
-            .load_next_unsent::<ChattyDoc>()?
-            .expect("missing document?");
-        info!("Loaded something: {:?}", doc);
-
-        assert_eq!(doc.meta.id, some_doc.meta.id);
-
-        Ok(())
-    }
-
-    #[test]
     fn save_load_via_pool() -> Result<(), Error> {
         env_logger::try_init().unwrap_or_default();
         let pool = pool("save_load_via_pool")?;
@@ -753,8 +675,4 @@ mod test {
         assert_eq!(Some(some_doc.name), loaded.map(|d| d.name));
         Ok(())
     }
-
-    #[test]
-    #[ignore]
-    fn should_only_load_messages_of_type() {}
 }

@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use anyhow::Result;
 use log::*;
 use r2d2::{self, Pool};
@@ -65,18 +63,14 @@ impl<
     }
 
     pub fn process_action(&self) -> Result<()> {
-        let conn = self.db.get()?;
-        conn.wait_next_unsent::<Order>(Duration::from_nanos(1))?;
-        loop {
-            while let Some(mut doc) = conn.load_next_unsent::<DrinkPreparation>()? {
-                info!("Found pending document: {:?}", doc);
-                while let Some(act) = doc.mbox.take_one() {
-                    self.handle_barista_action(act)?;
-                    conn.save(&mut doc)?;
-                }
+        self.db.get()?.subscribe(|doc: &mut DrinkPreparation| {
+            info!("Found pending document: {:?}", doc);
+            while let Some(act) = doc.mbox.take_one() {
+                self.handle_barista_action(act)?;
             }
-            conn.wait_next_unsent::<DrinkPreparation>(Duration::from_secs(30))?;
-        }
+            Ok(())
+        })?;
+        Ok(())
     }
 
     fn handle_barista_action(&self, action: PreparationMsg) -> Result<()> {
@@ -102,18 +96,23 @@ impl<M: r2d2::ManageConnection<Connection = D>, D: Storage + Send + 'static>
         let PrepareDrink { drink_id, order_id } = order;
         info!("Preparing drink {}!", drink_id);
 
-        let mut mbox = MailBox::empty();
-        let meta = DocMeta::new_with_id(order_id.untyped().typed());
+        let conn = self.db.get()?;
+        let prep_id = order_id.untyped().typed::<DrinkPreparation>();
 
-        mbox.send(PreparationMsg::FulfillDrink(order_id));
+        let mut prep = self.db.load(&prep_id)?.unwrap_or_else(|| {
+            let mbox = MailBox::empty();
+            let meta = DocMeta::new_with_id(prep_id);
 
-        let mut prep = DrinkPreparation {
-            meta,
-            mbox,
-            drink_id,
-        };
+            DrinkPreparation {
+                meta,
+                mbox,
+                drink_id,
+            }
+        });
 
-        self.db.get()?.save(&mut prep)?;
+        prep.mbox.send(PreparationMsg::FulfillDrink(order_id));
+
+        conn.save(&mut prep)?;
         debug!("Saved {:?}", prep);
 
         Ok(())
