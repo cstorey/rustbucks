@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use anyhow::Result;
 use log::*;
 use r2d2::Pool;
@@ -70,17 +68,15 @@ impl<
 
     pub fn process_action(&self) -> Result<()> {
         let conn = self.db.get()?;
-        conn.wait_next_unsent::<Order>(Duration::from_nanos(1))?;
-        loop {
-            while let Some(mut doc) = conn.load_next_unsent::<Order>()? {
-                info!("Found pending document: {:?}", doc);
-                while let Some(act) = doc.mbox.take_one() {
-                    self.handle_order_action(act)?;
-                    conn.save(&mut doc)?;
-                }
+        conn.subscribe(|mut doc: Order| {
+            info!("Found pending document: {:?}", doc);
+            while let Some(act) = doc.mbox.take_one() {
+                self.handle_order_action(act)?;
+                conn.save(&mut doc)?;
             }
-            conn.wait_next_unsent::<Order>(Duration::from_secs(30))?;
-        }
+            Ok(())
+        })?;
+        Ok(())
     }
 
     fn handle_order_action(&self, action: OrderMsg) -> Result<()> {

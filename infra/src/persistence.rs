@@ -18,8 +18,11 @@ pub trait Storage {
     fn save<D: Serialize + Entity + HasMeta>(&self, document: &mut D) -> Result<(), Error>;
 }
 pub trait StoragePending {
-    fn load_next_unsent<D: DeserializeOwned + Entity>(&self) -> Result<Option<D>, Error>;
-    fn wait_next_unsent<D: Entity>(&self, timeout: Duration) -> Result<(), Error>;
+    // Can probably replace both of these with:
+    fn subscribe<D: DeserializeOwned + Entity, F: Fn(D) -> Result<(), Error>>(
+        &self,
+        handler: F,
+    ) -> Result<(), Error>;
 }
 
 #[derive(err_derive::Error, Debug, PartialEq, Eq)]
@@ -137,6 +140,19 @@ impl Documents {
 
         Ok(())
     }
+    fn subscribe<D: DeserializeOwned + Entity, F: Fn(D) -> Result<(), Error>>(
+        &self,
+        f: F,
+    ) -> Result<(), Error> {
+        self.wait_next_unsent::<D>(Duration::from_nanos(1))?;
+        loop {
+            while let Some(doc) = self.load_next_unsent::<D>()? {
+                f(doc)?;
+            }
+
+            self.wait_next_unsent::<D>(Duration::from_secs(60))?;
+        }
+    }
 
     pub fn get_ref(&self) -> &postgres::Connection {
         &self.connection
@@ -154,11 +170,11 @@ impl Storage for Documents {
 }
 
 impl StoragePending for Documents {
-    fn load_next_unsent<D: DeserializeOwned + Entity>(&self) -> Result<Option<D>, Error> {
-        Documents::load_next_unsent(self)
-    }
-    fn wait_next_unsent<D: Entity>(&self, timeout: Duration) -> Result<(), Error> {
-        Documents::wait_next_unsent::<D>(self, timeout)
+    fn subscribe<D: DeserializeOwned + Entity, F: Fn(D) -> Result<(), Error>>(
+        &self,
+        f: F,
+    ) -> Result<(), Error> {
+        Documents::subscribe(self, f)
     }
 }
 
@@ -313,14 +329,13 @@ mod test {
     fn cleanup(conn: &postgres::Connection, schema: &str) -> Result<(), Error> {
         let t = conn.transaction()?;
         debug!("Clean old tables in {}", schema);
-        let rels = t
-            .query(
-                "SELECT n.nspname, c.relname \
-                 FROM pg_catalog.pg_class c \
-                 LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace \
-                 WHERE n.nspname = $1 and c.relkind = 'r'",
-                &[&schema],
-            )?;
+        let rels = t.query(
+            "SELECT n.nspname, c.relname \
+             FROM pg_catalog.pg_class c \
+             LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace \
+             WHERE n.nspname = $1 and c.relkind = 'r'",
+            &[&schema],
+        )?;
         for row in rels.iter() {
             let schema = row.get::<_, String>(0);
             let table = row.get::<_, String>(1);
@@ -332,7 +347,9 @@ mod test {
             FROM pg_catalog.pg_proc p
             LEFT JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
             WHERE n.nspname = $1
-            ", &[&schema])?;
+            ",
+            &[&schema],
+        )?;
         for row in funcs.iter() {
             let schema = row.get::<_, String>(0);
             let table = row.get::<_, String>(1);
