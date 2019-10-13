@@ -18,7 +18,10 @@ pub trait Storage {
     fn save<D: Serialize + Entity + HasMeta>(&self, document: &mut D) -> Result<(), Error>;
 }
 pub trait StoragePending {
-    fn subscribe<D: DeserializeOwned + Entity, F: Fn(D) -> Result<(), Error>>(
+    fn subscribe<
+        D: DeserializeOwned + Serialize + Entity + HasMeta,
+        F: Fn(&mut D) -> Result<(), Error>,
+    >(
         &mut self,
         handler: F,
     ) -> Result<(), Error>;
@@ -77,6 +80,18 @@ impl Documents {
 
     pub fn save<D: Serialize + Entity + HasMeta>(&self, document: &mut D) -> Result<(), Error> {
         let t = self.connection.transaction()?;
+
+        self.save_in_xact(&t, document)?;
+        t.commit()?;
+
+        Ok(())
+    }
+
+    fn save_in_xact<D: Serialize + Entity + HasMeta>(
+        &self,
+        t: &postgres::transaction::Transaction,
+        document: &mut D,
+    ) -> Result<(), Error> {
         let current_version = document.meta().version.clone();
 
         document.meta_mut().increment_version();
@@ -95,8 +110,6 @@ impl Documents {
 
         t.prepare_cached(SEND_NOTIFY_SQL)?
             .execute(&[&D::PREFIX, &document.meta().id.to_string()])?;
-        t.commit()?;
-
         Ok(())
     }
 
@@ -113,7 +126,10 @@ impl Documents {
         }
     }
 
-    fn subscribe<D: DeserializeOwned + Entity, F: Fn(D) -> Result<(), Error>>(
+    fn subscribe<
+        D: DeserializeOwned + Serialize + Entity + HasMeta,
+        F: Fn(&mut D) -> Result<(), Error>,
+    >(
         &mut self,
         f: F,
     ) -> Result<(), Error> {
@@ -131,9 +147,9 @@ impl Documents {
                 for row in res.iter() {
                     let id: String = row.get(0);
                     debug!("Considering document: {}", id);
-                    let Jsonb(doc) = row.get(1);
-                    match f(doc) {
-                        Ok(()) => Ok(()),
+                    let Jsonb(mut doc) = row.get(1);
+                    match f(&mut doc) {
+                        Ok(()) => self.save_in_xact(&t, &mut doc),
                         Err(e) => {
                             if e.root_cause().downcast_ref::<ConcurrencyError>().is_some() {
                                 warn!("Ignoring concurrency error: {:?}", e);
@@ -174,7 +190,10 @@ impl Storage for Documents {
 }
 
 impl StoragePending for Documents {
-    fn subscribe<D: DeserializeOwned + Entity, F: Fn(D) -> Result<(), Error>>(
+    fn subscribe<
+        D: DeserializeOwned + Serialize + Entity + HasMeta,
+        F: Fn(&mut D) -> Result<(), Error>,
+    >(
         &mut self,
         f: F,
     ) -> Result<(), Error> {
