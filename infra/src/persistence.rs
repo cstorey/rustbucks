@@ -113,44 +113,30 @@ impl Documents {
         }
     }
 
-    pub fn load_next_unsent<D: DeserializeOwned + Entity>(&self) -> Result<Option<D>, Error> {
-        let load = self.connection.prepare_cached(LOAD_NEXT_SQL)?;
-        let res = load.query(&[&D::PREFIX])?;
-
-        if let Some(row) = res.iter().next() {
-            let Jsonb(doc) = row.get(0);
-
-            Ok(Some(doc))
-        } else {
-            Ok(None)
-        }
-    }
-    pub fn wait_next_unsent<D: Entity>(&self, timeout: Duration) -> Result<(), Error> {
-        self.connection
-            .prepare_cached(LISTEN_SQL)?
-            .execute(&[&D::PREFIX])?;
-        if let Some(notif) = self
-            .connection
-            .notifications()
-            .timeout_iter(timeout)
-            .next()?
-        {
-            debug!("Found notification: {:?}", notif);
-        };
-
-        Ok(())
-    }
     fn subscribe<D: DeserializeOwned + Entity, F: Fn(D) -> Result<(), Error>>(
         &self,
         f: F,
     ) -> Result<(), Error> {
-        self.wait_next_unsent::<D>(Duration::from_nanos(1))?;
+        self.connection
+            .prepare_cached(LISTEN_SQL)?
+            .execute(&[&D::PREFIX])?;
+        let load = self.connection.prepare_cached(LOAD_NEXT_SQL)?;
+
         loop {
-            while let Some(doc) = self.load_next_unsent::<D>()? {
+            let res = load.query(&[&D::PREFIX])?;
+
+            for row in res.iter() {
+                let Jsonb(doc) = row.get(0);
                 f(doc)?;
             }
 
-            self.wait_next_unsent::<D>(Duration::from_secs(60))?;
+            let notif = self
+                .connection
+                .notifications()
+                .timeout_iter(Duration::from_secs(60))
+                .next()?;
+
+            trace!("Found notification: {:?}", notif);
         }
     }
 
@@ -635,134 +621,6 @@ mod test {
     }
 
     #[test]
-    fn should_enqueue_nothing_by_default() -> Result<(), Error> {
-        env_logger::try_init().unwrap_or_default();
-        let pool = pool("should_enqueue_nothing_by_default")?;
-        let docs = pool.get()?;
-
-        let mut some_doc = ChattyDoc {
-            meta: DocMeta::new_with_id(IDGEN.generate()),
-            mbox: MailBox::default(),
-        };
-
-        info!("Original document: {:?}", some_doc);
-
-        docs.save(&mut some_doc).expect("save");
-
-        let docp = docs.load_next_unsent::<ChattyDoc>()?;
-        info!("Loaded something: {:?}", docp);
-
-        assert!(docp.is_none(), "Should find no document. Got: {:?}", docp);
-        Ok(())
-    }
-
-    #[test]
-    fn should_enqueue_on_create() -> Result<(), Error> {
-        env_logger::try_init().unwrap_or_default();
-        let pool = pool("should_enqueue_on_create")?;
-        let docs = pool.get()?;
-
-        let mut some_doc = ChattyDoc {
-            meta: DocMeta::new_with_id(IDGEN.generate()),
-            mbox: MailBox::default(),
-        };
-
-        some_doc.mbox.send(AMessage);
-        info!("Original document: {:?}", some_doc);
-        docs.save(&mut some_doc).expect("save");
-
-        let docp = docs.load_next_unsent::<ChattyDoc>()?;
-        info!("Loaded something: {:?}", docp);
-
-        let loaded = docs.load_next_unsent::<ChattyDoc>()?;
-        info!("Loaded something: {:?}", loaded);
-
-        assert_eq!(Some(some_doc.meta.id), loaded.map(|d| d.meta.id));
-
-        Ok(())
-    }
-
-    #[test]
-    fn should_enqueue_on_update() -> Result<(), Error> {
-        env_logger::try_init().unwrap_or_default();
-        let pool = pool("should_enqueue_on_update")?;
-        let docs = pool.get()?;
-
-        let mut some_doc = ChattyDoc {
-            meta: DocMeta::new_with_id(IDGEN.generate()),
-            mbox: MailBox::default(),
-        };
-
-        docs.save(&mut some_doc)?;
-
-        some_doc.mbox.send(AMessage);
-        info!("Original document: {:?}", some_doc);
-        docs.save(&mut some_doc).expect("save");
-
-        let loaded = docs.load_next_unsent::<ChattyDoc>()?;
-        info!("Loaded something: {:?}", loaded);
-
-        assert_eq!(Some(some_doc.meta.id), loaded.map(|d| d.meta.id));
-        Ok(())
-    }
-
-    #[test]
-    fn should_load_by_type() -> Result<(), Error> {
-        env_logger::try_init().unwrap_or_default();
-        let pool = pool("should_load_by_type")?;
-        let docs = pool.get()?;
-
-        for _ in 0..4 {
-            let mut doc = ChattyDoc2 {
-                meta: DocMeta::new_with_id(IDGEN.generate()),
-                mbox: MailBox::default(),
-            };
-            doc.mbox.send(AMessage);
-            docs.save(&mut doc)?;
-        }
-
-        let mut some_doc = ChattyDoc {
-            meta: DocMeta::new_with_id(IDGEN.generate()),
-            mbox: MailBox::default(),
-        };
-        some_doc.mbox.send(AMessage);
-        docs.save(&mut some_doc)?;
-
-        let loaded = docs.load_next_unsent::<ChattyDoc>()?;
-        info!("Loaded something: {:?}", loaded);
-
-        assert_eq!(Some(some_doc.meta.id), loaded.map(|d| d.meta.id));
-        Ok(())
-    }
-
-    #[test]
-    #[ignore]
-    fn should_enqueue_something_something() -> Result<(), Error> {
-        env_logger::try_init().unwrap_or_default();
-        let pool = pool("should_enqueue_something_something")?;
-
-        let mut some_doc = ChattyDoc {
-            meta: DocMeta::new_with_id(IDGEN.generate()),
-            mbox: MailBox::default(),
-        };
-        some_doc.mbox.send(AMessage);
-
-        let docs = pool.get()?;
-        info!("Original document: {:?}", some_doc);
-
-        docs.save(&mut some_doc)?;
-
-        let doc = docs
-            .load_next_unsent::<ChattyDoc>()?
-            .expect("missing document?");
-        info!("Loaded something: {:?}", doc);
-
-        assert_eq!(doc.meta.id, some_doc.meta.id);
-
-        Ok(())
-    }
-
-    #[test]
     fn save_load_via_pool() -> Result<(), Error> {
         env_logger::try_init().unwrap_or_default();
         let pool = pool("save_load_via_pool")?;
@@ -780,8 +638,4 @@ mod test {
         assert_eq!(Some(some_doc.name), loaded.map(|d| d.name));
         Ok(())
     }
-
-    #[test]
-    #[ignore]
-    fn should_only_load_messages_of_type() {}
 }
