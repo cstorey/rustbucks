@@ -23,7 +23,7 @@ time = "0.1.42"
 jemallocator-global = "0.3.2"
 infra = { path = "../infra" }
 chrono = "0.4.9"
-anyhow = "1.0.17"
+anyhow = "1.0.18"
 err-derive = "0.2.1"
 fallible-iterator = "0.1.6"
 
