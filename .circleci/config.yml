@@ -15,6 +15,11 @@ jobs:
       image: postgres:11.2-alpine
     steps:
     - checkout
+    - run: |
+          upstream=${CIRCLE_REPOSITORY_URL:-$(git remote  get-url origin)}
+          git config --global user.email "circleci@invalid.example"
+          git config --global user.name "CircleCI build for ${upstream}"
+          git merge master
     - run: rustup component add clippy
     - restore_cache:
         name: "Restore registry index"
