@@ -7,7 +7,7 @@ default-run = "rb"
 
 [dependencies]
 env_logger = "0.7.1"
-envy = "0.4.0"
+envy = "0.4.1"
 hex-slice = "0.1.4"
 log = "0.4.8"
 maplit = "1.0.2"
