@@ -19,7 +19,7 @@ serde_json = "1.0.48"
 structopt = "0.3.9"
 toml = "0.5.6"
 url = "2.1.1"
-time = "0.2.6"
+time = "0.2.7"
 jemallocator-global = "0.3.2"
 infra = { path = "../infra" }
 chrono = "0.4.10"
