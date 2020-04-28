@@ -8,7 +8,6 @@ use postgres::types::{FromSql, IsNull, ToSql, Type};
 use postgres::{accepts, to_sql_checked};
 use r2d2_postgres::PostgresConnectionManager;
 use serde::{de::DeserializeOwned, Serialize};
-use serde_json;
 
 use crate::documents::{HasMeta, Version};
 use crate::ids::{Entity, Id};
